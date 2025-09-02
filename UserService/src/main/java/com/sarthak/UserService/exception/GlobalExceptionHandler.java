@@ -1,14 +1,17 @@
 package com.sarthak.UserService.exception;
 
 import com.sarthak.UserService.response.ExceptionResponse;
-import org.springframework.stereotype.Component;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-@Component
+@RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler
-    public  ExceptionResponse handleUserNotFoundException(UserNotFoundException ex) {
-        return new ExceptionResponse("User Not Found", ex.getMessage(), "404");
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<ExceptionResponse> handleUserNotFoundException(UserNotFoundException ex) {
+        ExceptionResponse body = new ExceptionResponse("User Not Found", ex.getMessage(), "404");
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
     }
 }

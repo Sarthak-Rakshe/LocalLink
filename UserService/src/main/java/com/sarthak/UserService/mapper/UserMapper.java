@@ -1,6 +1,7 @@
 package com.sarthak.UserService.mapper;
 
 import com.sarthak.UserService.model.User;
+import com.sarthak.UserService.model.UserType;
 import com.sarthak.UserService.request.UserRequest;
 import com.sarthak.UserService.response.UserResponse;
 import org.springframework.stereotype.Component;
@@ -23,7 +24,7 @@ public class UserMapper {
         user.setUserName(userResponse.getUserName());
         user.setUserContact(userResponse.getUserContact());
         user.setUserEmail(userResponse.getUserEmail());
-        user.setUserType(User.Types.valueOf(userResponse.getUserType()));
+        user.setUserType(UserType.valueOf(userResponse.getUserType()));
 
         return user;
     }
@@ -33,7 +34,7 @@ public class UserMapper {
         user.setUserName(userRequest.getUserName());
         user.setUserContact(userRequest.getUserContact());
         user.setUserEmail(userRequest.getUserEmail());
-        user.setUserType(User.Types.valueOf(userRequest.getUserType()));
+        user.setUserType(UserType.valueOf(userRequest.getUserType()));
         user.setUserPassword(userRequest.getUserPassword());
         return user;
     }

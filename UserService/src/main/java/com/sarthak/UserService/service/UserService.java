@@ -1,5 +1,6 @@
 package com.sarthak.UserService.service;
 
+import com.sarthak.UserService.exception.UserNotFoundException;
 import com.sarthak.UserService.mapper.UserMapper;
 import com.sarthak.UserService.model.User;
 import com.sarthak.UserService.repository.UserRepository;
@@ -19,7 +20,8 @@ public class UserService {
     }
 
     public UserResponse getUserNameById(Long userId) {
-        User user = userRepository.findById(userId).orElseThrow(()-> new RuntimeException("User not found"));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User with id " + userId + " not found"));
         return userMapper.UserToUserResponse(user);
     }
 
@@ -28,7 +30,5 @@ public class UserService {
         User savedUser = userRepository.save(user);
         return userMapper.UserToUserResponse(savedUser);
     }
-
-
 
 }

@@ -1,6 +1,7 @@
 package com.sarthak.UserService.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -27,19 +28,14 @@ public class User {
     private String userContact;
 
     @NotNull
+    @Email
     @Column(unique = true)
     private String userEmail;
 
     private String userPassword;
 
     @Enumerated(EnumType.STRING)
-    private Types userType;
-
-    public enum Types {
-        SELLER,
-        CUSTOMER
-    }
-
-
+    private UserType userType;
 
 }
+
