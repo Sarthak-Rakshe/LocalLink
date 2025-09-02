@@ -1,11 +1,11 @@
 package com.sarthak.UserService.controller;
 
-import com.sarthak.UserService.model.User;
+import com.sarthak.UserService.request.UserRequest;
+import com.sarthak.UserService.response.UserResponse;
 import com.sarthak.UserService.service.UserService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/users")
@@ -17,9 +17,16 @@ public class UserController {
         this.userService = userService;
     }
 
-    @GetMapping("name")
-    public ResponseEntity<> getUserName(Long userId) {
-        return userService.getUserNameById(userId);
+    @GetMapping("/{userId}")
+    public ResponseEntity<UserResponse> getByUserId(@PathVariable Long userId) {
+        UserResponse userResponse = userService.getUserNameById(userId);
+        return ResponseEntity.ok(userResponse);
+    }
+
+    @PostMapping()
+    public ResponseEntity<UserResponse> createUser(@RequestBody UserRequest userRequest) {
+        UserResponse createdUser = userService.createUser(userRequest);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
     }
 
 }
