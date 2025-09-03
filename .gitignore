@@ -1,0 +1,25 @@
+
+# Ignore important documents everywhere
+**/*.doc
+**/*.docx
+**/*.pdf
+**/*.xls
+**/*.xlsx
+**/*.ppt
+**/*.pptx
+**/*.txt
+**/*.csv
+**/*.md
+
+# Ignore environment and IDE files
+.env
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Ignore build and IDE folders
+target/
+.mvn/wrapper/maven-wrapper.jar
+build/
+.vscode/

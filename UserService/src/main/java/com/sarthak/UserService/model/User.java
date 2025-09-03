@@ -32,6 +32,7 @@ public class User {
     @Column(unique = true)
     private String userEmail;
 
+    @NotNull
     private String userPassword;
 
     @Enumerated(EnumType.STRING)
