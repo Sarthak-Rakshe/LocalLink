@@ -13,13 +13,13 @@
 
 # Ignore environment and IDE files
 .env
-.idea/
+**/.idea/
 *.iws
 *.iml
 *.ipr
 
 # Ignore build and IDE folders
-target/
-.mvn/wrapper/maven-wrapper.jar
-build/
-.vscode/
+**/target/
+**/.mvn/wrapper/maven-wrapper.jar
+**/build/
+**/.vscode/
