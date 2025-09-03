@@ -1,4 +1,4 @@
-# LocalLink — Neighborhood Service Exchange (Temporary README)
+# LocalLink — Neighborhood Service Exchange
 
 This repository contains a microservices-based platform where neighbors can offer and request local services (e.g., dog walking, lawn mowing, tutoring, babysitting, home repairs, grocery shopping).
 
