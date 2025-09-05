@@ -1,4 +1,4 @@
-package com.sarthak.AvailabilityService.exception;
+package com.sarthak.AvailabilityService.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

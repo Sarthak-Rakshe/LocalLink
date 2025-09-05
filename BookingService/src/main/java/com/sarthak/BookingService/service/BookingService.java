@@ -7,6 +7,7 @@ import com.sarthak.BookingService.model.Booking;
 import com.sarthak.BookingService.repository.BookingRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 
@@ -38,15 +39,14 @@ public class BookingService {
     }
 
     public List<BookingDto> getAllBookingsByCustomerId(Long customerId){
-        List<Booking> bookings = bookingRepository.findByCustomerId(customerId)
-                .orElseThrow(()-> new BookingNotFoundException("No bookings found for customer id: " + customerId));
+        List<Booking> bookings = bookingRepository.findByCustomerId(customerId);
         return bookings.stream().map(bookingMapper::toDto).toList();
     }
 
     //WILL GENERALLY BE USED BY OTHER SERVICES
-    public List<BookingDto> getAllBookingsByServiceProviderId(Long serviceProviderId){
-        List<Booking> bookings = bookingRepository.findByServiceProviderId(serviceProviderId)
-                .orElseThrow(()-> new BookingNotFoundException("No bookings found for service provider id: " + serviceProviderId));
+    public List<BookingDto> getAllBookingsByServiceProviderId(Long serviceProviderId, LocalDate date){
+        List<Booking> bookings = bookingRepository.findAllByServiceProviderIdAndDate(serviceProviderId,
+                        date);
         return bookings.stream().map(bookingMapper::toDto).toList();
     }
 }

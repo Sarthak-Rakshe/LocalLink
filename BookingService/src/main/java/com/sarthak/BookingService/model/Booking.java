@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 
 @Entity
 @Data
@@ -57,6 +58,18 @@ public class Booking {
 
     public void setBookingDate(String bookingDate){
         this.bookingDate = LocalDate.parse(bookingDate, DateTimeFormatter.ISO_DATE);
+    }
+
+
+    @PrePersist
+    @PreUpdate
+    public void normalizeBookingTime(){
+        if (bookingStartTime == null || bookingEndTime == null) {
+            throw new IllegalArgumentException("Booking start time and end time cannot be null");
+        }
+
+        this.bookingStartTime = this.bookingStartTime.truncatedTo(ChronoUnit.SECONDS);
+        this.bookingEndTime = this.bookingEndTime.truncatedTo(ChronoUnit.SECONDS);
     }
 }
 

@@ -7,11 +7,12 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class AvailabilityDto {
+public class AvailabilityRulesDto {
 
-    private Long availabilityId;
+    private Long ruleId;
     private Long serviceProviderId;
-    private String availabilityDate;
+    private String dayOfWeek;
     private String startTime;
     private String endTime;
+
 }

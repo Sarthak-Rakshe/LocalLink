@@ -14,7 +14,9 @@ public class BookingMapper {
         bookingDto.setServiceId(booking.getServiceId());
         bookingDto.setServiceProviderId(booking.getServiceProviderId());
         bookingDto.setServiceCategory(booking.getServiceCategory());
-        bookingDto.setBookingTime(booking.getFormattedBookingTime());
+        bookingDto.setBookingDate(booking.getBookingDate().toString());
+        bookingDto.setBookingStartTime(booking.getBookingStartTime().toString());
+        bookingDto.setBookingEndTime(booking.getBookingEndTime().toString());
         bookingDto.setBookingStatus(booking.getBookingStatus());
 
         return bookingDto;
@@ -26,6 +28,9 @@ public class BookingMapper {
         booking.setServiceId(bookingDto.getServiceId());
         booking.setServiceProviderId(bookingDto.getServiceProviderId());
         booking.setServiceCategory(bookingDto.getServiceCategory());
+        booking.setBookingDate(bookingDto.getBookingDate());
+        booking.setBookingStartTime(bookingDto.getBookingStartTime());
+        booking.setBookingEndTime(bookingDto.getBookingEndTime());
         booking.setBookingStatus(bookingDto.getBookingStatus());
 
         return booking;
