@@ -1,5 +1,6 @@
 package com.sarthak.AvailabilityService.client;
 
+import com.sarthak.AvailabilityService.dto.BookingDto;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;

@@ -7,10 +7,7 @@ import com.sarthak.AvailabilityService.request.AvailabilityStatusRequest;
 import com.sarthak.AvailabilityService.response.AvailabilityStatusResponse;
 import com.sarthak.AvailabilityService.service.AvailabilityService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/availability")
@@ -22,19 +19,19 @@ public class AvailabilityController {
     }
 
     @PostMapping("/rules")
-    public ResponseEntity<AvailabilityRulesDto> createAvailabilityRule(AvailabilityRulesDto rule){
+    public ResponseEntity<AvailabilityRulesDto> createAvailabilityRule(@RequestBody AvailabilityRulesDto rule){
         AvailabilityRulesDto savedRule = availabilityService.addAvailabilityRule(rule);
         return ResponseEntity.ok(savedRule);
     }
 
     @PostMapping("/exceptions")
-    public ResponseEntity<ProviderExceptionDto> createProviderException(ProviderExceptionDto exception){
+    public ResponseEntity<ProviderExceptionDto> createProviderException(@RequestBody ProviderExceptionDto exception){
         ProviderExceptionDto savedException = availabilityService.addProviderException(exception);
         return ResponseEntity.ok(savedException);
     }
 
     @PostMapping("/status")
-    public ResponseEntity<AvailabilityStatusResponse> checkAvailability(AvailabilityStatusRequest request){
+    public ResponseEntity<AvailabilityStatusResponse> checkAvailability(@RequestBody AvailabilityStatusRequest request){
         AvailabilityStatusResponse response = availabilityService.checkAvailability(request);
         return ResponseEntity.ok(response);
     }

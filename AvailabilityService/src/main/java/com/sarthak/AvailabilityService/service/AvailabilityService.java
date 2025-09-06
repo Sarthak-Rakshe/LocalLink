@@ -106,17 +106,6 @@ public class AvailabilityService{
         return !time.isBefore(start) && !time.isAfter(end);
     }
 
-    private enum ExceptionResult {
-        IS_AVAILABLE,
-        IS_BLOCKED,
-        NOT_IN_EXCEPTION
-    }
-
-    private enum RuleResult {
-        IS_AVAILABLE,
-        NOT_IN_RULES
-    }
-
     public AvailabilityRulesDto addAvailabilityRule(AvailabilityRulesDto availabilityRulesDto){
         AvailabilityRules rules = availabilityMapper.AvailabilityDtoToEntity(availabilityRulesDto);
         AvailabilityRules savedRules = availabilityRulesRepository.save(rules);
@@ -128,6 +117,15 @@ public class AvailabilityService{
         ProviderExceptions savedException = providerExceptionsRepository.save(exception);
         return availabilityMapper.ProviderExceptionToDto(savedException);
     }
+    private enum ExceptionResult {
+        IS_AVAILABLE,
+        IS_BLOCKED,
+        NOT_IN_EXCEPTION
+    }
 
+    private enum RuleResult {
+        IS_AVAILABLE,
+        NOT_IN_RULES
+    }
 
 }
