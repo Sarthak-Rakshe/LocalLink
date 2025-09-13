@@ -39,6 +39,7 @@ public class AvailabilityRules {
     private LocalTime endTime;
 
     @NotNull
+    @Enumerated(EnumType.STRING)
     @Column(name = "day_of_week")
     private DayOfWeek dayOfWeek;
 

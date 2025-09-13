@@ -1,8 +1,18 @@
 package com.sarthak.AvailabilityService.service;
 
+import com.sarthak.AvailabilityService.dto.AvailabilityRulesDto;
+import com.sarthak.AvailabilityService.dto.ProviderExceptionDto;
+import com.sarthak.AvailabilityService.mapper.AvailabilityMapper;
+import com.sarthak.AvailabilityService.model.AvailabilityRules;
+import com.sarthak.AvailabilityService.model.ExceptionType;
+import com.sarthak.AvailabilityService.model.ProviderExceptions;
+import com.sarthak.AvailabilityService.repository.AvailabilityRulesRepository;
+import com.sarthak.AvailabilityService.repository.ProviderExceptionsRepository;
+import com.sarthak.AvailabilityService.dto.request.AvailabilityStatusRequest;
+import com.sarthak.AvailabilityService.dto.response.AvailabilityStatusResponse;
+import com.sarthak.AvailabilityService.dto.response.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -13,7 +23,6 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -22,151 +31,148 @@ import static org.mockito.Mockito.*;
 class AvailabilityServiceTest {
 
     @Mock
-    private ProviderWorkingSlotRepository workingSlotRepository;
+    private AvailabilityRulesRepository rulesRepository;
     @Mock
-    private ProviderRecurringRuleRepository recurringRuleRepository;
-    @Mock
-    private ProviderAvailabilityExceptionRepository exceptionRepository;
+    private ProviderExceptionsRepository exceptionsRepository;
 
-    private ProviderScheduleMapper scheduleMapper;
-    private AvailabilityService availabilityService;
+    private AvailabilityMapper mapper;
+    private AvailabilityService service;
 
-    private final Long PROVIDER_ID = 77L;
-    private final LocalDate TEST_DATE = LocalDate.of(2025, 9, 5); // Friday
+    private final Long PROVIDER_ID = 7L;
+    private final LocalDate DATE = LocalDate.of(2025, 9, 5); // Friday
 
     @BeforeEach
     void setUp(){
-        scheduleMapper = new ProviderScheduleMapper();
-        availabilityService = new AvailabilityService(workingSlotRepository, recurringRuleRepository, exceptionRepository, scheduleMapper);
+        mapper = new AvailabilityMapper();
+        service = new AvailabilityService(rulesRepository, exceptionsRepository, mapper);
+    }
+
+    private AvailabilityStatusRequest req(LocalTime start, LocalTime end){
+        AvailabilityStatusRequest r = new AvailabilityStatusRequest();
+        r.setServiceProviderId(PROVIDER_ID);
+        r.setDate(DATE);
+        r.setStartTime(start);
+        r.setEndTime(end);
+        return r;
     }
 
     @Test
-    @DisplayName("createWorkingSlot sets defaults and persists when no overlap")
-    void createWorkingSlotSuccess(){
-        ProviderWorkingSlotDto dto = new ProviderWorkingSlotDto();
-        dto.setProviderId(PROVIDER_ID);
-        dto.setDate(TEST_DATE.toString());
+    @DisplayName("checkAvailability -> OVERRIDE exception covering time => AVAILABLE")
+    void checkAvailability_overrideAvailable(){
+        when(rulesRepository.findByServiceProviderIdAndDayOfWeek(PROVIDER_ID, DayOfWeek.FRIDAY))
+                .thenReturn(List.of());
+        ProviderExceptions ex = new ProviderExceptions();
+        ex.setServiceProviderId(PROVIDER_ID);
+        ex.setExceptionDate(DATE);
+        ex.setNewStartTime(LocalTime.of(10,0));
+        ex.setNewEndTime(LocalTime.of(12,0));
+        ex.setExceptionReason("override window");
+        ex.setExceptionType(ExceptionType.OVERRIDE);
+        when(exceptionsRepository.findByServiceProviderIdAndExceptionDate(PROVIDER_ID, DATE))
+                .thenReturn(List.of(ex));
+
+        AvailabilityStatusResponse res = service.checkAvailability(req(LocalTime.of(10,30), LocalTime.of(11,30)));
+        assertEquals(Status.AVAILABLE.name(), res.getStatus());
+        assertEquals(PROVIDER_ID, res.getServiceProviderId());
+        assertEquals(DATE.toString(), res.getDate());
+    }
+
+    @Test
+    @DisplayName("checkAvailability -> BLOCKED exception covering time => BLOCKED")
+    void checkAvailability_blocked(){
+        when(rulesRepository.findByServiceProviderIdAndDayOfWeek(PROVIDER_ID, DayOfWeek.FRIDAY))
+                .thenReturn(List.of());
+        ProviderExceptions ex = new ProviderExceptions();
+        ex.setServiceProviderId(PROVIDER_ID);
+        ex.setExceptionDate(DATE);
+        ex.setNewStartTime(LocalTime.of(9,0));
+        ex.setNewEndTime(LocalTime.of(17,0));
+        ex.setExceptionReason("blocked day");
+        ex.setExceptionType(ExceptionType.BLOCKED);
+        when(exceptionsRepository.findByServiceProviderIdAndExceptionDate(PROVIDER_ID, DATE))
+                .thenReturn(List.of(ex));
+
+        AvailabilityStatusResponse res = service.checkAvailability(req(LocalTime.of(13,0), LocalTime.of(14,0)));
+        assertEquals(Status.BLOCKED.name(), res.getStatus());
+    }
+
+    @Test
+    @DisplayName("checkAvailability -> inside working rule and no blocking exception => AVAILABLE")
+    void checkAvailability_ruleAvailable(){
+        AvailabilityRules rule = new AvailabilityRules(null, PROVIDER_ID, LocalTime.of(9,0), LocalTime.of(17,0), DayOfWeek.FRIDAY);
+        when(rulesRepository.findByServiceProviderIdAndDayOfWeek(PROVIDER_ID, DayOfWeek.FRIDAY))
+                .thenReturn(List.of(rule));
+        when(exceptionsRepository.findByServiceProviderIdAndExceptionDate(PROVIDER_ID, DATE))
+                .thenReturn(List.of());
+
+        AvailabilityStatusResponse res = service.checkAvailability(req(LocalTime.of(9,0), LocalTime.of(17,0)));
+        assertEquals(Status.AVAILABLE.name(), res.getStatus()); // boundaries inclusive
+    }
+
+    @Test
+    @DisplayName("checkAvailability -> outside rules and not in exception => OUTSIDE_WORKING_HOURS")
+    void checkAvailability_outside(){
+        when(rulesRepository.findByServiceProviderIdAndDayOfWeek(PROVIDER_ID, DayOfWeek.FRIDAY))
+                .thenReturn(List.of());
+        when(exceptionsRepository.findByServiceProviderIdAndExceptionDate(PROVIDER_ID, DATE))
+                .thenReturn(List.of());
+
+        AvailabilityStatusResponse res = service.checkAvailability(req(LocalTime.of(8,0), LocalTime.of(9,0)));
+        assertEquals(Status.OUTSIDE_WORKING_HOURS.name(), res.getStatus());
+    }
+
+    @Test
+    @DisplayName("addAvailabilityRule persists and maps back to DTO with id")
+    void addAvailabilityRule_success(){
+        AvailabilityRulesDto dto = new AvailabilityRulesDto();
+        dto.setServiceProviderId(PROVIDER_ID);
+        dto.setDayOfWeek(DayOfWeek.FRIDAY.name());
         dto.setStartTime("09:00");
-        dto.setEndTime("11:00");
-        when(workingSlotRepository.findByProviderIdAndDate(PROVIDER_ID, TEST_DATE)).thenReturn(List.of());
-        when(workingSlotRepository.save(any())).thenAnswer(inv -> {
-            ProviderWorkingSlot slot = inv.getArgument(0);
-            slot.setId(100L); // simulate DB generated id
-            return slot;
+        dto.setEndTime("17:00");
+
+        ArgumentCaptor<AvailabilityRules> captor = ArgumentCaptor.forClass(AvailabilityRules.class);
+        when(rulesRepository.save(captor.capture())).thenAnswer(inv -> {
+            AvailabilityRules r = inv.getArgument(0);
+            r.setRuleId(123L);
+            return r;
         });
 
-        ProviderWorkingSlotDto saved = availabilityService.createWorkingSlot(dto);
-        assertNotNull(saved.getId());
-        assertEquals(WorkingSlotStatus.ACTIVE, saved.getStatus());
-        assertEquals(WorkingSlotSource.RECURRING, saved.getSource());
-
-        ArgumentCaptor<ProviderWorkingSlot> captor = ArgumentCaptor.forClass(ProviderWorkingSlot.class);
-        verify(workingSlotRepository).save(captor.capture());
-        ProviderWorkingSlot entity = captor.getValue();
-        assertEquals(LocalTime.of(9,0), entity.getStartTime());
-        assertEquals(LocalTime.of(11,0), entity.getEndTime());
+        AvailabilityRulesDto saved = service.addAvailabilityRule(dto);
+        assertNotNull(saved.getRuleId());
+        assertEquals(123L, saved.getRuleId());
+        AvailabilityRules persisted = captor.getValue();
+        assertEquals(PROVIDER_ID, persisted.getServiceProviderId());
+        assertEquals(LocalTime.of(9,0), persisted.getStartTime());
+        assertEquals(LocalTime.of(17,0), persisted.getEndTime());
+        assertEquals(DayOfWeek.FRIDAY, persisted.getDayOfWeek());
     }
 
     @Test
-    @DisplayName("createWorkingSlot rejects overlapping slot")
-    void createWorkingSlotOverlap(){
-        ProviderWorkingSlot existing = ProviderWorkingSlot.builder()
-                .id(1L).providerId(PROVIDER_ID).date(TEST_DATE)
-                .startTime(LocalTime.of(9,0)).endTime(LocalTime.of(11,0))
-                .status(WorkingSlotStatus.ACTIVE).source(WorkingSlotSource.RECURRING).build();
-        when(workingSlotRepository.findByProviderIdAndDate(PROVIDER_ID, TEST_DATE)).thenReturn(List.of(existing));
+    @DisplayName("addProviderException persists and maps back to DTO with id")
+    void addProviderException_success(){
+        ProviderExceptionDto dto = new ProviderExceptionDto();
+        dto.setServiceProviderId(PROVIDER_ID);
+        dto.setExceptionDate(DATE.toString());
+        dto.setNewStartTime("10:00");
+        dto.setNewEndTime("12:00");
+        dto.setExceptionReason("personal");
+        dto.setExceptionType(ExceptionType.OVERRIDE);
 
-        ProviderWorkingSlotDto dto = new ProviderWorkingSlotDto();
-        dto.setProviderId(PROVIDER_ID);
-        dto.setDate(TEST_DATE.toString());
-        dto.setStartTime("10:30");
-        dto.setEndTime("12:00");
+        ArgumentCaptor<ProviderExceptions> captor = ArgumentCaptor.forClass(ProviderExceptions.class);
+        when(exceptionsRepository.save(captor.capture())).thenAnswer(inv -> {
+            ProviderExceptions e = inv.getArgument(0);
+            e.setExceptionId(456L);
+            return e;
+        });
 
-        assertThrows(IllegalArgumentException.class, () -> availabilityService.createWorkingSlot(dto));
-        verify(workingSlotRepository, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("getEffectiveSlotsForDate returns override slot when OVERRIDE exception present")
-    void effectiveSlotsOverride(){
-        ProviderAvailabilityException exception = ProviderAvailabilityException.builder()
-                .id(10L).providerId(PROVIDER_ID).date(TEST_DATE).status(ProviderExceptionStatus.OVERRIDE)
-                .overrideStartTime(LocalTime.of(13,0)).overrideEndTime(LocalTime.of(15,0)).build();
-        when(exceptionRepository.findByProviderIdAndDate(PROVIDER_ID, TEST_DATE)).thenReturn(Optional.of(exception));
-
-        List<ProviderWorkingSlotDto> slots = availabilityService.getEffectiveSlotsForDate(PROVIDER_ID, TEST_DATE);
-        assertEquals(1, slots.size());
-        assertEquals("13:00", slots.get(0).getStartTime().substring(0,5));
-        assertEquals("15:00", slots.get(0).getEndTime().substring(0,5));
-        assertEquals(WorkingSlotSource.EXCEPTION, slots.get(0).getSource());
-    }
-
-    @Test
-    @DisplayName("getEffectiveSlotsForDate returns empty when BLOCKED exception present")
-    void effectiveSlotsBlocked(){
-        ProviderAvailabilityException exception = ProviderAvailabilityException.builder()
-                .id(11L).providerId(PROVIDER_ID).date(TEST_DATE).status(ProviderExceptionStatus.BLOCKED).build();
-        when(exceptionRepository.findByProviderIdAndDate(PROVIDER_ID, TEST_DATE)).thenReturn(Optional.of(exception));
-
-        List<ProviderWorkingSlotDto> slots = availabilityService.getEffectiveSlotsForDate(PROVIDER_ID, TEST_DATE);
-        assertTrue(slots.isEmpty());
-    }
-
-    @Test
-    @DisplayName("getEffectiveSlotsForDate uses concrete slots and merges touching ones")
-    void effectiveSlotsConcreteMerge(){
-        when(exceptionRepository.findByProviderIdAndDate(PROVIDER_ID, TEST_DATE)).thenReturn(Optional.empty());
-        ProviderWorkingSlot slot1 = ProviderWorkingSlot.builder().id(1L).providerId(PROVIDER_ID).date(TEST_DATE)
-                .startTime(LocalTime.of(9,0)).endTime(LocalTime.of(10,0)).status(WorkingSlotStatus.ACTIVE).source(WorkingSlotSource.RECURRING).build();
-        ProviderWorkingSlot slot2 = ProviderWorkingSlot.builder().id(2L).providerId(PROVIDER_ID).date(TEST_DATE)
-                .startTime(LocalTime.of(10,0)).endTime(LocalTime.of(11,0)).status(WorkingSlotStatus.ACTIVE).source(WorkingSlotSource.RECURRING).build();
-        when(workingSlotRepository.findByProviderIdAndDate(PROVIDER_ID, TEST_DATE)).thenReturn(List.of(slot1, slot2));
-
-        List<ProviderWorkingSlotDto> slots = availabilityService.getEffectiveSlotsForDate(PROVIDER_ID, TEST_DATE);
-        assertEquals(1, slots.size());
-        assertEquals("09:00", slots.get(0).getStartTime().substring(0,5));
-        assertEquals("11:00", slots.get(0).getEndTime().substring(0,5));
-    }
-
-    @Test
-    @DisplayName("getEffectiveSlotsForDate falls back to recurring rules when no exception or concrete")
-    void effectiveSlotsRecurringFallback(){
-        when(exceptionRepository.findByProviderIdAndDate(PROVIDER_ID, TEST_DATE)).thenReturn(Optional.empty());
-        when(workingSlotRepository.findByProviderIdAndDate(PROVIDER_ID, TEST_DATE)).thenReturn(List.of());
-        ProviderRecurringRule rule = ProviderRecurringRule.builder()
-                .id(20L).providerId(PROVIDER_ID).dayOfWeek(DayOfWeek.FRIDAY)
-                .startTime(LocalTime.of(14,0)).endTime(LocalTime.of(18,0)).active(true).build();
-        when(recurringRuleRepository.findByProviderIdAndDayOfWeekAndActiveTrue(PROVIDER_ID, DayOfWeek.FRIDAY))
-                .thenReturn(List.of(rule));
-
-        List<ProviderWorkingSlotDto> slots = availabilityService.getEffectiveSlotsForDate(PROVIDER_ID, TEST_DATE);
-        assertEquals(1, slots.size());
-        assertEquals("14:00", slots.get(0).getStartTime().substring(0,5));
-        assertEquals("18:00", slots.get(0).getEndTime().substring(0,5));
-        assertEquals(WorkingSlotSource.RECURRING, slots.get(0).getSource());
-    }
-
-    @Nested
-    @DisplayName("Validation edge cases")
-    class ValidationEdgeCases {
-        @Test
-        @DisplayName("createWorkingSlot allows touching non-overlapping earlier slot (end == start)")
-        void touchingSlotsAllowed(){
-            ProviderWorkingSlot existing = ProviderWorkingSlot.builder()
-                    .id(1L).providerId(PROVIDER_ID).date(TEST_DATE)
-                    .startTime(LocalTime.of(9,0)).endTime(LocalTime.of(10,0))
-                    .status(WorkingSlotStatus.ACTIVE).source(WorkingSlotSource.RECURRING).build();
-            when(workingSlotRepository.findByProviderIdAndDate(PROVIDER_ID, TEST_DATE)).thenReturn(List.of(existing));
-            when(workingSlotRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-            ProviderWorkingSlotDto dto = new ProviderWorkingSlotDto();
-            dto.setProviderId(PROVIDER_ID);
-            dto.setDate(TEST_DATE.toString());
-            dto.setStartTime("10:00");
-            dto.setEndTime("11:00");
-
-            ProviderWorkingSlotDto saved = availabilityService.createWorkingSlot(dto);
-            assertEquals("10:00", saved.getStartTime().substring(0,5));
-        }
+        ProviderExceptionDto saved = service.addProviderException(dto);
+        assertNotNull(saved.getExceptionId());
+        assertEquals(456L, saved.getExceptionId());
+        ProviderExceptions persisted = captor.getValue();
+        assertEquals(PROVIDER_ID, persisted.getServiceProviderId());
+        assertEquals(DATE, persisted.getExceptionDate());
+        assertEquals(LocalTime.of(10,0), persisted.getNewStartTime());
+        assertEquals(LocalTime.of(12,0), persisted.getNewEndTime());
+        assertEquals(ExceptionType.OVERRIDE, persisted.getExceptionType());
     }
 }

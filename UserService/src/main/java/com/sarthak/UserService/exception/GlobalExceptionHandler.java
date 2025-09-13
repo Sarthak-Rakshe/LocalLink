@@ -1,6 +1,6 @@
 package com.sarthak.UserService.exception;
 
-import com.sarthak.UserService.response.ExceptionResponse;
+import com.sarthak.UserService.dto.response.ExceptionResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;

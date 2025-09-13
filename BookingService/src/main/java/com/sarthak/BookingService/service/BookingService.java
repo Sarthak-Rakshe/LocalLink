@@ -10,8 +10,8 @@ import com.sarthak.BookingService.mapper.BookingMapper;
 import com.sarthak.BookingService.model.Booking;
 import com.sarthak.BookingService.model.BookingStatus;
 import com.sarthak.BookingService.repository.BookingRepository;
-import com.sarthak.BookingService.request.AvailabilityStatusRequest;
-import com.sarthak.BookingService.response.AvailabilityStatusResponse;
+import com.sarthak.BookingService.dto.request.AvailabilityStatusRequest;
+import com.sarthak.BookingService.dto.response.AvailabilityStatusResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,7 +50,7 @@ public class BookingService {
     }
 
     public List<BookingDto> getAllByServiceProviderIdAndDate(Long serviceProviderId, LocalDate date){
-        List<Booking> bookings = bookingRepository.findAllByServiceProviderIdAndDate(serviceProviderId,
+        List<Booking> bookings = bookingRepository.findAllByServiceProviderIdAndBookingDate(serviceProviderId,
                         date);
         return bookings.stream().map(bookingMapper::toDto).toList();
     }
@@ -71,7 +71,7 @@ public class BookingService {
            response.getStatus().equals("OUTSIDE_WORKING_HOURS")){
             throw new ProviderNotAvailableForGivenTimeSlotException("Time slot not available");
         }else if (response.getStatus().equals("AVAILABLE")) {
-            List<Booking> existingBookings = bookingRepository.findAllByServiceProviderIdAndDate(
+            List<Booking> existingBookings = bookingRepository.findAllByServiceProviderIdAndBookingDate(
                     booking.getServiceProviderId(), booking.getBookingDate());
             for (Booking existingBooking : existingBookings) {
                 if (booking.getBookingStartTime().isBefore(existingBooking.getBookingEndTime()) &&

@@ -2,8 +2,8 @@ package com.sarthak.UserService.mapper;
 
 import com.sarthak.UserService.model.User;
 import com.sarthak.UserService.model.UserType;
-import com.sarthak.UserService.request.UserRequest;
-import com.sarthak.UserService.response.UserResponse;
+import com.sarthak.UserService.dto.request.UserRequest;
+import com.sarthak.UserService.dto.response.UserResponse;
 import org.springframework.stereotype.Component;
 
 @Component

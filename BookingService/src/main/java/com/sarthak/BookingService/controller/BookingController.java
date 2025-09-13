@@ -3,6 +3,7 @@ package com.sarthak.BookingService.controller;
 import com.sarthak.BookingService.dto.BookingDto;
 import com.sarthak.BookingService.service.BookingService;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,12 +33,12 @@ public class BookingController {
     @GetMapping("/service-provider/{serviceProviderId}")
     public ResponseEntity<List<BookingDto>> getBookingsByServiceProviderId(@PathVariable Long serviceProviderId,
                                                                            @RequestParam @DateTimeFormat(iso =
-                                                                                   DateTimeFormat.ISO.DATE) LocalDate date                                ) {
-        return ResponseEntity.ok(bookingService.getAllBookingsByServiceProviderId(serviceProviderId, date));
+                                                                                   DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(bookingService.getAllByServiceProviderIdAndDate(serviceProviderId, date));
     }
 
     @PostMapping()
-    public ResponseEntity<String> bookService() {
-        return ResponseEntity.status(201).body(bookingService.bookService());
+    public ResponseEntity<BookingDto> bookService(@RequestBody BookingDto bookingDto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(bookingService.bookService(bookingDto));
     }
 }

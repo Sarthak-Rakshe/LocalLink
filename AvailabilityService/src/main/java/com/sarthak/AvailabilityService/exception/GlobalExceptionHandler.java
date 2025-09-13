@@ -1,6 +1,6 @@
 package com.sarthak.AvailabilityService.exception;
 
-import com.sarthak.AvailabilityService.response.ExceptionResponse;
+import com.sarthak.AvailabilityService.dto.response.ExceptionResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;

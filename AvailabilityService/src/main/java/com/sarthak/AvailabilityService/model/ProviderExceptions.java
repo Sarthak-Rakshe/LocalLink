@@ -45,6 +45,7 @@ public class ProviderExceptions {
     private String exceptionReason;
 
     @NotNull
+    @Enumerated(EnumType.STRING)
     @Column(name = "exception_type")
     private ExceptionType exceptionType;
 }

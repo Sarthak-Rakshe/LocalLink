@@ -47,18 +47,18 @@ public class Booking {
 
     @NotNull
     private BookingStatus bookingStatus; // Status of the booking (e.g., PENDING, CONFIRMED, CANCELLED)
-
-    public void setBookingStartTime(String bookingStartTime){
-        this.bookingStartTime = Instant.parse(bookingStartTime);
-    }
-
-    public void setBookingEndTime(String bookingEndTime){
-        this.bookingEndTime = Instant.parse(bookingEndTime);
-    }
-
-    public void setBookingDate(String bookingDate){
-        this.bookingDate = LocalDate.parse(bookingDate, DateTimeFormatter.ISO_DATE);
-    }
+//
+//    public void setBookingStartTime(String bookingStartTime){
+//        this.bookingStartTime = Instant.parse(bookingStartTime);
+//    }
+//
+//    public void setBookingEndTime(String bookingEndTime){
+//        this.bookingEndTime = Instant.parse(bookingEndTime);
+//    }
+//
+//    public void setBookingDate(String bookingDate){
+//        this.bookingDate = LocalDate.parse(bookingDate, DateTimeFormatter.ISO_DATE);
+//    }
 
 
     @PrePersist

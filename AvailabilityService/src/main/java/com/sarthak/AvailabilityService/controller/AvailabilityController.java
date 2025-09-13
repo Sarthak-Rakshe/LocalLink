@@ -2,9 +2,8 @@ package com.sarthak.AvailabilityService.controller;
 
 import com.sarthak.AvailabilityService.dto.AvailabilityRulesDto;
 import com.sarthak.AvailabilityService.dto.ProviderExceptionDto;
-import com.sarthak.AvailabilityService.model.AvailabilityRules;
-import com.sarthak.AvailabilityService.request.AvailabilityStatusRequest;
-import com.sarthak.AvailabilityService.response.AvailabilityStatusResponse;
+import com.sarthak.AvailabilityService.dto.request.AvailabilityStatusRequest;
+import com.sarthak.AvailabilityService.dto.response.AvailabilityStatusResponse;
 import com.sarthak.AvailabilityService.service.AvailabilityService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

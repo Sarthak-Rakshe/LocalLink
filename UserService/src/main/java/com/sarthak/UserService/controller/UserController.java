@@ -1,7 +1,7 @@
 package com.sarthak.UserService.controller;
 
-import com.sarthak.UserService.request.UserRequest;
-import com.sarthak.UserService.response.UserResponse;
+import com.sarthak.UserService.dto.request.UserRequest;
+import com.sarthak.UserService.dto.response.UserResponse;
 import com.sarthak.UserService.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

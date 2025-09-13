@@ -1,5 +1,6 @@
 package com.sarthak.BookingService.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sarthak.BookingService.dto.BookingDto;
 import com.sarthak.BookingService.exception.BookingNotFoundException;
 import com.sarthak.BookingService.exception.GlobalExceptionHandler;
@@ -19,6 +20,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.util.List;
 
 import static org.hamcrest.Matchers.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -34,6 +36,8 @@ class BookingControllerTest {
     @InjectMocks
     private BookingController bookingController;
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @BeforeEach
     void setup(){
         mockMvc = MockMvcBuilders.standaloneSetup(bookingController)
@@ -48,8 +52,10 @@ class BookingControllerTest {
         dto.setServiceId(22L);
         dto.setServiceProviderId(33L);
         dto.setServiceCategory("Plumbing");
-        dto.setBookingStatus(BookingStatus.PENDING);
-        dto.setBookingTime("Monday, January 1, 2024 at 1:00 PM");
+        dto.setBookingStatus(BookingStatus.CONFIRMED);
+        dto.setBookingDate("2024-01-01");
+        dto.setBookingStartTime("2024-01-01T13:00:00Z");
+        dto.setBookingEndTime("2024-01-01T14:00:00Z");
         return dto;
     }
 
@@ -61,7 +67,8 @@ class BookingControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.bookingId", is(1)))
                 .andExpect(jsonPath("$.serviceCategory", is("Plumbing")))
-                .andExpect(jsonPath("$.bookingStatus", is("PENDING")));
+                .andExpect(jsonPath("$.bookingStatus", is("CONFIRMED")))
+                .andExpect(jsonPath("$.bookingDate", is("2024-01-01")));
     }
 
     @Test
@@ -85,11 +92,26 @@ class BookingControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/bookings returns 201")
-    void bookService() throws Exception {
-        when(bookingService.bookService()).thenReturn("Under Development");
-        mockMvc.perform(post("/api/bookings").contentType(MediaType.APPLICATION_JSON))
+    @DisplayName("POST /api/bookings returns 201 with created dto")
+    void bookService_created() throws Exception {
+        BookingDto request = new BookingDto();
+        request.setCustomerId(11L);
+        request.setServiceId(22L);
+        request.setServiceProviderId(33L);
+        request.setServiceCategory("Plumbing");
+        request.setBookingDate("2024-01-01");
+        request.setBookingStartTime("13:00");
+        request.setBookingEndTime("14:00");
+        request.setBookingStatus(BookingStatus.PENDING);
+
+        BookingDto response = buildDto(123L);
+        when(bookingService.bookService(any(BookingDto.class))).thenReturn(response);
+
+        mockMvc.perform(post("/api/bookings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(content().string("Under Development"));
+                .andExpect(jsonPath("$.bookingId", is(123)))
+                .andExpect(jsonPath("$.bookingStatus", is("CONFIRMED")));
     }
 }

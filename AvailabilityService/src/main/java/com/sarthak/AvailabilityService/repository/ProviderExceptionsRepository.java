@@ -9,5 +9,5 @@ import java.util.List;
 
 @Repository
 public interface ProviderExceptionsRepository extends JpaRepository<ProviderExceptions, Long> {
-    List<ProviderExceptions> findByServiceProviderIdAndDate(Long serviceProviderId, LocalDate date);
+    List<ProviderExceptions> findByServiceProviderIdAndExceptionDate(Long serviceProviderId, LocalDate exceptionDate);
 }

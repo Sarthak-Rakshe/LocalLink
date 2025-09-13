@@ -8,9 +8,9 @@ import com.sarthak.AvailabilityService.model.ExceptionType;
 import com.sarthak.AvailabilityService.model.ProviderExceptions;
 import com.sarthak.AvailabilityService.repository.AvailabilityRulesRepository;
 import com.sarthak.AvailabilityService.repository.ProviderExceptionsRepository;
-import com.sarthak.AvailabilityService.request.AvailabilityStatusRequest;
-import com.sarthak.AvailabilityService.response.AvailabilityStatusResponse;
-import com.sarthak.AvailabilityService.response.Status;
+import com.sarthak.AvailabilityService.dto.request.AvailabilityStatusRequest;
+import com.sarthak.AvailabilityService.dto.response.AvailabilityStatusResponse;
+import com.sarthak.AvailabilityService.dto.response.Status;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
@@ -47,7 +47,7 @@ public class AvailabilityService{
         List<AvailabilityRules> rules =
                 availabilityRulesRepository.findByServiceProviderIdAndDayOfWeek(serviceProviderId,day);
         List<ProviderExceptions> exceptions =
-                providerExceptionsRepository.findByServiceProviderIdAndDate(serviceProviderId,request.getDate());
+                providerExceptionsRepository.findByServiceProviderIdAndExceptionDate(serviceProviderId,request.getDate());
 
         ExceptionResult isInException = isTimeInAnyException(request, exceptions);
         if(isInException == ExceptionResult.IS_AVAILABLE) {
