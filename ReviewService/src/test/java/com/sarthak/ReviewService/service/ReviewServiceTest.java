@@ -115,33 +115,6 @@ class ReviewServiceTest {
         verifyNoMoreInteractions(reviewRepository);
     }
 
-    @Test
-    void getAverageRatingForService_whenPresent_returnsValue() {
-        when(reviewRepository.findAverageRatingByServiceId(20L)).thenReturn(Optional.of(4.5));
-        Double avg = reviewService.getAverageRatingForService(20L);
-        assertEquals(4.5, avg);
-    }
-
-    @Test
-    void getAverageRatingForService_whenEmpty_returnsZero() {
-        when(reviewRepository.findAverageRatingByServiceId(21L)).thenReturn(Optional.empty());
-        Double avg = reviewService.getAverageRatingForService(21L);
-        assertEquals(0.0, avg);
-    }
-
-    @Test
-    void calculateAverageRatingForServiceProvider_whenPresent_returnsValue() {
-        when(reviewRepository.findAverageRatingByServiceProviderId(10L)).thenReturn(Optional.of(3.2));
-        Double avg = reviewService.calculateAverageRatingForServiceProvider(10L);
-        assertEquals(3.2, avg);
-    }
-
-    @Test
-    void calculateAverageRatingForServiceProvider_whenEmpty_returnsZero() {
-        when(reviewRepository.findAverageRatingByServiceProviderId(11L)).thenReturn(Optional.empty());
-        Double avg = reviewService.calculateAverageRatingForServiceProvider(11L);
-        assertEquals(0.0, avg);
-    }
 
     @Test
     void getById_whenFound_returnsDto() {

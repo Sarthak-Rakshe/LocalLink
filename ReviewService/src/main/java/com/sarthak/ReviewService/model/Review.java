@@ -11,6 +11,8 @@ import lombok.NoArgsConstructor;
 import org.hibernate.validator.constraints.Range;
 import org.springframework.beans.factory.annotation.Value;
 
+import java.time.Instant;
+
 @Entity
 @Data
 @NoArgsConstructor
@@ -54,4 +56,19 @@ public class Review {
     @Column(name = "comment", nullable = false, length = 2048)
     @Size(max = 2048, message = "Comment can be at most 2048 characters long")
     private String comment;
+
+
+    private Instant createdAt;
+    private Instant updatedAt;
+
+    @PrePersist
+    public void onCreate() {
+        createdAt = Instant.now();
+        updatedAt = createdAt;
+    }
+
+    public void onUpdate() {
+        updatedAt = Instant.now();
+    }
+
 }

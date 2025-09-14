@@ -13,10 +13,6 @@ import java.util.Optional;
 public interface ReviewRepository extends JpaRepository<Review, Long> {
     Optional<Review> findByCustomerIdAndServiceId(Long customerId, Long serviceId);
 
-    Optional<Double> findAverageRatingByServiceId(Long serviceId);
-
-    Optional<Double> findAverageRatingByServiceProviderId(Long serviceProviderId);
-
     Page<Review> findAllByServiceId(Long serviceId, Pageable pageable);
 
     Page<Review> findAllByCustomerId(Long customerId, PageRequest pr);

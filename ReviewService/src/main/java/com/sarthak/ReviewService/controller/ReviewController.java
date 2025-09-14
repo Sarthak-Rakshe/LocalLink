@@ -1,6 +1,7 @@
 package com.sarthak.ReviewService.controller;
 
 import com.sarthak.ReviewService.dto.ReviewDto;
+import com.sarthak.ReviewService.dto.response.ProviderReviewAggregateResponse;
 import com.sarthak.ReviewService.service.ReviewService;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -17,16 +18,16 @@ public class ReviewController {
     }
 
     @GetMapping("/{review-id}")
-    public ResponseEntity<ReviewDto> getById(@PathVariable Long reviewId){
+    public ResponseEntity<ReviewDto> getById(@PathVariable("review-id") Long reviewId){
         ReviewDto review = reviewService.getById(reviewId);
         return ResponseEntity.ok(review);
     }
 
-    @GetMapping("/{service-id}")
-    public Page<ReviewDto> getReviewsForServiceProvider(
-            @PathVariable("service-provider-id") Long serviceId,
-            int page,
-            int size
+    @GetMapping("/service/{service-id}")
+    public Page<ReviewDto> getReviewsForService(
+            @PathVariable("service-id") Long serviceId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
     ){
         return reviewService.getReviewsForService(serviceId, page, size);
     }
@@ -34,31 +35,42 @@ public class ReviewController {
     @GetMapping("/customers/{customer-id}")
     public Page<ReviewDto> getReviewsByCustomer(
             @PathVariable("customer-id") Long customerId,
-            int page,
-            int size
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
     ){
         return reviewService.getReviewsForCustomer(customerId, page, size);
     }
 
-    @GetMapping("/service-providers/{service-provider-id}/average-rating")
-    public ResponseEntity<Double> getAverageRatingForServiceProvider(
-            @PathVariable("service-provider-id") Long serviceProviderId
-    ) {
-        Double avgRating = reviewService.calculateAverageRatingForServiceProvider(serviceProviderId);
-        return ResponseEntity.ok(avgRating);
-    }
-
-    @GetMapping("/services/{service-id}/average-rating")
-    public ResponseEntity<Double> getAverageRatingForService(
-            @PathVariable("service-id") Long serviceId
-    ) {
-        Double avgRating = reviewService.getAverageRatingForService(serviceId);
-        return ResponseEntity.ok(avgRating);
-    }
 
     @PostMapping()
     public ResponseEntity<ReviewDto> addReview(@RequestBody ReviewDto reviewDto){
         ReviewDto saved = reviewService.addReview(reviewDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
+
+    @PutMapping("/{review-id}")
+    public ResponseEntity<ReviewDto> updateReview(@PathVariable("review-id") Long reviewId, @RequestBody ReviewDto reviewDto){
+        ReviewDto updated = reviewService.updateReview(reviewId, reviewDto);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/{review-id}")
+    public ResponseEntity<Void> deleteReview(@PathVariable("review-id") Long reviewId){
+        reviewService.deleteReview(reviewId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/services/{service-id}/average")
+    public ResponseEntity<Double> getAverageRatingForService(@PathVariable("service-id") Long serviceId){
+        Double averageRating = reviewService.getAverageRatingForService(serviceId);
+        return ResponseEntity.ok(averageRating);
+    }
+
+    @GetMapping("/providers/{service-provider-id}/aggregate")
+    public ResponseEntity<ProviderReviewAggregateResponse> getAggregateReviewsForServiceProvider(
+            @PathVariable("service-provider-id") Long serviceProviderId
+    ){
+        return ResponseEntity.ok(reviewService.getReviewAggregateForProvider(serviceProviderId));
+    }
+
 }

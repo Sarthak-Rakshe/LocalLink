@@ -9,5 +9,7 @@ public record ReviewDto (
     Long serviceId,
     Long customerId,
     Integer rating,
-    String comment
+    String comment,
+    String createdAt,
+    String updatedAt
 ){}

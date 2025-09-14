@@ -4,6 +4,8 @@ import com.sarthak.ReviewService.dto.ReviewDto;
 import com.sarthak.ReviewService.model.Review;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+
 @Component
 public class ReviewMapper {
 
@@ -15,6 +17,8 @@ public class ReviewMapper {
                 .customerId(review.getCustomerId())
                 .rating(review.getRating())
                 .comment(review.getComment())
+                .createdAt(review.getCreatedAt().toString())
+                .updatedAt(review.getUpdatedAt().toString())
                 .build();
     }
 
@@ -26,6 +30,8 @@ public class ReviewMapper {
                 .customerId(reviewDto.customerId())
                 .rating(reviewDto.rating())
                 .comment(reviewDto.comment())
+                .createdAt(Instant.parse(reviewDto.createdAt()))
+                .updatedAt(Instant.parse(reviewDto.updatedAt()))
                 .build();
     }
 }
