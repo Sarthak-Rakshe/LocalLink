@@ -15,6 +15,7 @@ public class ProviderExceptionDto {
 
     private Long exceptionId;
     private Long serviceProviderId;
+    private Long serviceId;
     private String exceptionDate;
     private String newStartTime;
     private String newEndTime;

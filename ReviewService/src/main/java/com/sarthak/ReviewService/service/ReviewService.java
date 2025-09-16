@@ -11,6 +11,8 @@ import com.sarthak.ReviewService.repository.ReviewAggregateRepository;
 import com.sarthak.ReviewService.repository.ReviewRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -69,9 +71,9 @@ public class ReviewService {
     }
 
     public Page<ReviewDto> getReviewsForCustomer(Long customerId, int page, int size){
-        PageRequest pr = PageRequest.of(page, size);
+        Pageable pg = PageRequest.of(page, size);
 
-        return reviewRepository.findAllByCustomerId(customerId, pr)
+        return reviewRepository.findAllByCustomerId(customerId, pg)
                 .map(r -> ReviewDto.builder()
                         .reviewId(r.getReviewId())
                         .serviceProviderId(r.getServiceProviderId())

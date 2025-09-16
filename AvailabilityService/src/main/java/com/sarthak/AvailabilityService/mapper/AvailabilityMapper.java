@@ -7,7 +7,6 @@ import com.sarthak.AvailabilityService.model.ProviderExceptions;
 import org.springframework.stereotype.Component;
 
 
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
@@ -17,7 +16,8 @@ public class AvailabilityMapper {
     public AvailabilityRules AvailabilityDtoToEntity(AvailabilityRulesDto availabilityRulesDto){
         AvailabilityRules rules = new AvailabilityRules();
         rules.setServiceProviderId(availabilityRulesDto.getServiceProviderId());
-        rules.setDayOfWeek(DayOfWeek.valueOf(availabilityRulesDto.getDayOfWeek()));
+        rules.setServiceId(availabilityRulesDto.getServiceId());
+        rules.setDaysOfWeek(availabilityRulesDto.getDaysOfWeek());
         rules.setStartTime(LocalTime.parse(availabilityRulesDto.getStartTime()));
         rules.setEndTime(LocalTime.parse(availabilityRulesDto.getEndTime()));
         return rules;
@@ -27,7 +27,8 @@ public class AvailabilityMapper {
         AvailabilityRulesDto dto = new AvailabilityRulesDto();
         dto.setRuleId(availabilityRules.getRuleId());
         dto.setServiceProviderId(availabilityRules.getServiceProviderId());
-        dto.setDayOfWeek(availabilityRules.getDayOfWeek().name());
+        dto.setServiceId(availabilityRules.getServiceId());
+        dto.setDaysOfWeek(availabilityRules.getDaysOfWeek());
         dto.setStartTime(availabilityRules.getStartTime().toString());
         dto.setEndTime(availabilityRules.getEndTime().toString());
         return dto;
@@ -36,6 +37,7 @@ public class AvailabilityMapper {
     public ProviderExceptions DtoToProviderException(ProviderExceptionDto dto){
         ProviderExceptions exception = new ProviderExceptions();
         exception.setServiceProviderId(dto.getServiceProviderId());
+        exception.setServiceId(dto.getServiceId());
         exception.setExceptionDate(LocalDate.parse(dto.getExceptionDate()));
         exception.setNewStartTime(LocalTime.parse(dto.getNewStartTime()));
         exception.setNewEndTime(LocalTime.parse(dto.getNewEndTime()));
@@ -48,6 +50,7 @@ public class AvailabilityMapper {
         ProviderExceptionDto dto = new ProviderExceptionDto();
         dto.setExceptionId(exception.getExceptionId());
         dto.setServiceProviderId(exception.getServiceProviderId());
+        dto.setServiceId(exception.getServiceId());
         dto.setExceptionDate(exception.getExceptionDate().toString());
         dto.setNewStartTime(exception.getNewStartTime().toString());
         dto.setNewEndTime(exception.getNewEndTime().toString());

@@ -10,6 +10,7 @@ import java.time.LocalTime;
 @Setter
 public class AvailabilityStatusRequest {
     private Long serviceProviderId;
+    private Long serviceId;
     private LocalTime startTime;
     private LocalTime endTime;
     private LocalDate date;
