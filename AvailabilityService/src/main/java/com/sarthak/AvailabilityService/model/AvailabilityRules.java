@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
 
 import java.time.*;
 import java.time.temporal.ChronoUnit;
@@ -20,7 +21,8 @@ import java.time.temporal.ChronoUnit;
         columnNames = {"service_provider_id","service_id","start_time","end_time"}),
         indexes = {
             @Index(name = "idx_provider_day", columnList = "service_provider_id, days_of_week"),
-            @Index(name = "idx_provide_service_id", columnList = "service_provider_id, service_id")
+            @Index(name = "idx_provide_service_id", columnList = "service_provider_id, service_id"),
+            @Index(name = "idx_service_id", columnList = "service_id")
         }
         )
 public class AvailabilityRules {
@@ -46,8 +48,13 @@ public class AvailabilityRules {
     private LocalTime endTime;
 
     @NotNull
-    @Column(name = "day_of_week")
+    @Column(name = "days_of_week")
     private byte daysOfWeek;
+
+    @NotNull
+    @CreatedDate
+    @Column(name = "created_at", updatable = false)
+    private Instant createdAt;
 
     /*
 
@@ -116,6 +123,8 @@ public class AvailabilityRules {
         if (this.daysOfWeek == 0) {
             throw new InvalidDayOfWeekException("At least one day of the week must be set for availability.");
         }
+
+        this.createdAt = this.createdAt == null ? Instant.now().truncatedTo(ChronoUnit.SECONDS) : this.createdAt.truncatedTo(ChronoUnit.SECONDS);
 
         this.startTime = startTime.truncatedTo(ChronoUnit.SECONDS);
         this.endTime = endTime.truncatedTo(ChronoUnit.SECONDS);

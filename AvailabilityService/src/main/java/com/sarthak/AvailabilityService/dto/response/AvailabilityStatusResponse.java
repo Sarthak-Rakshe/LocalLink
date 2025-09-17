@@ -16,6 +16,6 @@ public class AvailabilityStatusResponse {
     private String startTime;
     private String endTime;
     private String date;
-    private String status;
+    private Status status;
 }
 

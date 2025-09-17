@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -24,48 +25,49 @@ class BookingMapperTest {
         b.setServiceCategory("Plumbing");
         b.setBookingStatus(BookingStatus.CONFIRMED);
         b.setBookingDate(LocalDate.parse("2024-01-01"));
-        b.setBookingStartTime(Instant.parse("2024-01-01T13:00:00Z"));
-        b.setBookingEndTime(Instant.parse("2024-01-01T14:00:00Z"));
+        b.setBookingStartTime(LocalTime.parse("13:00"));
+        b.setBookingEndTime(LocalTime.parse("14:00"));
+        b.setCreatedAt(Instant.parse("2024-01-01T00:00:00Z"));
+        b.setRescheduledToId("N/A");
         return b;
     }
 
     @Test
-    @DisplayName("toDto maps all fields including ISO instants and date")
+    @DisplayName("toDto maps key fields including date and time-only strings")
     void toDto() {
         Booking entity = buildEntity();
         BookingDto dto = mapper.toDto(entity);
-        assertEquals(5L, dto.getBookingId());
-        assertEquals(11L, dto.getCustomerId());
-        assertEquals(22L, dto.getServiceId());
-        assertEquals(33L, dto.getServiceProviderId());
-        assertEquals("Plumbing", dto.getServiceCategory());
-        assertEquals(BookingStatus.CONFIRMED, dto.getBookingStatus());
-        assertEquals("2024-01-01", dto.getBookingDate());
-        assertEquals("2024-01-01T13:00:00Z", dto.getBookingStartTime());
-        assertEquals("2024-01-01T14:00:00Z", dto.getBookingEndTime());
+        assertEquals(5L, dto.bookingId());
+        assertEquals(11L, dto.customerId());
+        assertEquals(22L, dto.serviceId());
+        assertEquals(33L, dto.serviceProviderId());
+        assertEquals(BookingStatus.CONFIRMED, dto.bookingStatus());
+        assertEquals("2024-01-01", dto.bookingDate());
+        assertEquals("13:00", dto.bookingStartTime());
+        assertEquals("14:00", dto.bookingEndTime());
     }
 
     @Test
     @DisplayName("toEntity parses date and time-only strings into typed fields")
     void toEntity() {
-        BookingDto dto = new BookingDto();
-        dto.setCustomerId(11L);
-        dto.setServiceId(22L);
-        dto.setServiceProviderId(33L);
-        dto.setServiceCategory("Plumbing");
-        dto.setBookingDate("2024-01-01");
-        dto.setBookingStartTime("13:00");
-        dto.setBookingEndTime("14:00");
-        dto.setBookingStatus(BookingStatus.PENDING);
+        BookingDto dto = BookingDto.builder()
+                .customerId(11L)
+                .serviceId(22L)
+                .serviceProviderId(33L)
+                .bookingDate("2024-01-01")
+                .bookingStartTime("13:00")
+                .bookingEndTime("14:00")
+                .bookingStatus(BookingStatus.PENDING)
+                .build();
         Booking entity = mapper.toEntity(dto);
         assertNull(entity.getBookingId());
         assertEquals(11L, entity.getCustomerId());
         assertEquals(22L, entity.getServiceId());
         assertEquals(33L, entity.getServiceProviderId());
-        assertEquals("Plumbing", entity.getServiceCategory());
+        assertNull(entity.getServiceCategory());
         assertEquals(BookingStatus.PENDING, entity.getBookingStatus());
         assertEquals(LocalDate.parse("2024-01-01"), entity.getBookingDate());
-        assertEquals(Instant.parse("2024-01-01T13:00:00Z"), entity.getBookingStartTime());
-        assertEquals(Instant.parse("2024-01-01T14:00:00Z"), entity.getBookingEndTime());
+        assertEquals(LocalTime.parse("13:00"), entity.getBookingStartTime());
+        assertEquals(LocalTime.parse("14:00"), entity.getBookingEndTime());
     }
 }

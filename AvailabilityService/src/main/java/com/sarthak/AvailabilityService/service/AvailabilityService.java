@@ -1,6 +1,8 @@
 package com.sarthak.AvailabilityService.service;
 
 import com.sarthak.AvailabilityService.dto.AvailabilityRulesDto;
+import com.sarthak.AvailabilityService.dto.ProviderExceptionDto;
+import com.sarthak.AvailabilityService.dto.request.DayAndTimeAvailabilityRequest;
 import com.sarthak.AvailabilityService.exception.DuplicateEntityException;
 import com.sarthak.AvailabilityService.exception.EntityNotFoundException;
 import com.sarthak.AvailabilityService.exception.InvalidTimeSlotParametersException;
@@ -18,8 +20,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class AvailabilityService{
@@ -40,43 +45,106 @@ public class AvailabilityService{
     public AvailabilityRulesDto createAvailabilityRule(AvailabilityRulesDto dto) {
         AvailabilityRules rule = availabilityMapper.AvailabilityDtoToEntity(dto);
 
-        AvailabilityRules existingRule = availabilityRulesRepository
+        Optional<AvailabilityRules> existingRule = availabilityRulesRepository
                 .findByServiceProviderIdAndServiceIdAndStartTimeAndEndTime(rule.getServiceProviderId(),
-                        rule.getServiceId(), rule.getStartTime(), rule.getEndTime())
-                .orElseThrow(()-> new DuplicateEntityException("An availability rule with the same parameters already exists"));
+                        rule.getServiceId(), rule.getStartTime(), rule.getEndTime());
+        if (existingRule.isPresent()) throw new DuplicateEntityException("An availability rule with the same parameters already exists.");
 
         AvailabilityRules savedRule = availabilityRulesRepository.save(rule);
         return availabilityMapper.AvailabilityToDto(savedRule);
     }
 
-    public Page<AvailabilityRules> getAllAvailabilityRulesOnDayAndTime(Long serviceProviderId, DayOfWeek dayOfWeek,
-                                                              LocalTime startTime, LocalTime endTime,
-                                                              int page, int size){
-        PageRequest pr = PageRequest.of(page, size);
-        return availabilityRulesRepository.findAvailableOnDayAndTime(serviceProviderId, dayOfWeek.getValue(),
-                startTime, endTime, pr);
+    public ProviderExceptionDto createProviderException(ProviderExceptionDto dto){
+        ProviderExceptions exception = availabilityMapper.DtoToProviderException(dto);
+
+        Optional<ProviderExceptions> existingException = providerExceptionsRepository
+                .findAllByServiceProviderIdAndServiceIdAndExceptionDateAndNewStartTimeAndNewEndTime(exception.getServiceProviderId(),
+                        exception.getServiceId(), exception.getExceptionDate(), exception.getNewStartTime(),
+                        exception.getNewEndTime());
+        if (existingException.isPresent()) throw new DuplicateEntityException("An exception for the same date " +
+                "and time already exists.");
+
+        ProviderExceptions savedException = providerExceptionsRepository.save(exception);
+        return availabilityMapper.ProviderExceptionToDto(savedException);
     }
 
-    public List<AvailabilityRules> getAllAvailabilityRulesForProvider(Long serviceProviderId){
+
+    public Page<AvailabilityRulesDto> getAllAvailabilityRulesOnDayAndTime(DayAndTimeAvailabilityRequest request,
+                                                              int page, int size){
+        PageRequest pr = PageRequest.of(page, size);
+        DayOfWeek dayOfWeek = request.day();
+        LocalTime startTime = request.startTime().truncatedTo(ChronoUnit.SECONDS);
+        LocalTime endTime = request.endTime().truncatedTo(ChronoUnit.SECONDS);
+
+        Page<AvailabilityRules> rules =  availabilityRulesRepository.findAvailableOnDayAndTime(dayOfWeek.getValue(),
+                startTime, endTime, pr);
+
+        return rules.map(availabilityMapper::AvailabilityToDto);
+    }
+
+    public List<AvailabilityRulesDto> getAllAvailabilityRulesForProvider(Long serviceProviderId){
         if (serviceProviderId == null){
             throw new IllegalArgumentException("Service Provider ID cannot be null");
         }
 
-        return availabilityRulesRepository.findAllByServiceProviderId(serviceProviderId);
+        List<AvailabilityRules> rules =  availabilityRulesRepository.findAllByServiceProviderId(serviceProviderId);
+
+        return availabilityMapper.toAvailabilityDtoList(rules);
     }
 
-    public List<AvailabilityRules> getAllAvailabilityRulesForProviderAndService(Long serviceProviderId, Long serviceId){
+    public List<AvailabilityRulesDto> getAllAvailabilityRulesForProviderAndService(Long serviceProviderId,
+                                                                                 Long serviceId){
         if (serviceProviderId == null || serviceId == null){
             throw new IllegalArgumentException("Service Provider ID and Service ID cannot be null");
         }
 
-        return availabilityRulesRepository.findAllByServiceProviderIdAndServiceId(serviceProviderId, serviceId);
+        List<AvailabilityRules> rules =
+                availabilityRulesRepository.findAllByServiceProviderIdAndServiceId(serviceProviderId, serviceId);
+
+        return availabilityMapper.toAvailabilityDtoList(rules);
     }
 
-    public DayOfWeek[] getAvailableDaysOfWeekForRule(Long id){
-        AvailabilityRules rule = availabilityRulesRepository.findById(id)
+    public List<ProviderExceptionDto> getAllExceptionsForProvider(Long serviceProviderId){
+        if (serviceProviderId == null){
+            throw new IllegalArgumentException("Service Provider ID cannot be null");
+        }
+
+        List<ProviderExceptions> exceptions =  providerExceptionsRepository.findAllByServiceProviderId(serviceProviderId);
+
+        return availabilityMapper.toProviderExceptionDtoList(exceptions);
+    }
+
+    public List<ProviderExceptionDto> getAllExceptionsForProviderAndService(Long serviceProviderId,
+                                                                        Long serviceId){
+        if (serviceProviderId == null || serviceId == null){
+            throw new IllegalArgumentException("Service Provider ID and Service ID cannot be null");
+        }
+
+        List<ProviderExceptions> exceptions =
+                providerExceptionsRepository.findAllByServiceProviderIdAndServiceId(serviceProviderId, serviceId);
+
+        return availabilityMapper.toProviderExceptionDtoList(exceptions);
+    }
+
+    public DayOfWeek[] getAvailableDaysOfWeekForRule(Long serviceId){
+        AvailabilityRules rule = availabilityRulesRepository.findByServiceId(serviceId)
                 .orElseThrow(()-> new EntityNotFoundException("Availability rule not found"));
         return rule.getDaysOfWeek();
+    }
+
+    public ProviderExceptionDto updateException(Long exceptionId, ProviderExceptionDto dto){
+        ProviderExceptions exception = providerExceptionsRepository.findById(exceptionId)
+                .orElseThrow(()-> new EntityNotFoundException("Provider exception not found"));
+
+        if(dto.getServiceId() != null) exception.setServiceId(dto.getServiceId());
+        if(dto.getExceptionDate() != null) exception.setExceptionDate(LocalDate.parse(dto.getExceptionDate()));
+        if(dto.getNewStartTime() != null) exception.setNewStartTime(LocalTime.parse(dto.getNewStartTime()));
+        if(dto.getNewEndTime() != null) exception.setNewEndTime(LocalTime.parse(dto.getNewEndTime()));
+        if(dto.getExceptionReason() != null) exception.setExceptionReason(dto.getExceptionReason());
+        if(dto.getExceptionType() != null) exception.setExceptionType(dto.getExceptionType());
+
+        ProviderExceptions updatedException = providerExceptionsRepository.save(exception);
+        return availabilityMapper.ProviderExceptionToDto(updatedException);
     }
 
     public AvailabilityRulesDto updateRules(Long id, AvailabilityRulesDto dto){
@@ -96,6 +164,12 @@ public class AvailabilityService{
         AvailabilityRules rule = availabilityRulesRepository.findById(id)
                 .orElseThrow(()-> new EntityNotFoundException("Availability rule not found"));
         availabilityRulesRepository.delete(rule);
+    }
+
+    public void deleteProviderException(Long id){
+        ProviderExceptions exception = providerExceptionsRepository.findById(id)
+                .orElseThrow(()-> new EntityNotFoundException("Provider exception not found"));
+        providerExceptionsRepository.delete(exception);
     }
 
 
@@ -118,13 +192,13 @@ public class AvailabilityService{
                 request.getStartTime().toString(),
                 request.getEndTime().toString(),
                 request.getDate().toString(),
-                Status.OUTSIDE_WORKING_HOURS.name()
+                Status.OUTSIDE_WORKING_HOURS
         );
 
         Boolean isInException = checkTimeInAnyException(request, response, exceptions);
         if(isInException) {
             return response;
-        }else if(response.getStatus().equals(Status.BLOCKED.name())){
+        }else if(response.getStatus().equals(Status.BLOCKED)){
             return response;
         }else{
             DayOfWeek day = request.getDate().getDayOfWeek();
@@ -133,7 +207,7 @@ public class AvailabilityService{
                     Boolean isWithinRange = isWithinTimeRange(request.getStartTime(), request.getEndTime(),
                             rule.getStartTime(), rule.getEndTime());
                     if(isWithinRange){
-                        response.setStatus(Status.AVAILABLE.name());
+                        response.setStatus(Status.AVAILABLE);
                         return response;
                     }
                 }
@@ -153,10 +227,10 @@ public class AvailabilityService{
                     exception.getNewStartTime(), exception.getNewEndTime());
             if(isWithinRange) {
                 if (exception.getExceptionType() == ExceptionType.OVERRIDE) {
-                    response.setStatus(Status.AVAILABLE.name());
+                    response.setStatus(Status.AVAILABLE);
                     return true;
                 } else if (exception.getExceptionType() == ExceptionType.BLOCKED) {
-                    response.setStatus(Status.BLOCKED.name());
+                    response.setStatus(Status.BLOCKED);
                     return false;
                 }
             }
@@ -170,7 +244,6 @@ public class AvailabilityService{
         boolean endTimeCheck = requestEndTime.isAfter(start) && requestEndTime.isBefore(end);;
         return startTimeCheck && endTimeCheck;
     }
-
 
 
 }

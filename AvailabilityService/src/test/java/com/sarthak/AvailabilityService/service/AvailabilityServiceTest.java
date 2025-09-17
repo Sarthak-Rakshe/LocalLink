@@ -39,6 +39,7 @@ class AvailabilityServiceTest {
     private AvailabilityService service;
 
     private final Long PROVIDER_ID = 7L;
+    private final Long SERVICE_ID = 101L;
     private final LocalDate DATE = LocalDate.of(2025, 9, 5); // Friday
 
     @BeforeEach
@@ -50,29 +51,41 @@ class AvailabilityServiceTest {
     private AvailabilityStatusRequest req(LocalTime start, LocalTime end){
         AvailabilityStatusRequest r = new AvailabilityStatusRequest();
         r.setServiceProviderId(PROVIDER_ID);
+        r.setServiceId(SERVICE_ID);
         r.setDate(DATE);
         r.setStartTime(start);
         r.setEndTime(end);
         return r;
     }
 
+    private AvailabilityRules ruleFor(DayOfWeek... days){
+        AvailabilityRules rule = new AvailabilityRules();
+        rule.setServiceProviderId(PROVIDER_ID);
+        rule.setServiceId(SERVICE_ID);
+        rule.setStartTime(LocalTime.of(9,0));
+        rule.setEndTime(LocalTime.of(17,0));
+        rule.setDaysOfWeek(days);
+        return rule;
+    }
+
     @Test
     @DisplayName("checkAvailability -> OVERRIDE exception covering time => AVAILABLE")
     void checkAvailability_overrideAvailable(){
-        when(rulesRepository.findByServiceProviderIdAndDayOfWeek(PROVIDER_ID, DayOfWeek.FRIDAY))
+        when(rulesRepository.findAllByServiceProviderIdAndServiceId(PROVIDER_ID, SERVICE_ID))
                 .thenReturn(List.of());
         ProviderExceptions ex = new ProviderExceptions();
         ex.setServiceProviderId(PROVIDER_ID);
+        ex.setServiceId(SERVICE_ID);
         ex.setExceptionDate(DATE);
         ex.setNewStartTime(LocalTime.of(10,0));
         ex.setNewEndTime(LocalTime.of(12,0));
         ex.setExceptionReason("override window");
         ex.setExceptionType(ExceptionType.OVERRIDE);
-        when(exceptionsRepository.findByServiceProviderIdAndExceptionDate(PROVIDER_ID, DATE))
+        when(exceptionsRepository.findAllByServiceProviderIdAndExceptionDate(PROVIDER_ID, DATE))
                 .thenReturn(List.of(ex));
 
         AvailabilityStatusResponse res = service.checkAvailability(req(LocalTime.of(10,30), LocalTime.of(11,30)));
-        assertEquals(Status.AVAILABLE.name(), res.getStatus());
+        assertEquals(Status.AVAILABLE, res.getStatus());
         assertEquals(PROVIDER_ID, res.getServiceProviderId());
         assertEquals(DATE.toString(), res.getDate());
     }
@@ -80,53 +93,55 @@ class AvailabilityServiceTest {
     @Test
     @DisplayName("checkAvailability -> BLOCKED exception covering time => BLOCKED")
     void checkAvailability_blocked(){
-        when(rulesRepository.findByServiceProviderIdAndDayOfWeek(PROVIDER_ID, DayOfWeek.FRIDAY))
+        when(rulesRepository.findAllByServiceProviderIdAndServiceId(PROVIDER_ID, SERVICE_ID))
                 .thenReturn(List.of());
         ProviderExceptions ex = new ProviderExceptions();
         ex.setServiceProviderId(PROVIDER_ID);
+        ex.setServiceId(SERVICE_ID);
         ex.setExceptionDate(DATE);
         ex.setNewStartTime(LocalTime.of(9,0));
         ex.setNewEndTime(LocalTime.of(17,0));
         ex.setExceptionReason("blocked day");
         ex.setExceptionType(ExceptionType.BLOCKED);
-        when(exceptionsRepository.findByServiceProviderIdAndExceptionDate(PROVIDER_ID, DATE))
+        when(exceptionsRepository.findAllByServiceProviderIdAndExceptionDate(PROVIDER_ID, DATE))
                 .thenReturn(List.of(ex));
 
         AvailabilityStatusResponse res = service.checkAvailability(req(LocalTime.of(13,0), LocalTime.of(14,0)));
-        assertEquals(Status.BLOCKED.name(), res.getStatus());
+        assertEquals(Status.BLOCKED, res.getStatus());
     }
 
     @Test
-    @DisplayName("checkAvailability -> inside working rule and no blocking exception => AVAILABLE")
+    @DisplayName("checkAvailability -> inside working rule and no blocking exception => AVAILABLE (end exclusive)")
     void checkAvailability_ruleAvailable(){
-        AvailabilityRules rule = new AvailabilityRules(null, PROVIDER_ID, LocalTime.of(9,0), LocalTime.of(17,0), DayOfWeek.FRIDAY);
-        when(rulesRepository.findByServiceProviderIdAndDayOfWeek(PROVIDER_ID, DayOfWeek.FRIDAY))
+        AvailabilityRules rule = ruleFor(DayOfWeek.FRIDAY);
+        when(rulesRepository.findAllByServiceProviderIdAndServiceId(PROVIDER_ID, SERVICE_ID))
                 .thenReturn(List.of(rule));
-        when(exceptionsRepository.findByServiceProviderIdAndExceptionDate(PROVIDER_ID, DATE))
+        when(exceptionsRepository.findAllByServiceProviderIdAndExceptionDate(PROVIDER_ID, DATE))
                 .thenReturn(List.of());
 
-        AvailabilityStatusResponse res = service.checkAvailability(req(LocalTime.of(9,0), LocalTime.of(17,0)));
-        assertEquals(Status.AVAILABLE.name(), res.getStatus()); // boundaries inclusive
+        AvailabilityStatusResponse res = service.checkAvailability(req(LocalTime.of(9,0), LocalTime.of(16,59,59)));
+        assertEquals(Status.AVAILABLE, res.getStatus());
     }
 
     @Test
     @DisplayName("checkAvailability -> outside rules and not in exception => OUTSIDE_WORKING_HOURS")
     void checkAvailability_outside(){
-        when(rulesRepository.findByServiceProviderIdAndDayOfWeek(PROVIDER_ID, DayOfWeek.FRIDAY))
+        when(rulesRepository.findAllByServiceProviderIdAndServiceId(PROVIDER_ID, SERVICE_ID))
                 .thenReturn(List.of());
-        when(exceptionsRepository.findByServiceProviderIdAndExceptionDate(PROVIDER_ID, DATE))
+        when(exceptionsRepository.findAllByServiceProviderIdAndExceptionDate(PROVIDER_ID, DATE))
                 .thenReturn(List.of());
 
         AvailabilityStatusResponse res = service.checkAvailability(req(LocalTime.of(8,0), LocalTime.of(9,0)));
-        assertEquals(Status.OUTSIDE_WORKING_HOURS.name(), res.getStatus());
+        assertEquals(Status.OUTSIDE_WORKING_HOURS, res.getStatus());
     }
 
     @Test
-    @DisplayName("addAvailabilityRule persists and maps back to DTO with id")
-    void addAvailabilityRule_success(){
+    @DisplayName("createAvailabilityRule persists and maps back to DTO with id")
+    void createAvailabilityRule_success(){
         AvailabilityRulesDto dto = new AvailabilityRulesDto();
         dto.setServiceProviderId(PROVIDER_ID);
-        dto.setDayOfWeek(DayOfWeek.FRIDAY.name());
+        dto.setServiceId(SERVICE_ID);
+        dto.setDaysOfWeek(new DayOfWeek[]{DayOfWeek.FRIDAY});
         dto.setStartTime("09:00");
         dto.setEndTime("17:00");
 
@@ -137,21 +152,23 @@ class AvailabilityServiceTest {
             return r;
         });
 
-        AvailabilityRulesDto saved = service.addAvailabilityRule(dto);
+        AvailabilityRulesDto saved = service.createAvailabilityRule(dto);
         assertNotNull(saved.getRuleId());
         assertEquals(123L, saved.getRuleId());
         AvailabilityRules persisted = captor.getValue();
         assertEquals(PROVIDER_ID, persisted.getServiceProviderId());
+        assertEquals(SERVICE_ID, persisted.getServiceId());
         assertEquals(LocalTime.of(9,0), persisted.getStartTime());
         assertEquals(LocalTime.of(17,0), persisted.getEndTime());
-        assertEquals(DayOfWeek.FRIDAY, persisted.getDayOfWeek());
+        assertTrue(persisted.isAvailableOn(DayOfWeek.FRIDAY));
     }
 
     @Test
-    @DisplayName("addProviderException persists and maps back to DTO with id")
-    void addProviderException_success(){
+    @DisplayName("createProviderException persists and maps back to DTO with id")
+    void createProviderException_success(){
         ProviderExceptionDto dto = new ProviderExceptionDto();
         dto.setServiceProviderId(PROVIDER_ID);
+        dto.setServiceId(SERVICE_ID);
         dto.setExceptionDate(DATE.toString());
         dto.setNewStartTime("10:00");
         dto.setNewEndTime("12:00");
@@ -165,11 +182,12 @@ class AvailabilityServiceTest {
             return e;
         });
 
-        ProviderExceptionDto saved = service.addProviderException(dto);
+        ProviderExceptionDto saved = service.createProviderException(dto);
         assertNotNull(saved.getExceptionId());
         assertEquals(456L, saved.getExceptionId());
         ProviderExceptions persisted = captor.getValue();
         assertEquals(PROVIDER_ID, persisted.getServiceProviderId());
+        assertEquals(SERVICE_ID, persisted.getServiceId());
         assertEquals(DATE, persisted.getExceptionDate());
         assertEquals(LocalTime.of(10,0), persisted.getNewStartTime());
         assertEquals(LocalTime.of(12,0), persisted.getNewEndTime());

@@ -8,51 +8,42 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 @Component
 public class BookingMapper {
 
     public BookingDto toDto(Booking booking){
-        BookingDto bookingDto = new BookingDto();
-        bookingDto.setBookingId(booking.getBookingId());
-        bookingDto.setCustomerId(booking.getCustomerId());
-        bookingDto.setServiceId(booking.getServiceId());
-        bookingDto.setServiceProviderId(booking.getServiceProviderId());
-        bookingDto.setServiceCategory(booking.getServiceCategory());
-        bookingDto.setBookingDate(booking.getBookingDate().toString());
-        bookingDto.setBookingStartTime(booking.getBookingStartTime().toString());
-        bookingDto.setBookingEndTime(booking.getBookingEndTime().toString());
-        bookingDto.setBookingStatus(booking.getBookingStatus());
 
-        return bookingDto;
+        return BookingDto.builder()
+                .bookingId(booking.getBookingId())
+                .serviceProviderId(booking.getServiceProviderId())
+                .serviceId(booking.getServiceId())
+                .customerId(booking.getCustomerId())
+                .bookingDate(booking.getBookingDate().toString())
+                .bookingStartTime(booking.getBookingStartTime().toString())
+                .bookingEndTime(booking.getBookingEndTime().toString())
+                .bookingStatus(booking.getBookingStatus())
+                .createdAt(booking.getCreatedAt().toString())
+                .rescheduledToId(booking.getRescheduledToId())
+                .build();
     }
 
     public Booking toEntity(BookingDto bookingDto){
-        Booking booking = new Booking();
-        booking.setCustomerId(bookingDto.getCustomerId());
-        booking.setServiceId(bookingDto.getServiceId());
-        booking.setServiceProviderId(bookingDto.getServiceProviderId());
-        booking.setServiceCategory(bookingDto.getServiceCategory());
+        return Booking.builder()
+                .bookingId(bookingDto.bookingId())
+                .serviceProviderId(bookingDto.serviceProviderId())
+                .serviceId(bookingDto.serviceId())
+                .customerId(bookingDto.customerId())
+                .bookingDate(LocalDate.parse(bookingDto.bookingDate()))
+                .bookingStartTime(LocalTime.parse(bookingDto.bookingStartTime()))
+                .bookingEndTime(LocalTime.parse(bookingDto.bookingEndTime()))
+                .bookingStatus(bookingDto.bookingStatus())
+                .build();
+    }
 
-        // Parse date and time components from DTO and convert to proper types
-        if (bookingDto.getBookingDate() != null) {
-            LocalDate date = LocalDate.parse(bookingDto.getBookingDate());
-            booking.setBookingDate(date);
-
-            if (bookingDto.getBookingStartTime() != null) {
-                LocalTime start = LocalTime.parse(bookingDto.getBookingStartTime());
-                Instant startInstant = date.atTime(start).atZone(ZoneOffset.UTC).toInstant();
-                booking.setBookingStartTime(startInstant);
-            }
-            if (bookingDto.getBookingEndTime() != null) {
-                LocalTime end = LocalTime.parse(bookingDto.getBookingEndTime());
-                Instant endInstant = date.atTime(end).atZone(ZoneOffset.UTC).toInstant();
-                booking.setBookingEndTime(endInstant);
-            }
-        }
-
-        booking.setBookingStatus(bookingDto.getBookingStatus());
-
-        return booking;
+    public List<BookingDto> toDtoList(List<Booking> bookings){
+        return bookings.stream().map(this::toDto).toList();
     }
 }

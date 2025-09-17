@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 
 @Component
 public class AvailabilityMapper {
@@ -59,6 +60,14 @@ public class AvailabilityMapper {
         return dto;
     }
 
+
+    public List<AvailabilityRulesDto> toAvailabilityDtoList(List<AvailabilityRules> rules){
+        return rules.stream().map(this::AvailabilityToDto).toList();
+    }
+
+    public List<ProviderExceptionDto> toProviderExceptionDtoList(List<ProviderExceptions> exceptions){
+        return exceptions.stream().map(this::ProviderExceptionToDto).toList();
+    }
 
 
 }

@@ -2,7 +2,6 @@ package com.sarthak.ReviewService.repository;
 
 import com.sarthak.ReviewService.model.Review;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

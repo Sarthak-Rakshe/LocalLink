@@ -6,7 +6,9 @@ import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
@@ -17,10 +19,10 @@ import java.time.temporal.ChronoUnit;
 @AllArgsConstructor
 @Table(name = "provider_exceptions",
     uniqueConstraints = @UniqueConstraint(name = "uk_exception_per_day_per_provider",
-    columnNames = {"service_provider_id", "exception_date","new_start_time","new_end_time"}),
+    columnNames = {"service_provider_id", "service_id", "exception_date","new_start_time","new_end_time"}),
     indexes = {
         @Index(name = "idx_service_provider_id", columnList = "service_provider_id, exception_date"),
-            @Index(name = "idx_provider_service_id", columnList = "service_provider_id, service_id")
+        @Index(name = "idx_provider_service_id", columnList = "service_provider_id, service_id")
 }
 )
 public class ProviderExceptions {
@@ -58,6 +60,11 @@ public class ProviderExceptions {
     @Column(name = "exception_type")
     private ExceptionType exceptionType;
 
+    @NotNull
+    @CreatedDate
+    @Column(name = "created_at", updatable = false)
+    private Instant createdAt;
+
     @PrePersist
     @PreUpdate
     public void normalizeToIST() {
@@ -67,6 +74,8 @@ public class ProviderExceptions {
         if (!this.newStartTime.isBefore(this.newEndTime)) {
             throw new InvalidTimeSlotParametersException("Start time must be before end time.");
         }
+
+        this.createdAt = createdAt == null ? Instant.now().truncatedTo(ChronoUnit.SECONDS) : createdAt.truncatedTo(ChronoUnit.SECONDS);
 
         newStartTime = this.newStartTime.truncatedTo(ChronoUnit.SECONDS);
         newEndTime = this.newEndTime.truncatedTo(ChronoUnit.SECONDS);

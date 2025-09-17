@@ -2,22 +2,21 @@ package com.sarthak.BookingService.dto;
 
 
 import com.sarthak.BookingService.model.BookingStatus;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-@Getter
-@Setter
-@NoArgsConstructor
-public class BookingDto {
-
-    private Long bookingId;
-    private Long customerId;
-    private Long serviceId;
-    private Long serviceProviderId;
-    private String serviceCategory;
-    private String bookingDate;
-    private String bookingStartTime;
-    private String bookingEndTime;
-    private BookingStatus bookingStatus;
-}
+@Builder
+public record BookingDto (
+        Long bookingId,
+        Long customerId,
+        Long serviceId,
+        Long serviceProviderId,
+        String bookingDate,
+        String bookingStartTime,
+        String bookingEndTime,
+        BookingStatus bookingStatus,
+        String createdAt,
+        String rescheduledToId
+){}

@@ -9,8 +9,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.DayOfWeek;
-import java.time.Instant;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
@@ -19,14 +17,16 @@ import java.util.Optional;
 public interface AvailabilityRulesRepository extends JpaRepository<AvailabilityRules, Long> {
 
     @Query(value = "SELECT * FROM availability_rules ar"+
-            " WHERE ar.service_provider_id = :service_provider_id" +
-            " AND (ar.days_of_week & (1 << (:day_of_week % 7))) != 0" +
-            " AND ar.start_time <= :start_time" +
-            " AND ar.end_time >= :end_time",
+            " WHERE (ar.days_of_week & (1 << (:day_of_week % 7))) != 0" +
+            " AND (:start_time IS NULL OR ar.start_time <= :start_time)" +
+            " AND (:end_time IS NULL OR ar.end_time >= :end_time)",
+            countQuery = "SELECT COUNT(*) FROM availability_rules ar"+
+                    " WHERE (ar.days_of_week & (1 << (:day_of_week % 7))) != 0" +
+                    " AND (:start_time IS NULL OR ar.start_time <= :start_time)" +
+                    " AND (:end_time IS NULL OR ar.end_time >= :end_time)",
             nativeQuery = true
     )
     Page<AvailabilityRules> findAvailableOnDayAndTime(
-            @Param("service_provider_id") Long serviceProviderId,
             @Param("day_of_week") int dayOfWeek,
             @Param("start_time") LocalTime startTime,
             @Param("end_time") LocalTime endTime,
@@ -41,4 +41,6 @@ public interface AvailabilityRulesRepository extends JpaRepository<AvailabilityR
                                                                                @NotNull LocalTime endTime);
 
     List<AvailabilityRules> findAllByServiceProviderId(Long serviceProviderId);
+
+    Optional<AvailabilityRules> findByServiceId(Long serviceId);
 }

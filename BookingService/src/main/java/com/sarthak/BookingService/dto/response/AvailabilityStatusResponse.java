@@ -1,20 +1,16 @@
 package com.sarthak.BookingService.dto.response;
 
+import com.sarthak.BookingService.dto.AvailabilityStatus;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-public class AvailabilityStatusResponse {
-
-    private Long serviceProviderId;
-    private String startTime;
-    private String endTime;
-    private String date;
-    private String status;
-}
+public record AvailabilityStatusResponse(
+        Long serviceProviderId,
+        String startTime,
+        String endTime,
+        String date,
+        AvailabilityStatus status
+) {}
 
