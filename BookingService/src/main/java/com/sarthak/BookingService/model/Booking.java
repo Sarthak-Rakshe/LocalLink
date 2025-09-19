@@ -64,6 +64,7 @@ public class Booking {
     private LocalTime bookingEndTime;   // End time of the booked service
 
     @NotNull
+    @Enumerated(EnumType.STRING)
     @Column(name = "booking_status")
     private BookingStatus bookingStatus; // Status of the booking (e.g., PENDING, CONFIRMED, CANCELLED)
 
