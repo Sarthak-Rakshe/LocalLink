@@ -11,7 +11,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ServiceProviderNotAvailableException.class)
     public ResponseEntity<ExceptionResponse> handleServiceNotFoundException(ServiceProviderNotAvailableException ex) {
-        ExceptionResponse body = new ExceptionResponse("Service Provider Not Available", ex.getMessage(), "404");
+        ExceptionResponse body = new ExceptionResponse("Service Provider Not Found", ex.getMessage(), "404");
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
     }
 

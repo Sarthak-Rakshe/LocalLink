@@ -1,14 +1,13 @@
 package com.sarthak.PaymentService.mapper;
 
 import com.sarthak.PaymentService.dto.TransactionDto;
-import com.sarthak.PaymentService.model.PaymentMethod;
-import com.sarthak.PaymentService.model.PaymentStatus;
+import com.sarthak.PaymentService.enums.PaymentMethod;
+import com.sarthak.PaymentService.enums.PaymentStatus;
 import com.sarthak.PaymentService.model.Transaction;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-import static java.lang.String.valueOf;
 
 @Component
 public class TransactionMapper {

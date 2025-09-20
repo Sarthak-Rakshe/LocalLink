@@ -1,7 +1,9 @@
 package com.sarthak.ServiceListingService.controller;
 
 import com.sarthak.ServiceListingService.dto.ServiceItemDto;
+import com.sarthak.ServiceListingService.dto.response.PagedResponse;
 import com.sarthak.ServiceListingService.service.ServiceItemsService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,15 +23,96 @@ public class ServiceItemController {
         return ResponseEntity.ok(serviceItemDto);
     }
 
-    @PostMapping()
-    public ResponseEntity<ServiceItemDto> createService(@RequestBody ServiceItemDto serviceItemDto){
-        ServiceItemDto createdService = serviceItemsService.createService(serviceItemDto);
-        return ResponseEntity.status(201).body(createdService);
+    @GetMapping()
+    public PagedResponse<ServiceItemDto> getAllServices(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir
+    ){
+        var servicesPage = serviceItemsService.getAllServices(page, size, sortBy, sortDir);
+        return new PagedResponse<>(
+                servicesPage.getContent(),
+                servicesPage.getNumber(),
+                servicesPage.getSize(),
+                servicesPage.getTotalElements(),
+                servicesPage.getTotalPages()
+        );
     }
 
-    @DeleteMapping()
-    public ResponseEntity<String> deleteService(@RequestParam Long id){
-        String response = serviceItemsService.deleteService(id);
-        return ResponseEntity.ok(response);
+    @GetMapping("/provider/{providerId}")
+    public PagedResponse<ServiceItemDto> getServicesByProviderId(
+            @PathVariable Long providerId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir
+    ){
+        var servicesPage = serviceItemsService.getServicesByProviderId(providerId, page, size, sortBy, sortDir);
+        return new PagedResponse<>(
+                servicesPage.getContent(),
+                servicesPage.getNumber(),
+                servicesPage.getSize(),
+                servicesPage.getTotalElements(),
+                servicesPage.getTotalPages()
+        );
     }
+
+    @GetMapping("/category/{category}")
+    public PagedResponse<ServiceItemDto> getServicesByCategory(
+            @PathVariable String category,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir
+    ){
+        var servicesPage = serviceItemsService.getServicesByCategory(category, page, size, sortBy, sortDir);
+        return new PagedResponse<>(
+                servicesPage.getContent(),
+                servicesPage.getNumber(),
+                servicesPage.getSize(),
+                servicesPage.getTotalElements(),
+                servicesPage.getTotalPages()
+        );
+    }
+
+    @GetMapping("/nearby")
+    public PagedResponse<ServiceItemDto> getNearbyServices(
+            @RequestParam Double userLatitude,
+            @RequestParam Double userLongitude,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir
+    ){
+        var servicesPage = serviceItemsService.getNearbyService(userLatitude, userLongitude, page, size, sortBy, sortDir);
+        return new PagedResponse<>(
+                servicesPage.getContent(),
+                servicesPage.getNumber(),
+                servicesPage.getSize(),
+                servicesPage.getTotalElements(),
+                servicesPage.getTotalPages()
+        );
+    }
+
+    @PostMapping()
+    public ResponseEntity<ServiceItemDto> addService(@RequestBody ServiceItemDto serviceItemDto){
+        ServiceItemDto saved = serviceItemsService.createService(serviceItemDto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+    }
+
+    @PutMapping("/{serviceId}")
+    public ResponseEntity<ServiceItemDto> updateService(@PathVariable Long serviceId,
+                                                        @RequestBody ServiceItemDto serviceItemDto){
+        ServiceItemDto updated = serviceItemsService.updateService(serviceId, serviceItemDto);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/{serviceId}")
+    public ResponseEntity<Void> deleteService(@PathVariable Long serviceId) {
+        serviceItemsService.deleteService(serviceId);
+        return ResponseEntity.noContent().build();
+    }
+
+
 }

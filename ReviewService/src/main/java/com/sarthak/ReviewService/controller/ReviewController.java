@@ -23,7 +23,7 @@ public class ReviewController {
         return ResponseEntity.ok(review);
     }
 
-    @GetMapping("/service/{service-id}")
+    @GetMapping("/{service-id}/service")
     public Page<ReviewDto> getReviewsForService(
             @PathVariable("service-id") Long serviceId,
             @RequestParam(defaultValue = "0") int page,
@@ -32,7 +32,7 @@ public class ReviewController {
         return reviewService.getReviewsForService(serviceId, page, size);
     }
 
-    @GetMapping("/customers/{customer-id}")
+    @GetMapping("/{customer-id}/customers")
     public Page<ReviewDto> getReviewsByCustomer(
             @PathVariable("customer-id") Long customerId,
             @RequestParam(defaultValue = "0") int page,

@@ -29,9 +29,9 @@ public class AvailabilityController {
         return ResponseEntity.ok(rules);
     }
 
-    @GetMapping("/rules/{service-provider-id}/{service-id}")
-    public ResponseEntity<List<AvailabilityRulesDto>> getAvailabilityRulesForService(@PathVariable("service-id") Long serviceId,
-                                                                                     @PathVariable("service-provider-id") Long providerId){
+    @GetMapping("/rules/{serviceProvider-id}/{serviceId}")
+    public ResponseEntity<List<AvailabilityRulesDto>> getAvailabilityRulesForService(@PathVariable("serviceId") Long serviceId,
+                                                                                     @PathVariable("serviceProviderId") Long providerId){
         List<AvailabilityRulesDto> rules = availabilityService.getAllAvailabilityRulesForProviderAndService(serviceId,providerId);
         return ResponseEntity.ok(rules);
     }
@@ -42,14 +42,14 @@ public class AvailabilityController {
         return ResponseEntity.ok(exceptions);
     }
 
-    @GetMapping("/exceptions/{service-provider-id}/{service-id}")
-    public ResponseEntity<List<ProviderExceptionDto>> getProviderExceptionsForService(@PathVariable("service-id") Long serviceId,
-                                                                                     @PathVariable("service-provider-id") Long providerId){
+    @GetMapping("/exceptions/{service-providerId}/{serviceId}")
+    public ResponseEntity<List<ProviderExceptionDto>> getProviderExceptionsForService(@PathVariable("serviceId") Long serviceId,
+                                                                                     @PathVariable("serviceProviderId") Long providerId){
         List<ProviderExceptionDto> exceptions = availabilityService.getAllExceptionsForProviderAndService(serviceId,providerId);
         return ResponseEntity.ok(exceptions);
     }
 
-    @GetMapping("/rules/day-and-time")
+    @GetMapping("/rules/dayAndTime")
     public PageResponse<AvailabilityRulesDto> getAvailabilityRulesForDayAndTime(@RequestBody DayAndTimeAvailabilityRequest request,
                                                                                 @RequestParam int page,
                                                                                 @RequestParam int size){
@@ -65,8 +65,8 @@ public class AvailabilityController {
         );
     }
 
-    @GetMapping("rules/{service-id}/available-days")
-    public ResponseEntity<DayOfWeek[]> getAvailableDaysForService(@PathVariable("service-id") Long serviceId){
+    @GetMapping("rules/{serviceId}/availableDays")
+    public ResponseEntity<DayOfWeek[]> getAvailableDaysForService(@PathVariable("serviceId") Long serviceId){
         DayOfWeek[] availableDays = availabilityService.getAvailableDaysOfWeekForRule(serviceId);
         return ResponseEntity.ok(availableDays);
     }

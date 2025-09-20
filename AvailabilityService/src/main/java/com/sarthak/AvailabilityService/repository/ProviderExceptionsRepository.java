@@ -13,7 +13,7 @@ import java.util.Optional;
 @Repository
 public interface ProviderExceptionsRepository extends JpaRepository<ProviderExceptions, Long> {
 
-    List<ProviderExceptions> findAllByServiceProviderIdAndExceptionDate(Long serviceProviderId, LocalDate date);
+    List<ProviderExceptions> findAllByServiceProviderIdAndExceptionDateOrderByNewStartTimeAsc(Long serviceProviderId, LocalDate date);
 
     Optional<ProviderExceptions> findAllByServiceProviderIdAndServiceIdAndExceptionDateAndNewStartTimeAndNewEndTime(@NotNull Long serviceProviderId, 
                                                                                                                     @NotNull Long serviceId, 

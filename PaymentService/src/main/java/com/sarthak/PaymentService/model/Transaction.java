@@ -1,5 +1,7 @@
 package com.sarthak.PaymentService.model;
 
+import com.sarthak.PaymentService.enums.PaymentMethod;
+import com.sarthak.PaymentService.enums.PaymentStatus;
 import com.sarthak.PaymentService.exception.TransactionReferenceNotValidException;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;

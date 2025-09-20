@@ -43,4 +43,15 @@ public interface AvailabilityRulesRepository extends JpaRepository<AvailabilityR
     List<AvailabilityRules> findAllByServiceProviderId(Long serviceProviderId);
 
     Optional<AvailabilityRules> findByServiceId(Long serviceId);
+
+    @Query("""
+                SELECT availability FROM AvailabilityRules availability
+                WHERE availability.serviceProviderId = :serviceProviderId
+                  AND availability.serviceId = :serviceId
+                  AND (availability.daysOfWeek & (1 << (:dayOfWeek % 7))) != 0
+                  ORDER BY availability.startTime ASC
+                """)
+    List<AvailabilityRules> findByServiceProviderAndServiceAndDayOrdered(@Param("serviceProviderId") Long serviceProviderId,
+                                                                                @Param("serviceId") Long serviceId,
+                                                                                @Param("dayOfWeek") byte day);
 }

@@ -4,32 +4,37 @@ import com.sarthak.ServiceListingService.dto.ServiceItemDto;
 import com.sarthak.ServiceListingService.model.ServiceItem;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
 public class ServiceItemsMapper {
 
     public ServiceItemDto entityToDto(ServiceItem serviceItem){
-        ServiceItemDto serviceItemDto = new ServiceItemDto();
-        serviceItemDto.setServiceId(serviceItem.getServiceId());
-        serviceItemDto.setServiceName(serviceItem.getServiceName());
-        serviceItemDto.setServiceCategory(serviceItem.getServiceCategory());
-        serviceItemDto.setServiceDescription(serviceItem.getServiceDescription());
-        serviceItemDto.setServicePricePerHour(serviceItem.getServicePricePerHour());
-        serviceItemDto.setServiceProviderId(serviceItem.getServiceProviderId());
-        serviceItemDto.setServiceRadius(serviceItem.getServiceRadius());
 
-        return serviceItemDto;
+        return new ServiceItemDto(
+                serviceItem.getServiceId(),
+                serviceItem.getServiceName(),
+                serviceItem.getServiceDescription(),
+                serviceItem.getServiceCategory(),
+                serviceItem.getServicePricePerHour(),
+                serviceItem.getServiceProviderId(),
+                serviceItem.getCity()
+        );
     }
 
     public ServiceItem dtoToEntity(ServiceItemDto serviceItemDto){
-        ServiceItem serviceItem = new ServiceItem();
-        serviceItem.setServiceId(serviceItemDto.getServiceId());
-        serviceItem.setServiceName(serviceItemDto.getServiceName());
-        serviceItem.setServiceCategory(serviceItemDto.getServiceCategory());
-        serviceItem.setServiceDescription(serviceItemDto.getServiceDescription());
-        serviceItem.setServicePricePerHour(serviceItemDto.getServicePricePerHour());
-        serviceItem.setServiceProviderId(serviceItemDto.getServiceProviderId());
-        serviceItem.setServiceRadius(serviceItemDto.getServiceRadius());
+        return  new ServiceItem(
+                serviceItemDto.serviceId(),
+                serviceItemDto.serviceName(),
+                serviceItemDto.serviceDescription(),
+                serviceItemDto.serviceCategory(),
+                serviceItemDto.servicePricePerHour(),
+                serviceItemDto.serviceProviderId(),
+                serviceItemDto.city()
+        );
+    }
 
-        return serviceItem;
+    public List<ServiceItemDto> toDtoList(List<ServiceItem> serviceItems){
+        return serviceItems.stream().map(this::entityToDto).toList();
     }
 }
