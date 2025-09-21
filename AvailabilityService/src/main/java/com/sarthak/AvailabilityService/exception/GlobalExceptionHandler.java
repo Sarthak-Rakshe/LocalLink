@@ -39,4 +39,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
     }
 
+    @ExceptionHandler(ServiceClientResponseMismatchException.class)
+    public ResponseEntity<ExceptionResponse> handleResponseValueMismatchForRequestException(ServiceClientResponseMismatchException ex) {
+        ExceptionResponse body = new ExceptionResponse("Service client sent incorrect response", ex.getMessage(),
+                "502");
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(body);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ExceptionResponse> handleGenericException(Exception ex) {
+        ExceptionResponse body = new ExceptionResponse("Internal Server Error", ex.getMessage(), "500");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+    }
+
 }

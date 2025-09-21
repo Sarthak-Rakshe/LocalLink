@@ -4,9 +4,9 @@ import com.sarthak.BookingService.client.AvailabilityServiceClient;
 import com.sarthak.BookingService.dto.AvailabilityStatus;
 import com.sarthak.BookingService.dto.BookingDto;
 import com.sarthak.BookingService.dto.BookingStatusCount;
-import com.sarthak.BookingService.dto.request.AvailabilityRequest;
+import com.sarthak.BookingService.dto.Slot;
 import com.sarthak.BookingService.dto.request.BookingRescheduleRequest;
-import com.sarthak.BookingService.dto.response.AvailabilityResponse;
+import com.sarthak.BookingService.dto.response.BookedSlotsResponse;
 import com.sarthak.BookingService.dto.response.BookingsSummaryResponse;
 import com.sarthak.BookingService.exception.BookingNotFoundException;
 import com.sarthak.BookingService.exception.ProviderNotAvailableForGivenTimeSlotException;
@@ -21,13 +21,18 @@ import com.sarthak.BookingService.dto.response.AvailabilityStatusResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.sarthak.BookingService.model.BookingStatus.*;
 
@@ -55,7 +60,7 @@ public class BookingService {
 
 
     public List<BookingDto> getAllByServiceProviderIdAndDate(Long serviceProviderId, LocalDate date){
-        List<Booking> bookings = bookingRepository.findAllByServiceProviderIdAndBookingDate(serviceProviderId,
+        List<Booking> bookings = bookingRepository.findAllByServiceProviderIdAndBookingDateOrderByBookingStartTime(serviceProviderId,
                         date);
         log.info("Fetched {} bookings for serviceProviderId: {} on date: {}", bookings.size(), serviceProviderId, date);
         return bookingMapper.toDtoList(bookings);
@@ -79,9 +84,69 @@ public class BookingService {
         return bookings.map(bookingMapper::toDto);
     }
 
-    public AvailabilityResponse getAvailabilitySlots(AvailabilityRequest request){
-        LocalTime dayStart  = LocalTime.of(0,0);
-        LocalTime dayEnd    = LocalTime.of(23,59);
+    public BookedSlotsResponse getBookedSlotsForProviderOnDate(Long serviceProviderId, Long serviceId, LocalDate date){
+        List<Booking> bookings =
+                bookingRepository.findAllByServiceProviderIdAndServiceIdAndBookingDateOrderByBookingStartTime(serviceProviderId,
+                        serviceId, date);
+
+        Set<BookingStatus> allowedStatuses = Set.of(PENDING , CONFIRMED);
+
+        bookings = bookings.stream().filter(b -> allowedStatuses.contains(b.getBookingStatus())).toList();
+
+        List<Slot> bookedSlots = new ArrayList<>();
+
+        if (bookings.isEmpty()) {
+            log.info("No bookings found for serviceProviderId: {} and serviceId: {} on date: {}", serviceProviderId, serviceId, date);
+            return BookedSlotsResponse.builder()
+                    .serviceProviderId(serviceProviderId)
+                    .serviceId(serviceId)
+                    .bookedSlots(bookedSlots)
+                    .date(date.toString())
+                    .build();
+        }
+        log.debug("Fetched {} bookings for serviceProviderId: {} and serviceId: {} on date: {}", bookings.size(), serviceProviderId, serviceId, date);
+
+        bookedSlots = bookings.stream()
+                .map(b ->
+                        Slot.builder()
+                                .startTime(b.getBookingStartTime())
+                                .endTime(b.getBookingEndTime())
+                                .build()
+                )
+                .toList();
+
+        bookedSlots = mergeBookedSlots(bookedSlots);
+
+        log.info("Mapped bookings to {} booked slots for serviceProviderId: {} and serviceId: {} on date: {}",
+                bookedSlots.size(), serviceProviderId, serviceId, date);
+
+        return BookedSlotsResponse.builder()
+                .serviceProviderId(serviceProviderId)
+                .serviceId(serviceId)
+                .bookedSlots(bookedSlots)
+                .date(date.toString())
+                .build();
+    }
+
+    private List<Slot> mergeBookedSlots(List<Slot> slots){
+        List<Slot> mergedSlots = new ArrayList<>();
+
+        LocalTime start = slots.getFirst().startTime();
+        LocalTime end = slots.getFirst().endTime();
+
+        for (int i = 1; i < slots.size(); i++) {
+            Slot current = slots.get(i);
+
+            if(!current.startTime().isAfter(end)){
+                end = current.endTime().isAfter(end) ? current.endTime() : end;
+            }else {
+                mergedSlots.add(Slot.builder().startTime(start).endTime(end).build());
+                start = current.startTime();
+                end = current.endTime();
+            }
+        }
+
+        return mergedSlots;
     }
 
 
@@ -290,6 +355,27 @@ public class BookingService {
         log.info("Updated existing booking with rescheduledToId: {}", existingBooking.getRescheduledToId());
 
         return bookingMapper.toDto(savedBooking);
+    }
+
+    @Transactional
+    @Scheduled(fixedRate = 60_000) // Runs every 60 seconds
+    public void cancelPendingBookings(){
+
+        log.debug("Scheduled task started: Cancelling pending bookings older than 30 minutes");
+        LocalDateTime cutOff = LocalDateTime.now().minusMinutes(30);
+        List<Booking> pendingBookings = bookingRepository
+                .findAllByBookingStatusAndCreatedAtBefore(PENDING, cutOff);
+
+        pendingBookings.forEach(p -> {
+                    p.setBookingStatus(CANCELLED);
+                    bookingRepository.save(p);
+                    log.debug("Cancelled pending booking with bookingId: {} due to non-confirmation within 30 minutes",
+                            p.getBookingId());
+                });
+
+        bookingRepository.saveAll(pendingBookings);
+        log.debug("Cancelled {} pending bookings older than 30 minutes", pendingBookings.size());
+
     }
 
 

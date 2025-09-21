@@ -1,6 +1,8 @@
 package com.sarthak.AvailabilityService.service;
 
+import com.sarthak.AvailabilityService.client.BookingClient;
 import com.sarthak.AvailabilityService.dto.AvailabilityRulesDto;
+import com.sarthak.AvailabilityService.dto.BookedSlotsResponse;
 import com.sarthak.AvailabilityService.dto.ProviderExceptionDto;
 import com.sarthak.AvailabilityService.dto.Slot;
 import com.sarthak.AvailabilityService.dto.request.AvailabilitySlotsRequest;
@@ -9,6 +11,7 @@ import com.sarthak.AvailabilityService.dto.response.AvailabilitySlotsResponse;
 import com.sarthak.AvailabilityService.exception.DuplicateEntityException;
 import com.sarthak.AvailabilityService.exception.EntityNotFoundException;
 import com.sarthak.AvailabilityService.exception.InvalidTimeSlotParametersException;
+import com.sarthak.AvailabilityService.exception.ServiceClientResponseMismatchException;
 import com.sarthak.AvailabilityService.mapper.AvailabilityMapper;
 import com.sarthak.AvailabilityService.model.AvailabilityRules;
 import com.sarthak.AvailabilityService.model.ExceptionType;
@@ -24,10 +27,12 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,13 +43,16 @@ public class AvailabilityService{
     private final AvailabilityRulesRepository availabilityRulesRepository;
     private final ProviderExceptionsRepository providerExceptionsRepository;
     private final AvailabilityMapper availabilityMapper;
+    private final BookingClient bookingClient;
 
     public AvailabilityService(AvailabilityRulesRepository availabilityRulesRepository,
                                ProviderExceptionsRepository providerExceptionsRepository,
-                               AvailabilityMapper availabilityMapper) {
+                               AvailabilityMapper availabilityMapper,
+                               BookingClient bookingClient) {
         this.availabilityRulesRepository = availabilityRulesRepository;
         this.providerExceptionsRepository = providerExceptionsRepository;
         this.availabilityMapper = availabilityMapper;
+        this.bookingClient = bookingClient;
     }
 
 
@@ -198,26 +206,141 @@ public class AvailabilityService{
         return rule.getDaysOfWeek();
     }
 
-    public AvailabilitySlotsResponse getAvailabilitySlots(AvailabilitySlotsRequest request){
-        if(request.serviceProviderId() == null || request.serviceId() == null || request.date() == null){
+    public AvailabilitySlotsResponse getAvailabilitySlots(Long serviceProviderId,
+                                                         Long serviceId,
+                                                         LocalDate date){
+        if(serviceProviderId == null || serviceId == null || date == null){
             throw new IllegalArgumentException("Service Provider ID, Service ID, and Date must be provided");
         }
-        byte day = (byte) (request.date().getDayOfWeek().getValue() % 7);
+
+        AvailabilitySlotsResponse response = AvailabilitySlotsResponse.builder()
+                .date(date)
+                .availableSlots(new ArrayList<>())
+                .isDayAvailable(false)
+                .build();
+
+        byte day = (byte) (date.getDayOfWeek().getValue() % 7 == 0 ? 0 : date.getDayOfWeek().getValue());
+
         List<AvailabilityRules> rules =
                 availabilityRulesRepository.findByServiceProviderAndServiceAndDayOrdered(
-                        request.serviceProviderId(),
-                        request.serviceId(),
+                        serviceProviderId,
+                        serviceId,
                         day);
+
+        if (rules.isEmpty()){
+            log.info("No availability rules found for Service Provider ID: {}, Service ID: {}, Date: {}",
+                    serviceProviderId, serviceId, date);
+            return response;
+        }
+
+        log.info("Found {} availability rules for Service Provider ID: {}, Service ID: {}, Date: {}",
+                rules.size(), serviceProviderId, serviceId, date);
+
+        List<Slot> mergedSlots = mergeRules(rules);
+        log.debug("Merged availability slots from rules: {}", mergedSlots);
 
         List<ProviderExceptions> exceptions =
                 providerExceptionsRepository.findAllByServiceProviderIdAndExceptionDateOrderByNewStartTimeAsc(
-                        request.serviceProviderId(),
-                        request.date()
+                        serviceProviderId,
+                        date
                 );
 
+        if (!exceptions.isEmpty()){
+            log.info("Found {} provider exceptions for Service Provider ID: {}, Date: {}",
+                    exceptions.size(), serviceProviderId, date);
+            mergedSlots = mergeExceptions(mergedSlots, exceptions);
+            log.debug("Merged availability slots after applying exceptions: {}", mergedSlots);
+        }
+
+        if(mergedSlots.isEmpty()){
+            log.info("No available slots after applying exceptions for Service Provider ID: {}, Service ID: {}, Date: {}",
+                    serviceProviderId, serviceId, date);
+            return response;
+        }
+
+        // Fetch booked slots from Booking Service(Includes pending and confirmed bookings)
+        BookedSlotsResponse bookedSlotsResponse = bookingClient.getBookedSlotsForProviderOnDate(
+                serviceProviderId,
+                serviceId,
+                date
+        );
+        log.info("Fetched merged booked slots for pending and confirmed bookings, size of response list is {}",
+                bookedSlotsResponse.bookedSlots().size());
+
+        List<Slot> bookedSlots = validatedBookedSlots(bookedSlotsResponse, serviceProviderId,
+                serviceId, date);
+
+        mergedSlots = mergeBookedSlots(mergedSlots, bookedSlots).stream()
+                .filter( s -> Duration.between(s.startTime(), s.endTime()).toMinutes() > 10)
+                .toList();
+        log.debug("Final available slots after merging booked slots: {}", mergedSlots);
+
+        boolean isDayAvailable = !mergedSlots.isEmpty();
+
+        log.info("Final available slots for Service Provider ID: {}, Service ID: {}, Date: {}: {}",
+                serviceProviderId, serviceId, date, mergedSlots);
+
+        return AvailabilitySlotsResponse.builder()
+                .date(date)
+                .availableSlots(mergedSlots)
+                .isDayAvailable(isDayAvailable)
+                .build();
+    }
+
+    private List<Slot> mergeBookedSlots(List<Slot> finalSlots, List<Slot> bookedSlots) {
+        if(bookedSlots.isEmpty()) return finalSlots;
+
+        List<Slot> availableSlots = new ArrayList<>();
+
+        List<Slot> sortedBookedSlots = bookedSlots.stream()
+                .sorted(Comparator.comparing(Slot::startTime))
+                .toList();
+
+        //Noting point is that all booked slots are strictly within available slots
+        for(Slot available : finalSlots){
+            LocalTime availableStart = available.startTime();
+            LocalTime availableEnd = available.endTime();
 
 
+            for(Slot booked : sortedBookedSlots){
+                LocalTime bookedStart = booked.startTime();
+                LocalTime bookedEnd = booked.endTime();
 
+                if(bookedStart.isBefore(availableEnd) && bookedEnd.isAfter(availableStart)) {
+                    if(availableStart.isBefore(bookedStart)){
+                        availableSlots.add(new Slot(availableStart, bookedStart));
+                    }
+
+                    availableStart = bookedEnd;
+                }
+            }
+            if(availableStart.isBefore(availableEnd)){
+                availableSlots.add(new Slot(availableStart, availableEnd));
+            }
+        }
+
+        return availableSlots;
+    }
+
+    private List<Slot> validatedBookedSlots(BookedSlotsResponse bookedSlotsResponse, Long serviceProviderId,
+                                           Long serviceId, LocalDate date) {
+        if(bookedSlotsResponse == null){
+            log.debug("Received null booked slots response from Booking Service for Service Provider ID: {}, Service " +
+                            "ID: {}, Date: {}",
+                    serviceProviderId, serviceId, date);
+            return new ArrayList<>();
+        }
+        if(!bookedSlotsResponse.serviceProviderId().equals(serviceProviderId) ||
+                !bookedSlotsResponse.serviceId().equals(serviceId) ||
+                !LocalDate.parse(bookedSlotsResponse.date()).equals(date)){
+            log.error("Mismatch in booked slots response data. Expected Service Provider ID: {}, Service ID: {}, Date: {}. " +
+                            "Received Service Provider ID: {}, Service ID: {}, Date: {}",
+                    serviceProviderId, serviceId, date,
+                    bookedSlotsResponse.serviceProviderId(), bookedSlotsResponse.serviceId(),
+                    bookedSlotsResponse.date());
+            throw new ServiceClientResponseMismatchException("Mismatch in booked slots response data");
+        }
+        return bookedSlotsResponse.bookedSlots() != null ? bookedSlotsResponse.bookedSlots() : new ArrayList<>();
     }
 
     private List<Slot> mergeRules(List<AvailabilityRules> rules){
@@ -257,19 +380,19 @@ public class AvailabilityService{
             LocalTime exStart = ex.getNewStartTime();
             LocalTime exEnd = ex.getNewEndTime();
             ExceptionType type = ex.getExceptionType();
-            
+
             List<Slot> tempSlots = new ArrayList<>();
-            
+
             for(Slot slot : currentSlots){
                 LocalTime slotStart = slot.startTime();
                 LocalTime slotEnd = slot.endTime();
-                
+
                 if(exEnd.isBefore(slotStart) || exStart.isAfter(slotEnd)){
                     // No overlap
                     tempSlots.add(slot);
                     continue;
-                } 
-                
+                }
+
                 if (type == ExceptionType.BLOCKED){
                     if(exStart.isAfter(slotStart) && exEnd.isBefore(slotEnd)){
                         tempSlots.add(new Slot(slotStart, exStart));
@@ -396,112 +519,184 @@ public class AvailabilityService{
             throw new IllegalArgumentException("Request cannot be null");
         }
         log.info("Checking availability for Service Provider ID: {}, Service ID: {}, Date: {}, Start Time: {}, End Time: {}",
-                request.getServiceProviderId(), request.getServiceId(), request.getDate(),
-                request.getStartTime(), request.getEndTime());
+                request.serviceProviderId(), request.serviceId(), request.date(), request.startTime(), request.endTime());
 
-        Long serviceProviderId = request.getServiceProviderId();
+        Long serviceProviderId = request.serviceProviderId();
 
-        if(request.getStartTime() == null || request.getEndTime() == null || request.getDate() == null){
+        if(request.startTime() == null || request.endTime() == null || request.date() == null){
             log.error("Invalid request: start time {}, end time {}, and date {} provided",
-                    request.getStartTime(), request.getEndTime(), request.getDate());
+                    request.startTime(), request.endTime(), request.date());
             throw new InvalidTimeSlotParametersException("Invalid request: start time, end time, and date must be provided");
         }
 
-        List<AvailabilityRules> rules =
-                availabilityRulesRepository.findAllByServiceProviderIdAndServiceId(serviceProviderId,
-                request.getServiceId());
-
-        log.info("Found {} availability rules for Service Provider ID: {}, Service ID: {}",
-                rules.size(), serviceProviderId, request.getServiceId());
-
-        List<ProviderExceptions> exceptions =
-                providerExceptionsRepository.findAllByServiceProviderIdAndExceptionDateOrderByNewStartTimeAsc(serviceProviderId, request.getDate());
-        log.info("Found {} provider exceptions for Service Provider ID: {}, Date: {}",
-                exceptions.size(), serviceProviderId, request.getDate());
-
         AvailabilityStatusResponse response = new AvailabilityStatusResponse(
                 serviceProviderId,
-                request.getStartTime().toString(),
-                request.getEndTime().toString(),
-                request.getDate().toString(),
+                request.startTime().toString(),
+                request.endTime().toString(),
+                request.date().toString(),
                 Status.OUTSIDE_WORKING_HOURS
         );
 
+        byte dayOfWeek = (byte) (request.date().getDayOfWeek().getValue() == 7 ? 0 : request.date().getDayOfWeek().getValue());
 
-        Boolean isInException = checkTimeInAnyException(request, response, exceptions);
-        if(isInException) {
-            log.info("Availability determined by exception for Service Provider ID: {}, Date: {}",
-                    serviceProviderId, request.getDate());
-            return response;
-        }else if(response.getStatus().equals(Status.BLOCKED)){
-            log.info("Availability blocked by exception for Service Provider ID: {}, Date: {}",
-                    serviceProviderId, request.getDate());
-            return response;
-        }else{
-            log.info("No applicable exceptions found for Service Provider ID: {}, Date: {}. Checking regular availability rules.",
-                    serviceProviderId, request.getDate());
-            DayOfWeek day = request.getDate().getDayOfWeek();
-            for(AvailabilityRules rule : rules){
-                if(rule.isAvailableOn(day)){
-                    Boolean isWithinRange = isWithinTimeRange(request.getStartTime(), request.getEndTime(),
-                            rule.getStartTime(), rule.getEndTime());
-                    if(isWithinRange){
-                        response.setStatus(Status.AVAILABLE);
-                        log.info("Service Provider ID: {} is AVAILABLE on Date: {} from {} to {}",
-                                serviceProviderId, request.getDate(), request.getStartTime(), request.getEndTime());
-                        return response;
-                    }
+        List<AvailabilityRules> rules =
+                availabilityRulesRepository.findByServiceProviderAndServiceAndDayOrdered(serviceProviderId,
+                request.serviceId(), dayOfWeek);
+
+        log.info("Found {} availability rules for Service Provider ID: {}, Service ID: {}, Day of Week: {}",
+                rules.size(), serviceProviderId, request.serviceId(), dayOfWeek);
+
+
+        List<ProviderExceptions> exceptions =
+                providerExceptionsRepository.findAllByServiceProviderIdAndExceptionDateOrderByNewStartTimeAsc(serviceProviderId, request.date());
+
+        log.info("Found {} provider exceptions for Service Provider ID: {}, Date: {}",
+                exceptions.size(), serviceProviderId, request.date());
+
+        if (!exceptions.isEmpty()){
+            boolean exceptionResult = checkTimeInAnyException(request, response, exceptions);
+
+            if (exceptionResult){
+                log.info("Availability determined by exception for Service Provider ID: {}, Date: {}",
+                        serviceProviderId, request.date());
+                return response;
+            }
+        }
+
+        log.info("No applicable exceptions found or exceptions do not determine availability for Service Provider ID: {}, Date: {}. Checking regular availability rules.",
+                serviceProviderId, request.date());
+
+        DayOfWeek day = request.date().getDayOfWeek();
+
+        for (AvailabilityRules rule : rules){
+            if(rule.isAvailableOn(day)){
+                Boolean isWithinRange = isWithinTimeRange(request.startTime(), request.endTime(),
+                        rule.getStartTime(), rule.getEndTime());
+
+                if(isWithinRange){
+                    response.setStatus(Status.AVAILABLE);
+                    log.info("Service Provider ID: {} is AVAILABLE on Date: {} from {} to {} as per rule ID: {}",
+                            serviceProviderId, request.date(), request.startTime(), request.endTime(),
+                            rule.getRuleId());
+                    return response;
                 }
             }
         }
+
         log.info("Service Provider ID: {} is NOT AVAILABLE on Date: {} from {} to {}",
-                serviceProviderId, request.getDate(), request.getStartTime(), request.getEndTime());
+                serviceProviderId, request.date(), request.startTime(), request.endTime());
 
         return response;
     }
 
-    private Boolean checkTimeInAnyException(AvailabilityStatusRequest request, AvailabilityStatusResponse response,
+    private boolean checkTimeInAnyException(AvailabilityStatusRequest request, AvailabilityStatusResponse response,
                                             List<ProviderExceptions> exceptions) {
         log.info("Checking for applicable exceptions on Date: {} for Service Provider ID: {}",
-                request.getDate(), request.getServiceProviderId());
+                request.date(), request.serviceProviderId());
+
         for(ProviderExceptions exception : exceptions){
             if(exception.getExceptionDate() == null ||
                     exception.getNewStartTime() == null ||
                     exception.getNewEndTime() == null ||
-                    !exception.getExceptionDate().equals(request.getDate())) {
+                    !exception.getExceptionDate().equals(request.date())) {
+
                 log.info("Skipping exception ID: {} due to missing or non-matching date/time fields",
                         exception.getExceptionId());
+
                 continue;
             }
-            Boolean isWithinRange = isWithinTimeRange(request.getStartTime(), request.getEndTime(),
-                    exception.getNewStartTime(), exception.getNewEndTime());
-            if(isWithinRange) {
-                if (exception.getExceptionType() == ExceptionType.OVERRIDE) {
+            if (exception.getExceptionType() == ExceptionType.BLOCKED) {
+                boolean hasOverlap = hasTimeOverlap(request.startTime(), request.endTime(),
+                        exception.getNewStartTime(), exception.getNewEndTime());
+
+                if(hasOverlap){
+                    response.setStatus(Status.BLOCKED);
+
+                    log.info("Exception ID: {} BLOCKS availability for Service Provider ID: {} on Date: {}" +
+                            "due to overlap between request time {} - {} and exception time {} - {}",
+                            exception.getExceptionId(), request.serviceProviderId(), request.date(),
+                            request.startTime(), request.endTime(),
+                            exception.getNewStartTime(), exception.getNewEndTime());
+
+                    return true;
+
+                }
+            } else if (exception.getExceptionType() == ExceptionType.OVERRIDE) {
+                boolean hasIntersection = hasTimeIntersection(request.startTime(), request.endTime(),
+                        exception.getNewStartTime(), exception.getNewEndTime());
+
+                if (hasIntersection) {
+                    if (!isFullyCovered(request.startTime(), request.endTime(),
+                            exception.getNewStartTime(), exception.getNewEndTime())) {
+                        log.info("Given time slot {} to {} is not Fully covered by OVERRIDE exception ID: {}" +
+                                        " time slot {} to {} for Service Provider ID: {} on Date: {}",
+                                request.startTime(), request.endTime(),
+                                exception.getExceptionId(),
+                                exception.getNewStartTime(), exception.getNewEndTime(),
+                                request.serviceProviderId(), request.date());
+
+                        response.setStatus(Status.OUTSIDE_WORKING_HOURS);
+                        return true;
+                    }
+
                     response.setStatus(Status.AVAILABLE);
                     log.info("Exception ID: {} OVERRIDES availability for Service Provider ID: {} on Date: {}",
-                            exception.getExceptionId(), request.getServiceProviderId(), request.getDate());
+                            exception.getExceptionId(), request.serviceProviderId(), request.date());
                     return true;
-                } else if (exception.getExceptionType() == ExceptionType.BLOCKED) {
-                    response.setStatus(Status.BLOCKED);
-                    log.info("Exception ID: {} BLOCKS availability for Service Provider ID: {} on Date: {}",
-                            exception.getExceptionId(), request.getServiceProviderId(), request.getDate());
-                    return false;
                 }
+
             }
+
         }
         log.info("No applicable exceptions found for Service Provider ID: {} on Date: {}",
-                request.getServiceProviderId(), request.getDate());
+                request.serviceProviderId(), request.date());
         return false;
     }
 
-    private Boolean isWithinTimeRange(LocalTime requestStartTime, LocalTime requestEndTime, LocalTime start,
-                                      LocalTime end) {
-        log.info("Checking if request time {} - {} is within range {} - {}",
-                requestStartTime, requestEndTime, start, end);
-        boolean startTimeCheck = !requestStartTime.isBefore(start) && !requestStartTime.isAfter(end);
-        boolean endTimeCheck = requestEndTime.isAfter(start) && requestEndTime.isBefore(end);
-        log.info("Start time check: {}, End time check: {}", startTimeCheck, endTimeCheck);
-        return startTimeCheck && endTimeCheck;
+    private boolean hasTimeIntersection(LocalTime requestStart, LocalTime requestEnd, LocalTime exceptionStart,
+                                        LocalTime exceptionEnd){
+        log.info("Checking time intersection between request time {} - {} and exception time {} - {}",
+                requestStart, requestEnd, exceptionStart, exceptionEnd);
+
+        return !requestEnd.isBefore(exceptionStart) && !requestStart.isAfter(exceptionEnd);
+    }
+
+    private boolean isFullyCovered(LocalTime requestStart, LocalTime requestEnd,
+                                   LocalTime exceptionStart, LocalTime exceptionEnd) {
+        log.info("Checking if request time {} - {} is fully covered by exception time {} - {}",
+                requestStart, requestEnd, exceptionStart, exceptionEnd);
+
+        boolean fullyCovered = !exceptionStart.isAfter(requestStart) && !exceptionEnd.isBefore(requestEnd);
+        log.info("Fully covered result: {}", fullyCovered);
+        return fullyCovered;
+    }
+
+    private boolean hasTimeOverlap(LocalTime requestStart, LocalTime requestEnd,
+                                   LocalTime exceptionStart, LocalTime exceptionEnd) {
+        log.info("Checking for overlap between request time {} - {} and exception time {} - {}",
+                requestStart, requestEnd, exceptionStart, exceptionEnd);
+
+        // No overlap if request ends exactly when exception starts, or vice versa
+        boolean noOverlap = requestEnd.equals(exceptionStart) || requestStart.equals(exceptionEnd) ||
+                requestEnd.isBefore(exceptionStart) || requestStart.isAfter(exceptionEnd);
+
+        boolean hasOverlap = !noOverlap;
+        log.info("Overlap result: {}", hasOverlap);
+        return hasOverlap;
+    }
+
+    private Boolean isWithinTimeRange(LocalTime requestStartTime, LocalTime requestEndTime,
+                                      LocalTime ruleStartTime, LocalTime ruleEndTime) {
+        log.info("Checking if request time {} - {} is within availability rule {} - {}",
+                requestStartTime, requestEndTime, ruleStartTime, ruleEndTime);
+
+        boolean startTimeCheck = !requestStartTime.isBefore(ruleStartTime) && !requestStartTime.isAfter(ruleEndTime);
+        boolean endTimeCheck = !requestEndTime.isBefore(ruleStartTime) && !requestEndTime.isAfter(ruleEndTime);
+
+        boolean isWithinRange = startTimeCheck && endTimeCheck;
+        log.info("Within range result: {} (start check: {}, end check: {})", isWithinRange, startTimeCheck, endTimeCheck);
+
+        return isWithinRange;
     }
 
 

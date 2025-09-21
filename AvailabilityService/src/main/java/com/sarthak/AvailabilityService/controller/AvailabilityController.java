@@ -4,6 +4,7 @@ import com.sarthak.AvailabilityService.dto.AvailabilityRulesDto;
 import com.sarthak.AvailabilityService.dto.ProviderExceptionDto;
 import com.sarthak.AvailabilityService.dto.request.AvailabilityStatusRequest;
 import com.sarthak.AvailabilityService.dto.request.DayAndTimeAvailabilityRequest;
+import com.sarthak.AvailabilityService.dto.response.AvailabilitySlotsResponse;
 import com.sarthak.AvailabilityService.dto.response.AvailabilityStatusResponse;
 import com.sarthak.AvailabilityService.dto.response.PageResponse;
 import com.sarthak.AvailabilityService.service.AvailabilityService;
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -69,6 +71,15 @@ public class AvailabilityController {
     public ResponseEntity<DayOfWeek[]> getAvailableDaysForService(@PathVariable("serviceId") Long serviceId){
         DayOfWeek[] availableDays = availabilityService.getAvailableDaysOfWeekForRule(serviceId);
         return ResponseEntity.ok(availableDays);
+    }
+
+    @GetMapping("availableSlots/{serviceProviderId}/{serviceId}")
+    public ResponseEntity<AvailabilitySlotsResponse> getAvailableSlotsForServiceProviderAndService(
+            @PathVariable Long serviceProviderId,
+            @PathVariable Long serviceId,
+            @RequestParam LocalDate date) {
+        AvailabilitySlotsResponse availableSlots = availabilityService.getAvailabilitySlots(serviceProviderId, serviceId, date);
+        return ResponseEntity.ok(availableSlots);
     }
 
     @PostMapping("/rules")

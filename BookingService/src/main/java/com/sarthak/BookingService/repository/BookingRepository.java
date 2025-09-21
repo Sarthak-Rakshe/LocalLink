@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
@@ -28,7 +29,9 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
                                                                                                             LocalTime bookingStartTime,
                                                                                                             LocalTime bookingEndTime);
 
-    List<Booking> findAllByServiceProviderIdAndBookingDate(Long serviceProviderId, LocalDate date);
+    List<Booking> findAllByServiceProviderIdAndBookingDateOrderByBookingStartTime(Long serviceProviderId, LocalDate date);
+
+    List<Booking> findAllByServiceProviderIdAndServiceIdAndBookingDateOrderByBookingStartTime(Long serviceProviderId, Long serviceId, LocalDate date);
 
     @Query(value = """
             SELECT new com.sarthak.BookingService.dto.BookingStatusCount(b.bookingStatus, COUNT(b))
@@ -40,4 +43,5 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             @Param("serviceProviderId") Long serviceProviderId
     );
 
+    List<Booking> findAllByBookingStatusAndCreatedAtBefore(BookingStatus bookingStatus, LocalDateTime cutOff);
 }

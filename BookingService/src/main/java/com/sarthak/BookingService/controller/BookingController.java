@@ -2,6 +2,7 @@ package com.sarthak.BookingService.controller;
 
 import com.sarthak.BookingService.dto.BookingDto;
 import com.sarthak.BookingService.dto.request.BookingRescheduleRequest;
+import com.sarthak.BookingService.dto.response.BookedSlotsResponse;
 import com.sarthak.BookingService.dto.response.BookingsSummaryResponse;
 import com.sarthak.BookingService.dto.response.PageResponse;
 import com.sarthak.BookingService.service.BookingService;
@@ -42,7 +43,7 @@ public class BookingController {
     }
 
 
-    @GetMapping("/service-provider/{serviceProviderId}")
+    @GetMapping("/serviceProvider/{serviceProviderId}")
     public ResponseEntity<List<BookingDto>> getBookingsByServiceProviderId(@PathVariable Long serviceProviderId,
                                                                            @RequestParam LocalDate date) {
         return ResponseEntity.ok(bookingService.getAllByServiceProviderIdAndDate(serviceProviderId, date));
@@ -65,29 +66,37 @@ public class BookingController {
     public ResponseEntity<BookingsSummaryResponse> getBookingSummaryForProvider(@PathVariable Long serviceProviderId) {
         return ResponseEntity.ok(bookingService.getBookingSummaryForServiceProvider(serviceProviderId));
     }
+    
+    @GetMapping("bookedSlots/{serviceProviderId}/{serviceId}")
+    public ResponseEntity<BookedSlotsResponse> getBookedSlotsForServiceProviderAndService(
+            @PathVariable Long serviceProviderId,
+            @PathVariable Long serviceId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(bookingService.getBookedSlotsForProviderOnDate(serviceProviderId, serviceId, date));
+    }
 
     @PostMapping()
     public ResponseEntity<BookingDto> bookService(@RequestBody BookingDto bookingDto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(bookingService.bookService(bookingDto));
     }
 
-    @PostMapping("/{booking-id}/confirm")
-    public ResponseEntity<BookingDto> confirmBooking(@PathVariable("booking-id") Long bookingId) {
+    @PostMapping("/{bookingId}/confirm")
+    public ResponseEntity<BookingDto> confirmBooking(@PathVariable("bookingId") Long bookingId) {
         return ResponseEntity.ok(bookingService.confirmBooking(bookingId));
     }
 
-    @PostMapping("/{booking-id}/cancel")
-    public ResponseEntity<BookingDto> cancelBooking(@PathVariable("booking-id") Long bookingId) {
+    @PostMapping("/{bookingId}/cancel")
+    public ResponseEntity<BookingDto> cancelBooking(@PathVariable("bookingId") Long bookingId) {
         return ResponseEntity.ok(bookingService.cancelBooking(bookingId));
     }
 
-    @PostMapping("/{booking-id}/complete")
-    public ResponseEntity<BookingDto> completeBooking(@PathVariable("booking-id") Long bookingId) {
+    @PostMapping("/{bookingId}/complete")
+    public ResponseEntity<BookingDto> completeBooking(@PathVariable("bookingId") Long bookingId) {
         return ResponseEntity.ok(bookingService.completeBooking(bookingId));
     }
 
-    @PostMapping("/{booking-id}/reschedule")
-    public ResponseEntity<BookingDto> rescheduleBooking(@PathVariable("booking-id") Long bookingId,
+    @PostMapping("/{bookingId}/reschedule")
+    public ResponseEntity<BookingDto> rescheduleBooking(@PathVariable("bookingId") Long bookingId,
                                                         @RequestBody BookingRescheduleRequest request) {
         return ResponseEntity.ok(bookingService.rescheduleBooking(bookingId, request));
     }
