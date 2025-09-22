@@ -139,7 +139,7 @@ class BookingServiceTest {
     @Test
     @DisplayName("getAllByServiceProviderIdAndDate returns list mapped to dto")
     void getAllByServiceProviderIdAndDate_list() {
-        when(bookingRepository.findAllByServiceProviderIdAndBookingDate(eq(33L), eq(LocalDate.parse("2024-01-01"))))
+        when(bookingRepository.findAllByServiceProviderIdAndBookingDateOrderByBookingStartTime(eq(33L), eq(LocalDate.parse("2024-01-01"))))
                 .thenReturn(List.of(buildEntity(10L)));
         var list = bookingService.getAllByServiceProviderIdAndDate(33L, LocalDate.parse("2024-01-01"));
         assertEquals(1, list.size());
@@ -352,4 +352,5 @@ class BookingServiceTest {
         assertEquals(0L, summary.deletedBookings());
         assertEquals(0L, summary.totalBookings());
     }
+
 }

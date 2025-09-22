@@ -46,6 +46,22 @@ public class PaymentController {
         );
     }
 
+    @GetMapping("bookings/{bookingId}")
+    public PagedResponse<TransactionDto> getTransactionsByBookingId(@NotNull @PathVariable("bookingId") Long bookingId,
+                                                                   @NotNull @RequestParam(name ="sort-by") String sortBy,
+                                                                   @NotNull @RequestParam(name ="sort-dir") String sortDir,
+                                                                   @NotNull @RequestParam(name ="page") int page,
+                                                                   @NotNull @RequestParam(name ="size") int size) {
+        Page<TransactionDto> transactions = transactionService.getTransactionsByBookingId(bookingId, page, size, sortBy, sortDir);
+        return new PagedResponse<>(
+                transactions.getContent(),
+                transactions.getNumber(),
+                transactions.getSize(),
+                transactions.getTotalElements(),
+                transactions.getTotalPages()
+        );
+    }
+
     @GetMapping("/customer/{customerId}")
     public PagedResponse<TransactionDto> getTransactionsByCustomerId(@NotNull @PathVariable("customerId") Long customerId,
                                                                      @NotNull @RequestParam(name ="sort-by") String sortBy,

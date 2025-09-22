@@ -32,7 +32,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.sarthak.BookingService.model.BookingStatus.*;
 
@@ -177,18 +176,21 @@ public class BookingService {
         }else if (response.status().equals(AvailabilityStatus.AVAILABLE)) {
             Optional<Booking> existingBooking =
                     bookingRepository.findByServiceProviderIdAndServiceIdAndBookingDateAndBookingStartTimeAndBookingEndTime(
-                    booking.getServiceProviderId(), booking.getServiceId(),booking.getBookingDate(), booking.getBookingStartTime(), booking.getBookingEndTime());
+                    booking.getServiceProviderId(), booking.getServiceId(),booking.getBookingDate(),
+                            booking.getBookingStartTime(), booking.getBookingEndTime());
 
             log.info("Checking for existing bookings for serviceId: {} with providerId: {} on date: {} from {} to {}",
                     booking.getServiceId(), booking.getServiceProviderId(), booking.getBookingDate(),
                     booking.getBookingStartTime(), booking.getBookingEndTime());
 
-            if(existingBooking.isPresent()){
+            if(existingBooking.isPresent() && (existingBooking.get().getBookingStatus().equals(PENDING) ||
+                    existingBooking.get().getBookingStatus().equals(CONFIRMED))){
                 log.error("Time slot already booked for serviceId: {} with providerId: {} on date: {} from {} to {}",
                         booking.getServiceId(), booking.getServiceProviderId(), booking.getBookingDate(),
                         booking.getBookingStartTime(), booking.getBookingEndTime());
                 throw new TimeSlotAlreadyBookedException("Time slot already booked");
             }
+
         }else {
             log.error("Unknown availability status received: {} for serviceId: {} with providerId: {} on date: {} from {} to {}",
                     response.status(), booking.getServiceId(), booking.getServiceProviderId(), booking.getBookingDate(),
@@ -196,6 +198,7 @@ public class BookingService {
             throw new UnknownAvailabilityStatusException("Unknown availability status");
         }
         booking.setBookingStatus(PENDING);
+
         Booking savedBooking = bookingRepository.save(booking);
         log.info("Booking created with bookingId: {} for serviceId: {} with providerId: {} on date: {} from {} to {}",
                 savedBooking.getBookingId(), savedBooking.getServiceId(), savedBooking.getServiceProviderId(),
@@ -356,28 +359,6 @@ public class BookingService {
 
         return bookingMapper.toDto(savedBooking);
     }
-
-    @Transactional
-    @Scheduled(fixedRate = 60_000) // Runs every 60 seconds
-    public void cancelPendingBookings(){
-
-        log.debug("Scheduled task started: Cancelling pending bookings older than 30 minutes");
-        LocalDateTime cutOff = LocalDateTime.now().minusMinutes(30);
-        List<Booking> pendingBookings = bookingRepository
-                .findAllByBookingStatusAndCreatedAtBefore(PENDING, cutOff);
-
-        pendingBookings.forEach(p -> {
-                    p.setBookingStatus(CANCELLED);
-                    bookingRepository.save(p);
-                    log.debug("Cancelled pending booking with bookingId: {} due to non-confirmation within 30 minutes",
-                            p.getBookingId());
-                });
-
-        bookingRepository.saveAll(pendingBookings);
-        log.debug("Cancelled {} pending bookings older than 30 minutes", pendingBookings.size());
-
-    }
-
 
 
 }

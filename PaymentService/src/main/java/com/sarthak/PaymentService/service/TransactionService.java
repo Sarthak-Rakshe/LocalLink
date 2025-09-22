@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.util.Optional;
 
 
 @Service
@@ -73,28 +74,31 @@ public class TransactionService {
             throw new PaymentProcessingException("Error occurred while capturing order with id: " + orderId);
         }
 
-        Transaction transaction = transactionRepository.findByTransactionReference(orderId)
-                .orElseGet(() -> {
-                            log.info("Creating new transaction for order id: {}", orderId);
-                            return Transaction.builder()
-                                    .bookingId(paymentRequest.bookingId())
-                                    .customerId(paymentRequest.customerId())
-                                    .amount(paymentRequest.amount())
-                                    .paymentMethod(PaymentMethod.valueOf(paymentRequest.paymentMethod()))
-                                    .paymentStatus(paymentStatus)
-                                    .transactionReference(orderId)
-                                    .build();
-                        });
+        Optional<Transaction> existingTransaction = transactionRepository.findByTransactionReference(orderId);
 
-        if (transaction.getPaymentStatus() != PaymentStatus.COMPLETED) {
-            log.info("Updating payment status for transaction with reference: {} from {} to {}", orderId, transaction.getPaymentStatus(),
-                    paymentStatus);
-            transaction.setPaymentStatus(paymentStatus);
-        }else{
-            log.info("Transaction with reference: {} is already completed. No update needed.", orderId);
+        if(existingTransaction.isPresent()){
+            Long transactionId = existingTransaction.get().getTransactionId();
+            String transactionReference = existingTransaction.get().getTransactionReference();
+
+            log.info("Transaction is already present for orderId: {}, updating status to {} if it is not completed", orderId, paymentStatus);
+
+            return updateTransactionStatus(transactionId, paymentStatus, transactionReference);
+
         }
 
-        Transaction saved = transactionRepository.save(transaction);
+        PaymentMethod paymentMethod = PaymentMethod.valueOf(paymentRequest.paymentMethod().toUpperCase());
+
+        Transaction newTransaction = Transaction.builder()
+                .bookingId(paymentRequest.bookingId())
+                .customerId(paymentRequest.customerId())
+                .amount(paymentRequest.amount())
+                .paymentMethod(paymentMethod)
+                .paymentStatus(paymentStatus)
+                .transactionReference(orderId)
+                .build();
+
+
+        Transaction saved = transactionRepository.save(newTransaction);
         log.info("Transaction with id: {} and reference: {} processed with status: {}", saved.getTransactionId(),
                 saved.getTransactionReference(), saved.getPaymentStatus());
 
@@ -114,6 +118,21 @@ public class TransactionService {
         return transactions.map(mapper::toDto);
     }
 
+    public Page<TransactionDto> getTransactionsByBookingId(Long bookingId, int page, int size, String sortBy, String sortDirection){
+
+        if(bookingId == null || bookingId <= 0){
+            throw new IllegalArgumentException("Booking ID must be a positive number");
+        }
+
+        Pageable pageable = getPageable(page, size, sortBy, sortDirection);
+
+        Page<Transaction> transactions = transactionRepository.findAllByBookingId(bookingId, pageable);
+
+        log.info("Fetched {} transactions for bookingId: {} page: {}, size: {}, sortBy: {}, sortDirection: {}",
+                transactions.getNumberOfElements(), bookingId, page, size, sortBy, sortDirection);
+
+        return transactions.map(mapper::toDto);
+    }
 
 
     public Page<TransactionDto> getTransactionsByCustomerId(Long customerId, int page, int size, String sortBy, String sortDirection){
@@ -144,7 +163,7 @@ public class TransactionService {
 
         Pageable pageable = getPageable(page, size, sortBy, sortDirection);
 
-        Page<Transaction> transactions = transactionRepository.findAllByPaymentStatus(paymentStatus.name(), pageable);
+        Page<Transaction> transactions = transactionRepository.findAllByPaymentStatus(paymentStatus, pageable);
 
         log.info("Fetched {} transactions for paymentStatus: {} page: {}, size: {}, sortBy: {}, sortDirection: {}",
                 transactions.getNumberOfElements(), status, page, size, sortBy, sortDirection);
@@ -170,6 +189,29 @@ public class TransactionService {
                 transactions.getNumberOfElements(), method, page, size, sortBy, sortDirection);
 
         return transactions.map(mapper::toDto);
+    }
+
+    public TransactionDto updateTransactionStatus(Long transactionId, PaymentStatus updatedStatus, String updatedTransactionReference){
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(()-> new TransactionNotFoundException("Transaction not found with id: " + transactionId));
+
+        if (transaction.getPaymentStatus() == updatedStatus || transaction.getPaymentStatus() == PaymentStatus.COMPLETED) {
+            log.info("No status update needed for transaction with id: {}. Current status: {}", transactionId, transaction.getPaymentStatus());
+            return mapper.toDto(transaction);
+        }
+
+        Transaction updatedTransaction = Transaction.builder()
+                .bookingId(transaction.getBookingId())
+                .customerId(transaction.getCustomerId())
+                .amount(transaction.getAmount())
+                .paymentMethod(transaction.getPaymentMethod())
+                .paymentStatus(updatedStatus)
+                .transactionReference(updatedTransactionReference)
+                .build();
+
+        transactionRepository.save(updatedTransaction);
+
+        return mapper.toDto(updatedTransaction);
     }
 
     private SortField validateSortField(String field) {
