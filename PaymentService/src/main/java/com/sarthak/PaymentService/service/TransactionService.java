@@ -1,9 +1,13 @@
 package com.sarthak.PaymentService.service;
 
+import com.sarthak.PaymentService.client.BookingClient;
+import com.sarthak.PaymentService.client.PayPalClient;
+import com.sarthak.PaymentService.dto.BookingDto;
 import com.sarthak.PaymentService.dto.TransactionDto;
 import com.sarthak.PaymentService.dto.request.PaymentRequest;
 import com.sarthak.PaymentService.dto.response.CreateOrderResponse;
 import com.sarthak.PaymentService.enums.SortField;
+import com.sarthak.PaymentService.exception.BookingClientException;
 import com.sarthak.PaymentService.exception.FailedToCreatePaymentOrderException;
 import com.sarthak.PaymentService.exception.PaymentProcessingException;
 import com.sarthak.PaymentService.exception.TransactionNotFoundException;
@@ -30,11 +34,14 @@ public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final PayPalClient payPalClient;
+    private final BookingClient bookingClient;
     private final TransactionMapper mapper;
 
-    public TransactionService(TransactionRepository transactionRepository, PayPalClient payPalClient, TransactionMapper mapper) {
+    public TransactionService(TransactionRepository transactionRepository, PayPalClient payPalClient,
+                              TransactionMapper mapper, BookingClient bookingClient) {
         this.transactionRepository = transactionRepository;
         this.payPalClient = payPalClient;
+        this.bookingClient = bookingClient;
         this.mapper = mapper;
     }
 
@@ -101,6 +108,15 @@ public class TransactionService {
         Transaction saved = transactionRepository.save(newTransaction);
         log.info("Transaction with id: {} and reference: {} processed with status: {}", saved.getTransactionId(),
                 saved.getTransactionReference(), saved.getPaymentStatus());
+
+        log.info("Confirming booking with id: {} via BookingClient", paymentRequest.bookingId());
+        BookingDto confirmedBooking = bookingClient.confirmBooking(paymentRequest.bookingId());
+
+        if(confirmedBooking == null){
+            log.error("Failed to confirm booking with id: {} via BookingClient", paymentRequest.bookingId());
+            throw  new BookingClientException("Booking client failed to confirm booking with id: " + paymentRequest.bookingId());
+        }
+        log.info("Booking with id: {} confirmed via BookingClient", paymentRequest.bookingId());
 
         return mapper.toDto(saved);
     }

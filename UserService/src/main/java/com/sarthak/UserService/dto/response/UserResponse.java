@@ -1,17 +1,15 @@
 package com.sarthak.UserService.dto.response;
 
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.Builder;
 
-@Getter
-@Setter
-@NoArgsConstructor
-public class UserResponse {
 
-    private String userName;
-    private String userEmail;
-    private String userContact;
-    private String userType;
-
-}
+@Builder
+public record UserResponse (
+        Long userId,
+        String userName,
+        String userEmail,
+        String userContact,
+        String userType,
+        String userAddress,
+        boolean isActive
+){}

@@ -10,7 +10,7 @@ import com.sarthak.PaymentService.exception.TransactionNotFoundException;
 import com.sarthak.PaymentService.mapper.TransactionMapper;
 import com.sarthak.PaymentService.model.Transaction;
 import com.sarthak.PaymentService.repository.TransactionRepository;
-import com.sarthak.PaymentService.service.PayPalClient;
+import com.sarthak.PaymentService.client.PayPalClient;
 import com.sarthak.PaymentService.service.TransactionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

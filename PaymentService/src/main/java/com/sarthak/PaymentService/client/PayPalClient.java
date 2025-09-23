@@ -1,4 +1,4 @@
-package com.sarthak.PaymentService.service;
+package com.sarthak.PaymentService.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

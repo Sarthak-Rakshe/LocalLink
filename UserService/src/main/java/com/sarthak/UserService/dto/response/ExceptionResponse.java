@@ -1,19 +1,10 @@
 package com.sarthak.UserService.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-public class ExceptionResponse {
-
-    String msgName;
-    String message;
-    String statusCode;
-
-
-}
+@Builder
+public record ExceptionResponse (
+        String msgName,
+        String message,
+        String statusCode
+){}

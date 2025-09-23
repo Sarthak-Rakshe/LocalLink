@@ -1,5 +1,6 @@
 package com.sarthak.PaymentService.service;
 
+import com.sarthak.PaymentService.client.PayPalClient;
 import com.sarthak.PaymentService.enums.PaymentMethod;
 import com.sarthak.PaymentService.enums.PaymentStatus;
 import com.sarthak.PaymentService.model.Transaction;

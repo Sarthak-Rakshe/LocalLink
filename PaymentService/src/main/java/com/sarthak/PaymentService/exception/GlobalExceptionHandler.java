@@ -48,4 +48,10 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 
+    @ExceptionHandler(BookingClientException.class)
+    public ResponseEntity<ExceptionResponse> handleBookingClientException(BookingClientException ex) {
+        ExceptionResponse body = new ExceptionResponse("Booking Service Client Error", ex.getMessage(), "500");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+    }
+
 }

@@ -1,42 +1,19 @@
 package com.sarthak.UserService.mapper;
 
-import com.sarthak.UserService.model.User;
-import com.sarthak.UserService.model.UserType;
-import com.sarthak.UserService.dto.request.UserRequest;
 import com.sarthak.UserService.dto.response.UserResponse;
+import com.sarthak.UserService.model.User;
 import org.springframework.stereotype.Component;
 
 @Component
 public class UserMapper {
 
-    public UserResponse UserToUserResponse(User user){
-        UserResponse userResponse = new UserResponse();
-        userResponse.setUserName(user.getUserName());
-        userResponse.setUserContact(user.getUserContact());
-        userResponse.setUserEmail(user.getUserEmail());
-        userResponse.setUserType(user.getUserType().name());
-
-        return userResponse;
+    public UserResponse toResponse(User user) {
+        return UserResponse.builder()
+                .userId(user.getUserId())
+                .userName(user.getUsername())
+                .userEmail(user.getUserEmail())
+                .userContact(user.getUserContact())
+                .userType(user.getUserType().name())
+                .build();
     }
-
-    public User UserResponseToUser(UserResponse userResponse){
-        User user = new User();
-        user.setUserName(userResponse.getUserName());
-        user.setUserContact(userResponse.getUserContact());
-        user.setUserEmail(userResponse.getUserEmail());
-        user.setUserType(UserType.valueOf(userResponse.getUserType()));
-
-        return user;
-    }
-
-    public User UserRequestToUser(UserRequest userRequest){
-        User user = new User();
-        user.setUserName(userRequest.getUserName());
-        user.setUserContact(userRequest.getUserContact());
-        user.setUserEmail(userRequest.getUserEmail());
-        user.setUserType(UserType.valueOf(userRequest.getUserType()));
-        user.setUserPassword(userRequest.getUserPassword());
-        return user;
-    }
-
 }
