@@ -18,20 +18,21 @@ public class ServiceItemsMapper {
                 serviceItem.getServiceCategory(),
                 serviceItem.getServicePricePerHour(),
                 serviceItem.getServiceProviderId(),
-                serviceItem.getCity()
+                serviceItem.getLatitude(),
+                serviceItem.getLongitude()
         );
     }
 
-    public ServiceItem dtoToEntity(ServiceItemDto serviceItemDto){
-        return  new ServiceItem(
-                serviceItemDto.serviceId(),
-                serviceItemDto.serviceName(),
-                serviceItemDto.serviceDescription(),
-                serviceItemDto.serviceCategory(),
-                serviceItemDto.servicePricePerHour(),
-                serviceItemDto.serviceProviderId(),
-                serviceItemDto.city()
-        );
+    public ServiceItem dtoToEntity(ServiceItemDto dto){
+        return ServiceItem.builder()
+                .serviceName(dto.serviceName())
+                .serviceCategory(dto.serviceCategory())
+                .serviceDescription(dto.serviceDescription())
+                .servicePricePerHour(dto.servicePricePerHour())
+                .serviceProviderId(dto.serviceProviderId())
+                .latitude(dto.latitude())
+                .longitude(dto.longitude())
+                .build();
     }
 
     public List<ServiceItemDto> toDtoList(List<ServiceItem> serviceItems){

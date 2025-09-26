@@ -9,13 +9,21 @@ import lombok.Setter;
 
 @Builder
 public record ServiceItemDto (
-        Long serviceId,
-        String serviceName,
-        String serviceDescription,
-        String serviceCategory,
-        double servicePricePerHour,
-        Long serviceProviderId,
-        Double latitude,
-        Double longitude
+
+        @NotNull Long serviceId,
+
+        @NotNull String serviceName,
+
+        @NotNull String serviceDescription,
+
+        @NotNull String serviceCategory,
+
+        @NotNull double servicePricePerHour,
+
+        @NotNull Long serviceProviderId,
+
+        @NotNull Double latitude,
+
+        @NotNull Double longitude
 ){
 }

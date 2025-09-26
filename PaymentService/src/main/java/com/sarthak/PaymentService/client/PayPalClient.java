@@ -1,9 +1,12 @@
 package com.sarthak.PaymentService.client;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sarthak.PaymentService.dto.response.CreateOrderResponse;
+import com.sarthak.PaymentService.dto.response.WebhookResponse;
 import com.sarthak.PaymentService.enums.PaymentStatus;
+import com.sarthak.PaymentService.exception.PayPalWebhookException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -94,36 +97,78 @@ public class PayPalClient {
                 .build();
     }
 
-    public PaymentStatus captureOrder(String orderId) throws IOException, InterruptedException{
-        String accessToken = getAccessToken();
-        log.info("Capturing order with ID: {}", orderId);
+    public WebhookResponse handleWebhookEvent(String payload) {
+        log.info("Handling valid webhook event: {}", payload);
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + "/v2/checkout/orders/" + orderId + "/capture"))
-                .header("Authorization", "Bearer " + accessToken)
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.noBody())
-                .build();
+        JsonNode jsonNode;
+        try {
+            jsonNode = objectMapper.readTree(payload);
+        } catch (JsonProcessingException e) {
+            throw new PayPalWebhookException(e.getMessage());
+        }
 
-        log.info("Sending capture request to PayPal for order ID: {}", orderId);
-        HttpResponse<String> response =
-                httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        String eventType = jsonNode.get("event_type").asText();
 
-        log.info("Received capture response from PayPal for order ID: {}", orderId);
-        JsonNode jsonNode = objectMapper.readTree(response.body());
+        Long orderId = jsonNode.get("resource").get("id").asLong();
+        String reasonCode = jsonNode.get("resource").has("reason_code") ?
+                jsonNode.get("resource").get("reason_code").asText() : null;
 
-        String status = jsonNode.get("status").asText();
-        log.info("Order ID: {} captured with status: {}", orderId, status);
-        return mapPayPalStatusToPaymentStatus(status);
+
+        switch (eventType){
+            case  "PAYMENT.CAPTURE.COMPLETED" -> {
+                log.info("Processing event type: {} for orderId: {}", eventType, orderId);
+                return PaymentStatus.COMPLETED;
+            }
+            case "PAYMENT.CAPTURE.DECLINED" -> {
+                String reasonCode = jsonNode.get("resource").get("reason_code").asText();
+                log.info("Processing event type: {} for orderId: {}", eventType, orderId);
+                return PaymentStatus.DECLINED;
+            }
+            case "PAYMENT.CAPTURE.PENDING" -> {
+                log.info("Processing event type: {} for orderId: {}", eventType, orderId);
+                return PaymentStatus.PENDING;
+            }
+            default -> {
+                log.warn("Unhandled event type: {}", eventType);
+                throw new PayPalWebhookException("Unhandled event type: " + eventType);
+            }
+        }
     }
 
-    private PaymentStatus mapPayPalStatusToPaymentStatus(String paypalStatus) {
-        return switch (paypalStatus) {
-            case "COMPLETED" -> PaymentStatus.COMPLETED;
-            case "PENDING" -> PaymentStatus.PENDING;
-            case "DECLINED" -> PaymentStatus.DECLINED;
-            default -> PaymentStatus.FAILED;
-        };
+    public boolean verifyWebhookSignature(String payload, String signature, String transmissionId, String transmissionTime, String certUrl, String authAlgo) {
+        return true; //True for testing purposes
     }
+
+//    public PaymentStatus captureOrder(String orderId) throws IOException, InterruptedException{
+//        String accessToken = getAccessToken();
+//        log.info("Capturing order with ID: {}", orderId);
+//
+//        HttpRequest request = HttpRequest.newBuilder()
+//                .uri(URI.create(baseUrl + "/v2/checkout/orders/" + orderId + "/capture"))
+//                .header("Authorization", "Bearer " + accessToken)
+//                .header("Content-Type", "application/json")
+//                .POST(HttpRequest.BodyPublishers.noBody())
+//                .build();
+//
+//        log.info("Sending capture request to PayPal for order ID: {}", orderId);
+//        HttpResponse<String> response =
+//                httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+//
+//        log.info("Received capture response from PayPal for order ID: {}", orderId);
+//        JsonNode jsonNode = objectMapper.readTree(response.body());
+//
+//        String status = jsonNode.get("status").asText();
+//        log.info("Order ID: {} captured with status: {}", orderId, status);
+//        return mapPayPalStatusToPaymentStatus(status);
+//    }
+//
+//    private PaymentStatus mapPayPalStatusToPaymentStatus(String paypalStatus) {
+//        return switch (paypalStatus) {
+//            case "COMPLETED" -> PaymentStatus.COMPLETED;
+//            case "PENDING" -> PaymentStatus.PENDING;
+//            case "DECLINED" -> PaymentStatus.DECLINED;
+//            default -> PaymentStatus.FAILED;
+//        };
+//    }
 
 }

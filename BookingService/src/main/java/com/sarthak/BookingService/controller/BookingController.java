@@ -31,7 +31,8 @@ public class BookingController {
     }
 
     @GetMapping()
-    public PageResponse<BookingDto> getAllBookings(@RequestParam int page, @RequestParam int size) {
+    public PageResponse<BookingDto> getAllBookings(@RequestParam(defaultValue = "0") int page,
+                                                   @RequestParam(defaultValue = "10") int size) {
         Page<BookingDto> bookings = bookingService.getAllBookings(page, size);
         return new PageResponse<>(
                 bookings.getContent(),

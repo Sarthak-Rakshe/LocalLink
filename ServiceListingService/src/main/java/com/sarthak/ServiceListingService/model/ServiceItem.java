@@ -3,20 +3,28 @@ package com.sarthak.ServiceListingService.model;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Entity
 @Data
 @AllArgsConstructor
+@Builder
 @NoArgsConstructor
 @Table(name = "service_items",
         indexes     = {
                 @Index(name = "idx_service_provider", columnList = "service_provider_id"),
                 @Index(name = "idx_service_category", columnList = "service_category"),
                 @Index(name = "idx_service_location", columnList = "latitude, longitude"),
-                @Index(name = "idx_price_per_hour", columnList = "price_per_hour"),
-                @Index(name = "idx_service_name_provider", columnList = "service_name, service_provider_id")
+                @Index(name = "idx_price_per_hour", columnList = "service_price_per_hour"),
+                @Index(name = "idx_service_name_provider", columnList = "service_name, service_provider_id"),
+                @Index(name = "idx_service_category_provider", columnList = "service_category, service_provider_id"),
+                @Index(name = "idx_created_at", columnList = "created_at"),
+                @Index(name = "idx_updated_at", columnList = "updated_at")
         },
         uniqueConstraints = {
                 @UniqueConstraint(name = "uk_service_provider_service",
@@ -56,4 +64,22 @@ public class ServiceItem {
     @NotNull
     @Column(name = "longitude", nullable = false)
     private Double longitude;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        Instant now = Instant.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    @PreUpdate
+    protected  void onUpdate() {
+        this.updatedAt = Instant.now();
+    }
 }

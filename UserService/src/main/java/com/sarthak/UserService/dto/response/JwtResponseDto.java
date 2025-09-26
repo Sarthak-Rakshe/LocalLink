@@ -7,5 +7,5 @@ public record JwtResponseDto(
         String token,
         String refreshToken,
         String tokenType,
-        String userType
+        UserResponse userResponse
 ) {}

@@ -6,7 +6,6 @@ import com.sarthak.UserService.dto.response.JwtResponseDto;
 import com.sarthak.UserService.dto.response.UserResponse;
 import com.sarthak.UserService.exception.InvalidCredentialsException;
 import com.sarthak.UserService.model.UserPrincipal;
-import com.sarthak.UserService.repository.UserRepository;
 import com.sarthak.UserService.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -53,7 +52,7 @@ public class AuthService {
                 return JwtResponseDto.builder()
                         .token(accessToken)
                         .refreshToken(refreshToken)
-                        .userType(user.getUserType().name())
+                        .userResponse(response)
                         .tokenType("Bearer")
                         .build();
 
@@ -82,7 +81,7 @@ public class AuthService {
                 return JwtResponseDto.builder()
                         .token(newAccessToken)
                         .refreshToken(newRefreshToken)
-                        .userType(user.getUserType().name())
+                        .userResponse(response)
                         .tokenType("Bearer")
                         .build();
 

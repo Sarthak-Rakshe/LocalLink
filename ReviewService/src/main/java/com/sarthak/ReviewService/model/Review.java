@@ -18,7 +18,7 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "reviews", indexes = {
-        @Index(name = "idx_service_provider_service", columnList = "service_provider_id, service_id"),
+        @Index(name = "idx_service_provider_service_review", columnList = "service_provider_id, service_id"),
         @Index(name = "idx_customer", columnList = "customer_id"),
         @Index(name = "idx_service_provider_rating", columnList="service_provider_id, rating")
         },

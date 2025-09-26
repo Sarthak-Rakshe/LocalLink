@@ -6,5 +6,5 @@ import lombok.*;
 public record ExceptionResponse(
         String msgName,
         String message,
-        String statusCode
+        int statusCode
 ) {}

@@ -4,10 +4,10 @@ import com.sarthak.PaymentService.dto.TransactionDto;
 import com.sarthak.PaymentService.dto.request.PaymentRequest;
 import com.sarthak.PaymentService.dto.response.PagedResponse;
 import com.sarthak.PaymentService.exception.FailedToCreatePaymentOrderException;
-import com.sarthak.PaymentService.exception.PaymentProcessingException;
 import com.sarthak.PaymentService.service.TransactionService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 
 @RestController
+@Slf4j
 @RequestMapping("/api/payments")
 public class PaymentController {
     private final TransactionService transactionService;
@@ -127,6 +128,29 @@ public class PaymentController {
     public ResponseEntity<TransactionDto> processPayment(@RequestBody @Valid PaymentRequest request){
         TransactionDto transactionDto = transactionService.processPayment(request);
         return ResponseEntity.ok(transactionDto);
+    }
+
+    @PostMapping("/handleWebhook")
+    public ResponseEntity<String> handleWebhook(
+            @RequestBody String payload,
+            @RequestHeader("PayPal-Transmission-Sig") String signature,
+            @RequestHeader("PayPal-Transmission-Id") String transmissionId,
+            @RequestHeader("PayPal-Transmission-Time") String transmissionTime,
+            @RequestHeader("PayPal-Cert-Url") String certUrl,
+            @RequestHeader("PayPal-Auth-Algo") String authAlgo
+    ){
+        log.info("Received webhook: {}", payload);
+
+        boolean isValid = transactionService.payPalClient.verifyWebhookSignature(payload, signature, transmissionId,
+                transmissionTime, certUrl, authAlgo);
+
+        if (isValid){
+            transactionService.handlePaypalWebhookEvent(payload);
+            return ResponseEntity.ok("Webhook processed");
+        } else {
+            log.warn("Invalid webhook signature");
+            return ResponseEntity.status(400).body("Invalid signature");
+        }
     }
 
 }

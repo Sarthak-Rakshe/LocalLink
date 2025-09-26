@@ -6,11 +6,9 @@ import com.sarthak.PaymentService.dto.BookingDto;
 import com.sarthak.PaymentService.dto.TransactionDto;
 import com.sarthak.PaymentService.dto.request.PaymentRequest;
 import com.sarthak.PaymentService.dto.response.CreateOrderResponse;
+import com.sarthak.PaymentService.dto.response.WebhookResponse;
 import com.sarthak.PaymentService.enums.SortField;
-import com.sarthak.PaymentService.exception.BookingClientException;
-import com.sarthak.PaymentService.exception.FailedToCreatePaymentOrderException;
-import com.sarthak.PaymentService.exception.PaymentProcessingException;
-import com.sarthak.PaymentService.exception.TransactionNotFoundException;
+import com.sarthak.PaymentService.exception.*;
 import com.sarthak.PaymentService.mapper.TransactionMapper;
 import com.sarthak.PaymentService.enums.PaymentMethod;
 import com.sarthak.PaymentService.enums.PaymentStatus;
@@ -33,7 +31,7 @@ import java.util.Optional;
 public class TransactionService {
 
     private final TransactionRepository transactionRepository;
-    private final PayPalClient payPalClient;
+    public final PayPalClient payPalClient;
     private final BookingClient bookingClient;
     private final TransactionMapper mapper;
 
@@ -72,21 +70,13 @@ public class TransactionService {
 
         PaymentStatus paymentStatus;
 
-        log.info("Capturing order with id: {}", orderId);
-
-        try{
-            paymentStatus = payPalClient.captureOrder(orderId);
-        }catch (IOException | InterruptedException exception){
-            log.error("Error occurred while capturing order with id: {}", orderId, exception);
-            throw new PaymentProcessingException("Error occurred while capturing order with id: " + orderId);
-        }
+        log.info("Creating transaction for orderId: {}", orderId);
 
         Optional<Transaction> existingTransaction = transactionRepository.findByTransactionReference(orderId);
 
         if(existingTransaction.isPresent()){
             Long transactionId = existingTransaction.get().getTransactionId();
             String transactionReference = existingTransaction.get().getTransactionReference();
-
             log.info("Transaction is already present for orderId: {}, updating status to {} if it is not completed", orderId, paymentStatus);
 
             return updateTransactionStatus(transactionId, paymentStatus, transactionReference);
@@ -249,5 +239,12 @@ public class TransactionService {
 
         return PageRequest.of(page, size, sort);
     }
+
+    public void handlePaypalWebhookEvent(String payload){
+
+        WebhookResponse response = payPalClient.handleWebhookEvent(payload);
+
+    }
+
 
 }

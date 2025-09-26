@@ -6,11 +6,11 @@ import lombok.extern.slf4j.Slf4j;
 @Getter
 @Slf4j
 public enum SortFields {
-    NAME("service_name"),
-    PROVIDER("service_provider_id"),
-    CATEGORY("service_category"),
-    PRICE("price_per_hour"),
-    LOCATION("city");
+    ID("serviceId"),
+    NAME("serviceName"),
+    PROVIDER("serviceProviderId"),
+    CATEGORY("serviceCategory"),
+    PRICE("servicePricePerHour");
 
     private final String field;
 
@@ -19,12 +19,45 @@ public enum SortFields {
     }
 
     public static SortFields fromString(String field) {
-        for (SortFields sortField : SortFields.values()) {
-            if (sortField.field.equalsIgnoreCase(field)) {
-                return sortField;
-            }
+        if (field == null) {
+            log.warn("Invalid sort field: null. Defaulting to NAME");
+            return NAME;
         }
-        log.warn("Invalid sort field: {}. Defaulting to NAME", field);
-        return NAME; // default sort field
+
+        String normalized = field.trim().toLowerCase();
+        // Accept common aliases and snake_case inputs from API/clients
+        switch (normalized) {
+            case "id":
+            case "serviceid":
+            case "service_id":
+                return ID;
+            case "name":
+            case "servicename":
+            case "service_name":
+                return NAME;
+            case "provider":
+            case "providerid":
+            case "serviceproviderid":
+            case "service_provider_id":
+                return PROVIDER;
+            case "category":
+            case "servicecategory":
+            case "service_category":
+                return CATEGORY;
+            case "price":
+            case "priceperhour":
+            case "servicepriceperhour":
+            case "service_price_per_hour":
+                return PRICE;
+            default:
+                // If the caller already passed a valid entity property name, try to match directly
+                for (SortFields sortField : SortFields.values()) {
+                    if (sortField.field.equalsIgnoreCase(field)) {
+                        return sortField;
+                    }
+                }
+                log.warn("Invalid sort field: {}. Defaulting to NAME", field);
+                return NAME; // default sort field
+        }
     }
 }

@@ -23,14 +23,23 @@ public interface ServiceItemRepository extends JpaRepository<ServiceItem, Long> 
     Page<ServiceItem> findAllByServicePricePerHourBetween(Double minPrice, Double maxPrice, Pageable pageable);
     
     
-    @Query("""
-            SELECT s FROM ServiceItem s
+    @Query(value = """
+            SELECT * FROM service_items s
             WHERE (6371 * acos(
-                cos(radians(:userLat)) * cos(radians(s.userLat)) *
-                cos(radians(s.userLong) - radians(:userLong)) +
-                sin(radians(:userLat)) * sin(radians(s.userLat))
+                cos(radians(:userLat)) * cos(radians(s.latitude)) *
+                cos(radians(s.longitude) - radians(:userLong)) +
+                sin(radians(:userLat)) * sin(radians(s.latitude))
             )) < :radius
-            """
+            """,
+           countQuery = """
+            SELECT COUNT(*) FROM service_items s
+            WHERE (6371 * acos(
+                cos(radians(:userLat)) * cos(radians(s.latitude)) *
+                cos(radians(s.longitude) - radians(:userLong)) +
+                sin(radians(:userLat)) * sin(radians(s.latitude))
+            )) < :radius
+            """,
+           nativeQuery = true
     )
     Page<ServiceItem> findNearbyServices(@Param("userLat") Double userLat,
                                          @Param("userLong") Double userLong,
