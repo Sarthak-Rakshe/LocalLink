@@ -5,7 +5,6 @@ import com.sarthak.AvailabilityService.dto.AvailabilityRulesDto;
 import com.sarthak.AvailabilityService.dto.BookedSlotsResponse;
 import com.sarthak.AvailabilityService.dto.ProviderExceptionDto;
 import com.sarthak.AvailabilityService.dto.Slot;
-import com.sarthak.AvailabilityService.dto.request.AvailabilitySlotsRequest;
 import com.sarthak.AvailabilityService.dto.request.DayAndTimeAvailabilityRequest;
 import com.sarthak.AvailabilityService.dto.response.AvailabilitySlotsResponse;
 import com.sarthak.AvailabilityService.exception.DuplicateEntityException;
@@ -701,3 +700,4 @@ public class AvailabilityService{
 
 
 }
+

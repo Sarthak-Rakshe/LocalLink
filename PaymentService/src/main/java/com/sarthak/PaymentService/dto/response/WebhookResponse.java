@@ -7,5 +7,5 @@ import lombok.Builder;
 public record WebhookResponse(
         String orderId,
         PaymentStatus paymentStatus,
-        String reason
+        String summary
 ) {}

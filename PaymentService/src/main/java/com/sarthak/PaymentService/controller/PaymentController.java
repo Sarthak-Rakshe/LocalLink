@@ -141,7 +141,7 @@ public class PaymentController {
     ){
         log.info("Received webhook: {}", payload);
 
-        boolean isValid = transactionService.payPalClient.verifyWebhookSignature(payload, signature, transmissionId,
+        boolean isValid = transactionService.verifyWebhookSignature(payload, signature, transmissionId,
                 transmissionTime, certUrl, authAlgo);
 
         if (isValid){

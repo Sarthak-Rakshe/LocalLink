@@ -108,67 +108,45 @@ public class PayPalClient {
         }
 
         String eventType = jsonNode.get("event_type").asText();
+        String summary = jsonNode.get("summary").asText();
 
-        Long orderId = jsonNode.get("resource").get("id").asLong();
-        String reasonCode = jsonNode.get("resource").has("reason_code") ?
-                jsonNode.get("resource").get("reason_code").asText() : null;
+        JsonNode resourceNode = jsonNode.get("resource");
 
+        String orderId = null;
+        if (resourceNode.has("supplementary_data") &&
+                resourceNode.get("supplementary_data").has("related_ids") &&
+                resourceNode.get("supplementary_data").get("related_ids").has("order_id")) {
+            orderId = resourceNode.get("supplementary_data").get("related_ids").get("order_id").asText();
+        }
 
+        PaymentStatus paymentStatus;
         switch (eventType){
             case  "PAYMENT.CAPTURE.COMPLETED" -> {
                 log.info("Processing event type: {} for orderId: {}", eventType, orderId);
-                return PaymentStatus.COMPLETED;
+                paymentStatus =  PaymentStatus.COMPLETED;
             }
-            case "PAYMENT.CAPTURE.DECLINED" -> {
-                String reasonCode = jsonNode.get("resource").get("reason_code").asText();
+            case "PAYMENT.CAPTURE.DECLINED", "PAYMENT.CAPTURE.DENIED" -> {
                 log.info("Processing event type: {} for orderId: {}", eventType, orderId);
-                return PaymentStatus.DECLINED;
+                paymentStatus = PaymentStatus.DECLINED;
             }
             case "PAYMENT.CAPTURE.PENDING" -> {
                 log.info("Processing event type: {} for orderId: {}", eventType, orderId);
-                return PaymentStatus.PENDING;
+                paymentStatus = PaymentStatus.PENDING;
             }
             default -> {
                 log.warn("Unhandled event type: {}", eventType);
                 throw new PayPalWebhookException("Unhandled event type: " + eventType);
             }
         }
+        return WebhookResponse.builder()
+                .orderId(orderId)
+                .paymentStatus(paymentStatus)
+                .summary(summary)
+                .build();
     }
 
     public boolean verifyWebhookSignature(String payload, String signature, String transmissionId, String transmissionTime, String certUrl, String authAlgo) {
         return true; //True for testing purposes
     }
-
-//    public PaymentStatus captureOrder(String orderId) throws IOException, InterruptedException{
-//        String accessToken = getAccessToken();
-//        log.info("Capturing order with ID: {}", orderId);
-//
-//        HttpRequest request = HttpRequest.newBuilder()
-//                .uri(URI.create(baseUrl + "/v2/checkout/orders/" + orderId + "/capture"))
-//                .header("Authorization", "Bearer " + accessToken)
-//                .header("Content-Type", "application/json")
-//                .POST(HttpRequest.BodyPublishers.noBody())
-//                .build();
-//
-//        log.info("Sending capture request to PayPal for order ID: {}", orderId);
-//        HttpResponse<String> response =
-//                httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-//
-//        log.info("Received capture response from PayPal for order ID: {}", orderId);
-//        JsonNode jsonNode = objectMapper.readTree(response.body());
-//
-//        String status = jsonNode.get("status").asText();
-//        log.info("Order ID: {} captured with status: {}", orderId, status);
-//        return mapPayPalStatusToPaymentStatus(status);
-//    }
-//
-//    private PaymentStatus mapPayPalStatusToPaymentStatus(String paypalStatus) {
-//        return switch (paypalStatus) {
-//            case "COMPLETED" -> PaymentStatus.COMPLETED;
-//            case "PENDING" -> PaymentStatus.PENDING;
-//            case "DECLINED" -> PaymentStatus.DECLINED;
-//            default -> PaymentStatus.FAILED;
-//        };
-//    }
 
 }

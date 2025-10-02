@@ -94,7 +94,6 @@ class TransactionServiceTest {
         // PaymentRequest(orderId, bookingId, customerId, amount, paymentMethod)
         PaymentRequest request = new PaymentRequest("order123", 1L, 1L, 500.0, "CREDIT_CARD");
 
-        when(payPalClient.captureOrder("order123")).thenReturn(PaymentStatus.COMPLETED);
         when(transactionRepository.findByTransactionReference("order123")).thenReturn(Optional.empty());
 
         Transaction savedTransaction = Transaction.builder()
@@ -126,7 +125,6 @@ class TransactionServiceTest {
                 .paymentStatus(PaymentStatus.PENDING)
                 .build();
 
-        when(payPalClient.captureOrder("order123")).thenReturn(PaymentStatus.COMPLETED);
         when(transactionRepository.findByTransactionReference("order123")).thenReturn(Optional.of(existingTransaction));
         when(transactionRepository.findById(1L)).thenReturn(Optional.of(existingTransaction));
         when(mapper.toDto(any(Transaction.class))).thenReturn(TransactionDto.builder().build());

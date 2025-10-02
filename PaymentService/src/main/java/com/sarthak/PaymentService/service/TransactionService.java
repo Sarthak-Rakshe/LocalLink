@@ -68,21 +68,18 @@ public class TransactionService {
     public TransactionDto processPayment(PaymentRequest paymentRequest){
         String orderId = paymentRequest.orderId();
 
-        PaymentStatus paymentStatus;
-
-        log.info("Creating transaction for orderId: {}", orderId);
+        PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
         Optional<Transaction> existingTransaction = transactionRepository.findByTransactionReference(orderId);
 
         if(existingTransaction.isPresent()){
             Long transactionId = existingTransaction.get().getTransactionId();
-            String transactionReference = existingTransaction.get().getTransactionReference();
             log.info("Transaction is already present for orderId: {}, updating status to {} if it is not completed", orderId, paymentStatus);
-
-            return updateTransactionStatus(transactionId, paymentStatus, transactionReference);
+            return updateTransactionStatus(transactionId, paymentStatus);
 
         }
 
+        log.info("Creating transaction for orderId: {}", orderId);
         PaymentMethod paymentMethod = PaymentMethod.valueOf(paymentRequest.paymentMethod().toUpperCase());
 
         Transaction newTransaction = Transaction.builder()
@@ -197,7 +194,7 @@ public class TransactionService {
         return transactions.map(mapper::toDto);
     }
 
-    public TransactionDto updateTransactionStatus(Long transactionId, PaymentStatus updatedStatus, String updatedTransactionReference){
+    public TransactionDto updateTransactionStatus(Long transactionId, PaymentStatus updatedStatus){
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(()-> new TransactionNotFoundException("Transaction not found with id: " + transactionId));
 
@@ -212,7 +209,7 @@ public class TransactionService {
                 .amount(transaction.getAmount())
                 .paymentMethod(transaction.getPaymentMethod())
                 .paymentStatus(updatedStatus)
-                .transactionReference(updatedTransactionReference)
+                .transactionReference(transaction.getTransactionReference())
                 .build();
 
         transactionRepository.save(updatedTransaction);
@@ -241,9 +238,16 @@ public class TransactionService {
     }
 
     public void handlePaypalWebhookEvent(String payload){
-
         WebhookResponse response = payPalClient.handleWebhookEvent(payload);
+        Long transactionId = transactionRepository.findByTransactionReference(response.orderId())
+                .orElseThrow(()-> new TransactionNotFoundException("Transaction not found with reference: " + response.orderId()))
+                .getTransactionId();
+        updateTransactionStatus(transactionId, response.paymentStatus());
 
+    }
+
+    public boolean verifyWebhookSignature(String payload, String signature, String transmissionId, String transmissionTime, String certUrl, String authAlgo){
+        return payPalClient.verifyWebhookSignature(payload, signature, transmissionId, transmissionTime, certUrl, authAlgo);
     }
 
 

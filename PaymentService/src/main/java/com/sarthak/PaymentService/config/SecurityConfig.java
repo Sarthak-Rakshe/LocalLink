@@ -38,10 +38,10 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/payments/**").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/payments/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/payments/**").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/api/payments/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/payments/**").authenticated()
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()
                 )
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 .addFilterBefore(jwtValidationFilter, UsernamePasswordAuthenticationFilter.class);
