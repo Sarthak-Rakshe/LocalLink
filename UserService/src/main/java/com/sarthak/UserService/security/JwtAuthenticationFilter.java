@@ -1,8 +1,6 @@
 package com.sarthak.UserService.security;
 
 import com.sarthak.UserService.model.UserPrincipal;
-import com.sarthak.UserService.model.UserRole;
-import com.sarthak.UserService.model.UserType;
 import com.sarthak.UserService.service.UserService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
