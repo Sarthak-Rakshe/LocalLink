@@ -21,55 +21,14 @@ import java.util.List;
 @Slf4j
 public class CleanupService {
 
-    private final PayPalClient payPalClient;
     private final TransactionRepository transactionRepository;
     private final TransactionService transactionService;
-    private final long UPDATE_INTERVAL_MS = 5 * 60 * 100; // 5 minutes
-    private final long CLEANUP_INTERVAL_MS = 60 * 1000; // 1 minute
+    private final long CLEANUP_INTERVAL_MS = 300 * 1000; //  5 minutes
 
-    public CleanupService(PayPalClient payPalClient, TransactionRepository transactionRepository, TransactionService transactionService) {
-        this.payPalClient = payPalClient;
+    public CleanupService(TransactionRepository transactionRepository, TransactionService transactionService) {
         this.transactionRepository = transactionRepository;
         this.transactionService = transactionService;
     }
-
-//    @Scheduled(fixedRate = UPDATE_INTERVAL_MS)
-//    public void updatePendingTransactions(){
-//        log.debug("Scheduled task started: Checking pending transactions with PayPal");
-//        List<Transaction> pendingTransactions = transactionRepository
-//                .findAllByPaymentStatus(PaymentStatus.PENDING, Pageable.unpaged()).getContent()
-//                .stream()
-//                .filter(t -> t.getPaymentMethod() != PaymentMethod.CASH)
-//                .toList();
-//
-//        int batchSize = 30;
-//        List<List<Transaction>> batches = partitionList(pendingTransactions, batchSize);
-//        for (List<Transaction> batch : batches) {
-//            log.debug("Processing batch of size: {}", batch.size());
-//            updateStatusBatchwise(batch);
-//            log.debug("Completed processing batch of size: {}", batch.size());
-//        }
-//    }
-//
-//    @Transactional(propagation = Propagation.REQUIRES_NEW)
-//    public void updateStatusBatchwise(List<Transaction> batch) {
-//        batch.forEach(t -> {
-//            try {
-//            PaymentStatus status = payPalClient.captureOrder(t.getTransactionReference());
-//
-//            if (status == PaymentStatus.COMPLETED) {
-//                transactionService.updateTransactionStatus(t.getTransactionId(), PaymentStatus.COMPLETED, t.getTransactionReference());
-//                log.debug("Updated transaction with id: {} to COMPLETED", t.getTransactionId());
-//            } else if (status == PaymentStatus.DECLINED || status == PaymentStatus.FAILED) {
-//                transactionService.updateTransactionStatus(t.getTransactionId(), status, t.getTransactionReference());
-//                log.debug("Updated transaction with id: {} to {}", t.getTransactionId(), status);
-//            }
-//        } catch (Exception e) {
-//            log.error("Error checking status for transaction with id: {}. Error: {}", t.getTransactionId(), e.getMessage());
-//        }
-//        });
-//
-//    }
 
     @Scheduled(fixedRate = CLEANUP_INTERVAL_MS)
     public void clearPendingTransactions(){
@@ -116,6 +75,4 @@ public class CleanupService {
 
         return partitions;
     }
-
-
 }
