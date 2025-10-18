@@ -13,8 +13,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Objects;
 
 @Slf4j
 @Service
@@ -22,6 +27,7 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final ReviewAggregateRepository reviewAggregateRepository;
     private final ReviewMapper reviewMapper;
+    private final List<String> ALLOWED_SORT_FIELDS = List.of("reviewId", "createdAt", "updatedAt", "rating");
 
     public ReviewService(ReviewRepository reviewRepository, ReviewMapper reviewMapper, ReviewAggregateRepository reviewAggregateRepository) {
         this.reviewRepository = reviewRepository;
@@ -38,35 +44,38 @@ public class ReviewService {
         }
 
         Review review = reviewMapper.mapToEntity(reviewDto);
-        ReviewAggregate aggregate = reviewAggregateRepository.findByServiceProviderIdAndServiceId(review.getServiceProviderId(),review.getServiceId())
+        log.info("Saving review: {}", review);
+        Review savedReview = reviewRepository.save(review);
+        ReviewAggregate aggregate =
+                reviewAggregateRepository.findByServiceProviderIdAndServiceId(savedReview.getServiceProviderId(),
+                                savedReview.getServiceId())
                 .orElse(
                         ReviewAggregate.builder()
-                                .serviceProviderId(review.getServiceProviderId())
-                                .serviceId(review.getServiceId())
+                                .serviceProviderId(savedReview.getServiceProviderId())
+                                .serviceId(savedReview.getServiceId())
                                 .averageRating(0.0)
                                 .totalReviews(0L)
                                 .build()
                 );
         log.info("Current aggregate before adding review: {}", aggregate);
-        aggregate.addReview(review.getRating());
+        aggregate.addReview(savedReview.getRating());
         reviewAggregateRepository.save(aggregate);
         log.info("Updated aggregate after adding review: {}", aggregate);
-        log.info("Saving review: {}", review);
-        return reviewMapper.mapToDto(reviewRepository.save(review));
+        return reviewMapper.mapToDto(savedReview);
     }
 
-    public ReviewDto getById(Long reviewId){
-        Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(()-> new EntityNotFoundException("Review not found"));
-        return reviewMapper.mapToDto(review);
+    public Page<ReviewDto> getReviewsByServiceProviderId(Long userId, int page, int size, String sortBy, String sortDir){
+        Pageable pageable = getPageable(page, size, sortBy, sortDir);
+        Page<Review> reviews = reviewRepository.findAllByServiceProviderId(userId, pageable);
+        return reviews.map(reviewMapper::mapToDto);
     }
 
-    public Page<ReviewDto> getReviewsForService(Long serviceId, int page, int size){
-        PageRequest pr = PageRequest.of(page, size);
+    public Page<ReviewDto> getReviewsForService(Long serviceId, int page, int size, String sortBy, String sortDir){
+        Pageable pageable = getPageable(page, size, sortBy, sortDir);
 
         log.info("Fetching reviews for serviceId: {} with page: {} and size: {}", serviceId, page, size);
 
-        return reviewRepository.findAllByServiceId(serviceId, pr)
+        return reviewRepository.findAllByServiceId(serviceId, pageable)
                 .map(r -> ReviewDto.builder()
                         .reviewId(r.getReviewId())
                         .serviceProviderId(r.getServiceProviderId())
@@ -78,11 +87,11 @@ public class ReviewService {
                 );
     }
 
-    public Page<ReviewDto> getReviewsForCustomer(Long customerId, int page, int size){
-        Pageable pg = PageRequest.of(page, size);
+    public Page<ReviewDto> getReviewsForCustomer(Long customerId, int page, int size, String sortBy, String sortDir){
+        Pageable pageable = getPageable(page, size, sortBy, sortDir);
 
         log.info("Fetching reviews for customerId: {} with page: {} and size: {}", customerId, page, size);
-        return reviewRepository.findAllByCustomerId(customerId, pg)
+        return reviewRepository.findAllByCustomerId(customerId, pageable)
                 .map(r -> ReviewDto.builder()
                         .reviewId(r.getReviewId())
                         .serviceProviderId(r.getServiceProviderId())
@@ -95,10 +104,14 @@ public class ReviewService {
     }
 
     @Transactional
-    public ReviewDto updateReview(Long reviewId, ReviewDto reviewDto){
+    public ReviewDto updateReview(Long reviewId, ReviewDto reviewDto, Long userId){
         log.info("Updating review with id: {} using data: {}", reviewId, reviewDto);
         Review existing = reviewRepository.findById(reviewId)
                 .orElseThrow(()-> new EntityNotFoundException("Review not found"));
+        if(!Objects.equals(existing.getCustomerId(), userId)){
+            log.error("Unauthorized update attempt by user {} on review {}", userId, reviewId);
+            throw new AccessDeniedException("You are not allowed to update this review");
+        }
 
         log.info("Existing review found: {}", existing);
         ReviewAggregate aggregate = reviewAggregateRepository.findByServiceProviderIdAndServiceId(existing.getServiceProviderId(), existing.getServiceId())
@@ -120,10 +133,15 @@ public class ReviewService {
     }
 
     @Transactional
-    public void deleteReview(Long reviewId){
+    public void deleteReview(Long reviewId, Long userId){
         log.info("Deleting review with id: {}", reviewId);
         Review existing = reviewRepository.findById(reviewId)
                 .orElseThrow(()-> new EntityNotFoundException("Review not found"));
+
+        if (!Objects.equals(existing.getCustomerId(), userId)) {
+            log.error("Unauthorized delete attempt by user {} on review {}", userId, reviewId);
+            throw new AccessDeniedException("You are not allowed to delete this review");
+        }
 
         ReviewAggregate aggregate = reviewAggregateRepository.findByServiceProviderIdAndServiceId(existing.getServiceProviderId(), existing.getServiceId())
                 .orElseThrow(()-> new EntityNotFoundException("Review aggregate not found"));
@@ -157,5 +175,22 @@ public class ReviewService {
                         .averageRating(0.0)
                         .totalReviews(0L)
                         .build());
+    }
+
+    private Pageable getPageable(int page, int size, String sortBy, String sortDir) {
+        if (page < 0) page = 0;
+        if (size <= 0) size = 10; // default page size
+        if(sortBy == null || sortBy.isEmpty()) sortBy = "createdAt";
+        String sortDirNormalized = (sortDir != null) ? sortDir.toLowerCase() : "desc";
+
+        if (!sortDirNormalized.equals("asc") && !sortDirNormalized.equals("desc")) {
+            sortDirNormalized = "desc"; // default to descending if invalid
+        }
+
+        String sortField = ALLOWED_SORT_FIELDS.contains(sortBy) ? sortBy : "createdAt";
+
+        Sort sort = sortDirNormalized.equals("asc") ? Sort.by(sortField).ascending() : Sort.by(sortField).descending();
+
+        return PageRequest.of(page, size, sort);
     }
 }

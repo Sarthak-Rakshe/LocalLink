@@ -10,6 +10,5 @@ public record PagedResponse <T>(
         int pageNumber,
         int pageSize,
         long totalElements,
-        int totalPages,
-        boolean isLastPage
+        int totalPages
 ) {}

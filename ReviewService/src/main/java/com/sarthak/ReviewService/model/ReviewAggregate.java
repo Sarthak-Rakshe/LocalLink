@@ -1,7 +1,7 @@
 package com.sarthak.ReviewService.model;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,19 +22,19 @@ public class ReviewAggregate {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long aggregateId;
 
-    @NotBlank
+    @NotNull
     @Column(name = "service_provider_id", nullable = false)
     private Long serviceProviderId;
 
-    @NotBlank
+    @NotNull
     @Column(name = "service_id", nullable = false)
     private Long serviceId;
 
-    @NotBlank
+    @NotNull
     @Column(name = "average_rating", nullable = false)
     private Double averageRating;
 
-    @NotBlank
+    @NotNull
     @Column(name = "total_reviews", nullable = false)
     private Long totalReviews;
 

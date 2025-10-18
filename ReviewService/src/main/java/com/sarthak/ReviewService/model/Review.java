@@ -9,7 +9,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.validator.constraints.Range;
-import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Instant;
 
@@ -46,7 +45,6 @@ public class Review {
     private Long customerId;
 
     @NotNull
-    @NotBlank
     @Column(name = "rating", nullable = false)
     @Range(min = 1, max = 5, message = "Rating must be between 1 and 5")
     private Integer rating;

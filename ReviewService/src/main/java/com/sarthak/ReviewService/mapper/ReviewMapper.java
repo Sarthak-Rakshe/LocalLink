@@ -24,14 +24,11 @@ public class ReviewMapper {
 
     public Review mapToEntity(ReviewDto reviewDto) {
         return Review.builder()
-                .reviewId(reviewDto.reviewId())
                 .serviceProviderId(reviewDto.serviceProviderId())
                 .serviceId(reviewDto.serviceId())
                 .customerId(reviewDto.customerId())
                 .rating(reviewDto.rating())
                 .comment(reviewDto.comment())
-                .createdAt(Instant.parse(reviewDto.createdAt()))
-                .updatedAt(Instant.parse(reviewDto.updatedAt()))
                 .build();
     }
 }

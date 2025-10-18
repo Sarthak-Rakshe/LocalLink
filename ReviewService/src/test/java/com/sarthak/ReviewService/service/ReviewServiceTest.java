@@ -10,7 +10,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -128,7 +127,7 @@ class ReviewServiceTest {
                 .build();
         when(reviewRepository.findById(1L)).thenReturn(Optional.of(entity));
 
-        ReviewDto dto = reviewService.getById(1L);
+        ReviewDto dto = reviewService.getReviewsByServiceProviderId(1L);
         assertThat(dto).isNotNull();
         assertThat(dto.reviewId()).isEqualTo(1L);
         assertThat(dto.comment()).isEqualTo("Great job");
@@ -137,7 +136,7 @@ class ReviewServiceTest {
     @Test
     void getById_whenMissing_throwsEntityNotFound() {
         when(reviewRepository.findById(404L)).thenReturn(Optional.empty());
-        assertThrows(EntityNotFoundException.class, () -> reviewService.getById(404L));
+        assertThrows(EntityNotFoundException.class, () -> reviewService.getReviewsByServiceProviderId(404L));
     }
 
     @Test
@@ -150,7 +149,7 @@ class ReviewServiceTest {
         Page<Review> page = new PageImpl<>(reviews, pr, 2);
         when(reviewRepository.findAllByServiceId(eq(20L), any(PageRequest.class))).thenReturn(page);
 
-        Page<ReviewDto> dtoPage = reviewService.getReviewsForService(20L, 0, 2);
+        Page<ReviewDto> dtoPage = reviewService.getReviewsForService(20L, 0, 2, sortBy, sortDir);
         assertThat(dtoPage.getTotalElements()).isEqualTo(2);
         assertThat(dtoPage.getContent()).extracting(ReviewDto::reviewId).containsExactly(1L, 2L);
         assertThat(dtoPage.getContent()).extracting(ReviewDto::rating).containsExactly(4, 5);
@@ -167,7 +166,7 @@ class ReviewServiceTest {
         Page<Review> page = new PageImpl<>(reviews, pr, 3);
         when(reviewRepository.findAllByCustomerId(eq(55L), any(PageRequest.class))).thenReturn(page);
 
-        Page<ReviewDto> dtoPage = reviewService.getReviewsForCustomer(55L, 1, 3);
+        Page<ReviewDto> dtoPage = reviewService.getReviewsForCustomer(55L, 1, 3, sortBy, sortDir);
         assertThat(dtoPage.getContent()).hasSize(3);
         assertThat(dtoPage.getContent()).extracting(ReviewDto::reviewId).containsExactly(3L, 4L, 5L);
         assertThat(dtoPage.getContent()).extracting(ReviewDto::comment).containsExactly("Bad", "Okay", "Awesome");
