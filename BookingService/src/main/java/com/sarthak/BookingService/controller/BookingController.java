@@ -43,7 +43,6 @@ public class BookingController {
         );
     }
 
-
     @GetMapping("/serviceProvider/{serviceProviderId}")
     public ResponseEntity<List<BookingDto>> getBookingsByServiceProviderId(@PathVariable Long serviceProviderId,
                                                                            @RequestParam LocalDate date) {
@@ -81,20 +80,11 @@ public class BookingController {
         return ResponseEntity.status(HttpStatus.CREATED).body(bookingService.bookService(bookingDto));
     }
 
-    @PostMapping("/{bookingId}/confirm")
-    public ResponseEntity<BookingDto> confirmBooking(@PathVariable("bookingId") Long bookingId) {
-        return ResponseEntity.ok(bookingService.confirmBooking(bookingId));
-    }
-
-    @PostMapping("/{bookingId}/cancel")
-    public ResponseEntity<BookingDto> cancelBooking(@PathVariable("bookingId") Long bookingId) {
-        return ResponseEntity.ok(bookingService.cancelBooking(bookingId));
-    }
-
-    @PostMapping("/{bookingId}/complete")
-    public ResponseEntity<BookingDto> completeBooking(@PathVariable("bookingId") Long bookingId) {
-        return ResponseEntity.ok(bookingService.completeBooking(bookingId));
-    }
+   @PostMapping("/{bookingId}/updateStatus/{status}")
+   public ResponseEntity<BookingDto> updateBookingStatus(@PathVariable("bookingId") Long bookingId,
+                                                       @PathVariable("status") String status) {
+       return ResponseEntity.ok(bookingService.updateBookingStatus(bookingId, status));
+   }
 
     @PostMapping("/{bookingId}/reschedule")
     public ResponseEntity<BookingDto> rescheduleBooking(@PathVariable("bookingId") Long bookingId,
@@ -102,10 +92,9 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.rescheduleBooking(bookingId, request));
     }
 
-
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBooking(@PathVariable Long id) {
-        bookingService.deleteBooking(id);
+        bookingService.updateBookingStatus(id,"DELETED");
         return ResponseEntity.noContent().build();
     }
 }

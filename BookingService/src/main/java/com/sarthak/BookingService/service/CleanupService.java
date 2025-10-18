@@ -24,7 +24,6 @@ public class CleanupService {
         this.bookingRepository = bookingRepository;
     }
 
-
     @Transactional
     @Scheduled(fixedRate = SCHEDULE_TIME_IN_SECONDS) // Runs every 60 seconds
     public void cancelPendingBookings(){

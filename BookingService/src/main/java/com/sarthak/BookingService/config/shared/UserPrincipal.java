@@ -27,11 +27,11 @@ public class UserPrincipal implements UserDetails {
     public Collection<? extends GrantedAuthority> getAuthorities() {
         if(authorities != null && !authorities.isEmpty()){
             return authorities.stream()
-                    .map(auth -> new SimpleGrantedAuthority("ROLE_" + auth))
+                    .map(SimpleGrantedAuthority::new)
                     .toList();
         }
 
-        return userRole != null ? List.of(new SimpleGrantedAuthority("ROLE_" + userRole)) : List.of();
+        return userRole != null ? List.of(new SimpleGrantedAuthority(userRole)) : List.of();
     }
 
     @Override

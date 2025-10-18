@@ -21,6 +21,8 @@ import com.sarthak.BookingService.dto.response.AvailabilityStatusResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +45,8 @@ public class BookingService {
     private final BookingRepository bookingRepository;
     private final BookingMapper bookingMapper;
     private final AvailabilityServiceClient availabilityServiceClient;
+    private final Set<String> ALLOWED_SORT_FIELDS = Set.of("bookingId", "serviceProviderId", "serviceId",
+            "customerId", "bookingDate", "bookingStartTime", "bookingEndTime", "bookingStatus", "createdAt");
 
     public BookingService(BookingRepository bookingRepository, BookingMapper bookingMapper, AvailabilityServiceClient availabilityServiceClient) {
         this.bookingRepository = bookingRepository;
@@ -56,7 +60,6 @@ public class BookingService {
         log.info("Fetched booking details for bookingId: {}", bookingId);
         return bookingMapper.toDto(booking);
     }
-
 
     public List<BookingDto> getAllByServiceProviderIdAndDate(Long serviceProviderId, LocalDate date){
         List<Booking> bookings = bookingRepository.findAllByServiceProviderIdAndBookingDateOrderByBookingStartTime(serviceProviderId,
@@ -210,7 +213,7 @@ public class BookingService {
 
     //After payment is successful
     @Transactional
-    public BookingDto confirmBooking(Long bookingId){
+    private BookingDto confirmBooking(Long bookingId){
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(()-> new BookingNotFoundException("Booking not found"));
         booking.setBookingStatus(BookingStatus.CONFIRMED);
@@ -221,7 +224,7 @@ public class BookingService {
 
     //For cancelling a booking
     @Transactional
-    public BookingDto cancelBooking(Long bookingId){
+    private BookingDto cancelBooking(Long bookingId){
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(()-> new BookingNotFoundException("Booking not found"));
         booking.setBookingStatus(CANCELLED);
@@ -232,7 +235,7 @@ public class BookingService {
 
     //After service is delivered
     @Transactional
-    public BookingDto completeBooking(Long bookingId){
+    private BookingDto completeBooking(Long bookingId){
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(()-> new BookingNotFoundException("Booking not found"));
         booking.setBookingStatus(COMPLETED);
@@ -360,5 +363,42 @@ public class BookingService {
         return bookingMapper.toDto(savedBooking);
     }
 
+    public BookingDto updateBookingStatus(Long bookingId, String status) {
+        log.info("Updating booking status for bookingId: {} to status: {}", bookingId, status);
+        Booking existingBooking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new BookingNotFoundException("Booking not found"));
 
+        String currentStatus = existingBooking.getBookingStatus().name();
+        if(currentStatus.equals("COMPLETED") || currentStatus.equals("DELETED")){
+            log.error("Cannot update status for completed or deleted booking with bookingId: {}", bookingId);
+            throw new IllegalStateException("Cannot update status for completed or deleted booking");
+        }
+        return switch (status.toUpperCase()) {
+            case "CONFIRMED" -> confirmBooking(bookingId);
+            case "CANCELLED" -> cancelBooking(bookingId);
+            case "COMPLETED" -> completeBooking(bookingId);
+            case "DELETED"   -> {
+                deleteBooking(bookingId);
+                yield null;
+            }
+            default -> throw new IllegalArgumentException("Invalid booking status: " + status);
+        };
+    }
+
+    private Pageable getPageable(int page, int size, String sortBy, String sortDir) {
+        if (page < 0) page = 0;
+        if (size <= 0) size = 10; // default page size
+        if(sortBy == null || sortBy.isEmpty()) sortBy = "createdAt";
+        String sortDirNormalized = (sortDir != null) ? sortDir.toLowerCase() : "desc";
+
+        if (!sortDirNormalized.equals("asc") && !sortDirNormalized.equals("desc")) {
+            sortDirNormalized = "desc"; // default to descending if invalid
+        }
+
+        String sortField = ALLOWED_SORT_FIELDS.contains(sortBy) ? sortBy : "createdAt";
+
+        Sort sort = sortDirNormalized.equals("asc") ? Sort.by(sortField).ascending() : Sort.by(sortField).descending();
+
+        return PageRequest.of(page, size, sort);
+    }
 }
