@@ -83,6 +83,7 @@ public class JwtUtil {
         Map<String, Object> claims = new HashMap<>();
         claims.put("role", userPrincipal.getAuthorities().iterator().next().getAuthority());
         claims.put("type", userPrincipal.getUserType());
+        claims.put("userId", userPrincipal.getId());
         return createToken(claims, userPrincipal.getUsername(), jwtExpirationInMs);
     }
 
