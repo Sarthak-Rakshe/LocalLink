@@ -128,13 +128,19 @@ public class ServiceItemsService {
                       serviceItemDto.serviceName(), existingService.getServiceProviderId());
             throw new DuplicateServiceException("Another service with the same name exists for this provider");
         }else {
-            existingService.setServiceName(serviceItemDto.serviceName());
+            existingService.setServiceName(serviceItemDto.serviceName() != null
+                    ? serviceItemDto.serviceName() : existingService.getServiceName());
         }
-        existingService.setServiceDescription(serviceItemDto.serviceDescription());
-        existingService.setServiceCategory(serviceItemDto.serviceCategory());
-        existingService.setServicePricePerHour(serviceItemDto.servicePricePerHour());
-        existingService.setLatitude(serviceItemDto.latitude());
-        existingService.setLongitude(serviceItemDto.longitude());
+        existingService.setServiceDescription(serviceItemDto.serviceDescription() != null
+                ? serviceItemDto.serviceDescription() : existingService.getServiceDescription());
+        existingService.setServiceCategory(serviceItemDto.serviceCategory() != null
+                ? serviceItemDto.serviceCategory() : existingService.getServiceCategory());
+        existingService.setServicePricePerHour(serviceItemDto.servicePricePerHour() != 0.0
+                ? serviceItemDto.servicePricePerHour() : existingService.getServicePricePerHour());
+        existingService.setLatitude(serviceItemDto.latitude() != null
+                ? serviceItemDto.latitude() : existingService.getLatitude());
+        existingService.setLongitude(serviceItemDto.longitude() != null
+                ? serviceItemDto.longitude() : existingService.getLongitude());
 
         ServiceItem updatedService = serviceItemRepository.save(existingService);
         log.info("Service with id {} updated successfully", id);

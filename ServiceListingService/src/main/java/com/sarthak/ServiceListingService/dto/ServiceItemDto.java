@@ -9,8 +9,7 @@ import lombok.Setter;
 
 @Builder
 public record ServiceItemDto (
-
-        @NotNull Long serviceId,
+        Long serviceId,
 
         @NotNull String serviceName,
 
