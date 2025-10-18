@@ -13,6 +13,10 @@ import lombok.*;
 public class UserRegistrationRequest {
 
     @NotNull(message = "Username is required")
+    @Pattern(
+            regexp = "^[a-zA-Z0-9_]+$",
+            message = "Username must contain only letters, numbers, or underscores without spaces"
+    )
     private String userName;
 
     @NotNull(message = "Email is required")

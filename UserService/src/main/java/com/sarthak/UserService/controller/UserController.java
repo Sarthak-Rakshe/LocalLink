@@ -6,6 +6,7 @@ import com.sarthak.UserService.dto.response.UserResponse;
 import com.sarthak.UserService.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -28,6 +29,10 @@ public class UserController {
 
     @GetMapping("/profile")
     public ResponseEntity<UserResponse> getUserProfile(Authentication authentication) {
+        if(authentication == null || !authentication.isAuthenticated()){
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String name = authentication.getName();
         UserResponse userResponse = userService.getCurrentUser(authentication.getName());
         return ResponseEntity.ok(userResponse);
     }

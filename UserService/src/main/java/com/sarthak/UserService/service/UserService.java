@@ -174,6 +174,7 @@ public class UserService implements UserDetailsService {
                 .userPassword(passwordEncoderConfig.passwordEncoder().encode(password))
                 .userType(fromString(type))
                 .userRole(UserRole.USER)
+                .userAddress(request.getUserAddress())
                 .build();
 
         User savedUser = userRepository.save(user);
