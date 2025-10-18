@@ -14,6 +14,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.access.AccessDeniedException;
+
+import java.util.Objects;
 
 @Slf4j
 @Service
@@ -49,7 +52,6 @@ public class ServiceItemsService {
         log.info("Fetching services for provider id: {} - page: {}, size: {}", providerId, page, size);
 
         Pageable pageable = getPageable(page, size, sortBy, sortDir);
-        
 
         Page<ServiceItem> services = serviceItemRepository.findAllByServiceProviderId(providerId, pageable);
         log.debug("Fetched {} services for provider id: {}", services.getNumberOfElements(), providerId);
@@ -106,10 +108,14 @@ public class ServiceItemsService {
     }
 
     @Transactional
-    public ServiceItemDto updateService(Long id, ServiceItemDto serviceItemDto){
+    public ServiceItemDto updateService(Long id, ServiceItemDto serviceItemDto, Long userId){
         log.info("Updating service with id: {}", id);
         ServiceItem existingService = serviceItemRepository.findById(id)
                 .orElseThrow(()-> new ServiceNotFoundException("Service not found for id: " + id));
+        if(!Objects.equals(userId, existingService.getServiceProviderId())){
+            log.error("User id {} is not authorized to update service id {}", userId, id);
+            throw new AccessDeniedException("You are not authorized to update this service");
+        }
 
         boolean existsWithSameName = serviceItemRepository
                         .findByServiceNameAndServiceProviderId(serviceItemDto.serviceName(),
@@ -136,11 +142,16 @@ public class ServiceItemsService {
     }
 
     @Transactional
-    public void deleteService(Long id){
+    public void deleteService(Long id, Long userId){
         log.info("Deleting service with id: {}", id);
         if (!serviceItemRepository.existsById(id)){
             log.error("Service with id {} not found for deletion", id);
             throw new ServiceNotFoundException("Service not found for id: " + id);
+        }
+        ServiceItem existingService = serviceItemRepository.findById(id).get();
+        if(!Objects.equals(userId, existingService.getServiceProviderId())){
+            log.error("User id {} is not authorized to delete service id {}", userId, id);
+            throw new AccessDeniedException("You are not authorized to delete this service");
         }
         serviceItemRepository.deleteById(id);
         log.info("Service with id {} deleted successfully", id);

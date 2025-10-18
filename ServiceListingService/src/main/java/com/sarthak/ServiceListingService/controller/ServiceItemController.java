@@ -1,10 +1,14 @@
 package com.sarthak.ServiceListingService.controller;
 
+import com.sarthak.ServiceListingService.config.shared.UserPrincipal;
 import com.sarthak.ServiceListingService.dto.ServiceItemDto;
 import com.sarthak.ServiceListingService.dto.response.PagedResponse;
 import com.sarthak.ServiceListingService.service.ServiceItemsService;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -96,23 +100,27 @@ public class ServiceItemController {
     }
 
     @PostMapping()
+    @PreAuthorize("principal.userType.equals('PROVIDER')")
     public ResponseEntity<ServiceItemDto> addService(@RequestBody ServiceItemDto serviceItemDto){
         ServiceItemDto saved = serviceItemsService.createService(serviceItemDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     @PutMapping("/{serviceId}")
+    @PreAuthorize("principal.userType.equals('PROVIDER')")
     public ResponseEntity<ServiceItemDto> updateService(@PathVariable Long serviceId,
-                                                        @RequestBody ServiceItemDto serviceItemDto){
-        ServiceItemDto updated = serviceItemsService.updateService(serviceId, serviceItemDto);
+                                                        @RequestBody ServiceItemDto serviceItemDto,
+                                                        Authentication authentication){
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        ServiceItemDto updated = serviceItemsService.updateService(serviceId, serviceItemDto, userPrincipal.getUserId());
         return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{serviceId}")
-    public ResponseEntity<Void> deleteService(@PathVariable Long serviceId) {
-        serviceItemsService.deleteService(serviceId);
+    @PreAuthorize("principal.userType.equals('PROVIDER')")
+    public ResponseEntity<Void> deleteService(@PathVariable Long serviceId, Authentication authentication) {
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        serviceItemsService.deleteService(serviceId, userPrincipal.getUserId());
         return ResponseEntity.noContent().build();
     }
-
-
 }

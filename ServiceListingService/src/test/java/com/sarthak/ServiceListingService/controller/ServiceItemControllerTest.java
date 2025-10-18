@@ -95,7 +95,7 @@ class ServiceItemControllerTest {
     @Test
     @DisplayName("DELETE /api/services?id=ID returns 200 on success")
     void deleteService_success() throws Exception {
-        when(serviceItemsService.deleteService(5L)).thenReturn("Service deleted successfully");
+        when(serviceItemsService.deleteService(5L, userPrincipal.getUserId())).thenReturn("Service deleted successfully");
 
         mockMvc.perform(delete("/api/services").param("id", "5"))
                 .andExpect(status().isOk())
@@ -105,7 +105,7 @@ class ServiceItemControllerTest {
     @Test
     @DisplayName("DELETE /api/services?id=ID returns 404 when not found")
     void deleteService_notFound() throws Exception {
-        when(serviceItemsService.deleteService(eq(55L))).thenThrow(new ServiceNotFoundException("Service not found"));
+        when(serviceItemsService.deleteService(eq(55L), userPrincipal.getUserId())).thenThrow(new ServiceNotFoundException("Service not found"));
 
         mockMvc.perform(delete("/api/services").param("id", "55"))
                 .andExpect(status().isNotFound())
