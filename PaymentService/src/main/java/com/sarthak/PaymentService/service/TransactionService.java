@@ -2,8 +2,10 @@ package com.sarthak.PaymentService.service;
 
 import com.sarthak.PaymentService.client.BookingClient;
 import com.sarthak.PaymentService.client.PayPalClient;
+import com.sarthak.PaymentService.config.shared.UserPrincipal;
 import com.sarthak.PaymentService.dto.BookingDto;
 import com.sarthak.PaymentService.dto.TransactionDto;
+import com.sarthak.PaymentService.dto.request.TransactionFilter;
 import com.sarthak.PaymentService.dto.request.PaymentRequest;
 import com.sarthak.PaymentService.dto.response.CreateOrderResponse;
 import com.sarthak.PaymentService.dto.response.WebhookResponse;
@@ -14,16 +16,22 @@ import com.sarthak.PaymentService.enums.PaymentMethod;
 import com.sarthak.PaymentService.enums.PaymentStatus;
 import com.sarthak.PaymentService.model.Transaction;
 import com.sarthak.PaymentService.repository.TransactionRepository;
+import com.sarthak.PaymentService.repository.specification.TransactionSpecification;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.Optional;
+
+import static com.sarthak.PaymentService.enums.PaymentStatus.COMPLETED;
+import static javax.management.remote.JMXConnectionNotification.FAILED;
 
 
 @Service
@@ -76,7 +84,6 @@ public class TransactionService {
             Long transactionId = existingTransaction.get().getTransactionId();
             log.info("Transaction is already present for orderId: {}, updating status to {} if it is not completed", orderId, paymentStatus);
             return updateTransactionStatus(transactionId, paymentStatus);
-
         }
 
         log.info("Creating transaction for orderId: {}", orderId);
@@ -91,105 +98,34 @@ public class TransactionService {
                 .transactionReference(orderId)
                 .build();
 
-
         Transaction saved = transactionRepository.save(newTransaction);
         log.info("Transaction with id: {} and reference: {} processed with status: {}", saved.getTransactionId(),
                 saved.getTransactionReference(), saved.getPaymentStatus());
 
-        log.info("Confirming booking with id: {} via BookingClient", paymentRequest.bookingId());
-        BookingDto confirmedBooking = bookingClient.confirmBooking(paymentRequest.bookingId());
-
-        if(confirmedBooking == null){
-            log.error("Failed to confirm booking with id: {} via BookingClient", paymentRequest.bookingId());
-            throw  new BookingClientException("Booking client failed to confirm booking with id: " + paymentRequest.bookingId());
-        }
-        log.info("Booking with id: {} confirmed via BookingClient", paymentRequest.bookingId());
-
         return mapper.toDto(saved);
     }
 
-
-    public Page<TransactionDto> getAllTransactions(int page, int size, String sortBy, String sortDirection){
+    public Page<TransactionDto> getAllTransactions(int page, int size, String sortBy, String sortDirection, TransactionFilter filter, UserPrincipal userPrincipal){
 
         Pageable pageable = getPageable(page, size, sortBy, sortDirection);
+        Long userId = userPrincipal.getUserId();
+        String userType = userPrincipal.getUserType();
 
-        Page<Transaction> transactions = transactionRepository.findAll(pageable);
+        PaymentStatus statusFilter = PaymentStatus.fromString(filter.paymentStatus());
+        PaymentMethod methodFilter = PaymentMethod.fromString(filter.paymentMethod());
+
+        Specification<Transaction> spec = TransactionSpecification.resolveByUserType(userType, userId);
+        if (methodFilter != null) {
+            spec = TransactionSpecification.hasPaymentMethod(methodFilter);
+        }
+        if (statusFilter != null) {
+            spec = spec.and(TransactionSpecification.hasPaymentStatus(statusFilter));
+        }
+
+        Page<Transaction> transactions = transactionRepository.findAll(spec, pageable);
 
         log.info("Fetched {} transactions for page: {}, size: {}, sortBy: {}, sortDirection: {}",
                 transactions.getNumberOfElements(), page, size, sortBy, sortDirection);
-
-        return transactions.map(mapper::toDto);
-    }
-
-    public Page<TransactionDto> getTransactionsByBookingId(Long bookingId, int page, int size, String sortBy, String sortDirection){
-
-        if(bookingId == null || bookingId <= 0){
-            throw new IllegalArgumentException("Booking ID must be a positive number");
-        }
-
-        Pageable pageable = getPageable(page, size, sortBy, sortDirection);
-
-        Page<Transaction> transactions = transactionRepository.findAllByBookingId(bookingId, pageable);
-
-        log.info("Fetched {} transactions for bookingId: {} page: {}, size: {}, sortBy: {}, sortDirection: {}",
-                transactions.getNumberOfElements(), bookingId, page, size, sortBy, sortDirection);
-
-        return transactions.map(mapper::toDto);
-    }
-
-
-    public Page<TransactionDto> getTransactionsByCustomerId(Long customerId, int page, int size, String sortBy, String sortDirection){
-
-        if(customerId == null || customerId <= 0){
-            throw new IllegalArgumentException("Customer ID must be a positive number");
-        }
-
-        Pageable pageable = getPageable(page, size, sortBy, sortDirection);
-
-        Page<Transaction> transactions = transactionRepository.findAllByCustomerId(customerId, pageable);
-
-        log.info("Fetched {} transactions for customerId: {} page: {}, size: {}, sortBy: {}, sortDirection: {}",
-                transactions.getNumberOfElements(), customerId, page, size, sortBy, sortDirection);
-
-        return transactions.map(mapper::toDto);
-    }
-
-    public Page<TransactionDto> getTransactionsByPaymentStatus(String status, int page, int size, String sortBy, String sortDirection){
-
-        PaymentStatus paymentStatus;
-        try{
-            paymentStatus = PaymentStatus.valueOf(status.toUpperCase());
-        }catch (IllegalArgumentException exception){
-            log.warn("Invalid payment status: {} defaulting to COMPLETED", status);
-            paymentStatus = PaymentStatus.COMPLETED;
-        }
-
-        Pageable pageable = getPageable(page, size, sortBy, sortDirection);
-
-        Page<Transaction> transactions = transactionRepository.findAllByPaymentStatus(paymentStatus, pageable);
-
-        log.info("Fetched {} transactions for paymentStatus: {} page: {}, size: {}, sortBy: {}, sortDirection: {}",
-                transactions.getNumberOfElements(), status, page, size, sortBy, sortDirection);
-
-        return transactions.map(mapper::toDto);
-    }
-
-    public Page<TransactionDto> getTransactionsByPaymentMethod(String method, int page, int size, String sortBy, String sortDirection){
-
-        PaymentMethod paymentMethod;
-        try{
-            paymentMethod = PaymentMethod.valueOf(method.toUpperCase());
-        }catch (IllegalArgumentException exception){
-            log.warn("Invalid payment method: {} defaulting to CASH", method);
-            paymentMethod = PaymentMethod.CASH;
-        }
-
-        Pageable pageable = getPageable(page, size, sortBy, sortDirection);
-
-        Page<Transaction> transactions = transactionRepository.findAllByPaymentMethod(paymentMethod.name(), pageable);
-
-        log.info("Fetched {} transactions for paymentMethod: {} page: {}, size: {}, sortBy: {}, sortDirection: {}",
-                transactions.getNumberOfElements(), method, page, size, sortBy, sortDirection);
 
         return transactions.map(mapper::toDto);
     }
@@ -198,7 +134,7 @@ public class TransactionService {
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(()-> new TransactionNotFoundException("Transaction not found with id: " + transactionId));
 
-        if (transaction.getPaymentStatus() == updatedStatus || transaction.getPaymentStatus() == PaymentStatus.COMPLETED) {
+        if (transaction.getPaymentStatus() == updatedStatus || transaction.getPaymentStatus() == COMPLETED) {
             log.info("No status update needed for transaction with id: {}. Current status: {}", transactionId, transaction.getPaymentStatus());
             return mapper.toDto(transaction);
         }
@@ -239,16 +175,24 @@ public class TransactionService {
 
     public void handlePaypalWebhookEvent(String payload){
         WebhookResponse response = payPalClient.handleWebhookEvent(payload);
-        Long transactionId = transactionRepository.findByTransactionReference(response.orderId())
-                .orElseThrow(()-> new TransactionNotFoundException("Transaction not found with reference: " + response.orderId()))
-                .getTransactionId();
-        updateTransactionStatus(transactionId, response.paymentStatus());
-
+        Transaction transaction = transactionRepository.findByTransactionReference(response.orderId())
+                .orElseThrow(()-> new TransactionNotFoundException("Transaction not found with reference: " + response.orderId()));
+        updateTransactionStatus(transaction.getTransactionId(), response.paymentStatus());
+        String bookingStatus;
+        if (Objects.requireNonNull(response.paymentStatus()) == COMPLETED) {
+            bookingStatus = "CONFIRMED";
+        } else {
+            bookingStatus = "PENDING";
+        }
+        try{
+            BookingDto bookingDto = bookingClient.updateBookingStatus(transaction.getBookingId(), bookingStatus);
+        }catch (Exception e){
+            log.error("Failed to update booking status for bookingId: {}. Error: {}", transaction.getBookingId(),
+                    e.getMessage());
+        }
     }
 
     public boolean verifyWebhookSignature(String payload, String signature, String transmissionId, String transmissionTime, String certUrl, String authAlgo){
         return payPalClient.verifyWebhookSignature(payload, signature, transmissionId, transmissionTime, certUrl, authAlgo);
     }
-
-
 }

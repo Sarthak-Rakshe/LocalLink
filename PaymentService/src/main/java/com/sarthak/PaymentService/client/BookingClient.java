@@ -8,8 +8,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 @FeignClient(name = "BookingService")
 public interface BookingClient {
 
-    @PostMapping("/api/bookings/{bookingId}/confirm")
-    BookingDto confirmBooking(@PathVariable("bookingId") Long bookingId);
-
+    @PostMapping("/api/bookings/{bookingId}/updateStatus/{status}")
+    public BookingDto updateBookingStatus(@PathVariable("bookingId") Long bookingId,
+                                          @PathVariable("status") String status);
 
 }

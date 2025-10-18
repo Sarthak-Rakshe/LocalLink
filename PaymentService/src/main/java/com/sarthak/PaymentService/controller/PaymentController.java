@@ -1,6 +1,8 @@
 package com.sarthak.PaymentService.controller;
 
+import com.sarthak.PaymentService.config.shared.UserPrincipal;
 import com.sarthak.PaymentService.dto.TransactionDto;
+import com.sarthak.PaymentService.dto.request.TransactionFilter;
 import com.sarthak.PaymentService.dto.request.PaymentRequest;
 import com.sarthak.PaymentService.dto.response.PagedResponse;
 import com.sarthak.PaymentService.exception.FailedToCreatePaymentOrderException;
@@ -10,6 +12,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -34,76 +37,14 @@ public class PaymentController {
     public PagedResponse<TransactionDto> getAllTransactions(@NotNull @RequestParam(name ="sort-by") String sortBy,
                                                             @NotNull @RequestParam(name ="sort-dir") String sortDir,
                                                             @NotNull @RequestParam(name ="page") int page,
-                                                            @NotNull @RequestParam(name ="size") int size) {
+                                                            @NotNull @RequestParam(name ="size") int size,
+                                                            Authentication authentication,
+                                                            TransactionFilter transactionFilter) {
 
-        Page<TransactionDto> transactions = transactionService.getAllTransactions(page, size, sortBy, sortDir);
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        Page<TransactionDto> transactions = transactionService.getAllTransactions(page, size, sortBy, sortDir,
+                transactionFilter, userPrincipal);
 
-        return new PagedResponse<>(
-                transactions.getContent(),
-                transactions.getNumber(),
-                transactions.getSize(),
-                transactions.getTotalElements(),
-                transactions.getTotalPages()
-        );
-    }
-
-    @GetMapping("bookings/{bookingId}")
-    public PagedResponse<TransactionDto> getTransactionsByBookingId(@NotNull @PathVariable("bookingId") Long bookingId,
-                                                                   @NotNull @RequestParam(name ="sort-by") String sortBy,
-                                                                   @NotNull @RequestParam(name ="sort-dir") String sortDir,
-                                                                   @NotNull @RequestParam(name ="page") int page,
-                                                                   @NotNull @RequestParam(name ="size") int size) {
-        Page<TransactionDto> transactions = transactionService.getTransactionsByBookingId(bookingId, page, size, sortBy, sortDir);
-        return new PagedResponse<>(
-                transactions.getContent(),
-                transactions.getNumber(),
-                transactions.getSize(),
-                transactions.getTotalElements(),
-                transactions.getTotalPages()
-        );
-    }
-
-    @GetMapping("/customer/{customerId}")
-    public PagedResponse<TransactionDto> getTransactionsByCustomerId(@NotNull @PathVariable("customerId") Long customerId,
-                                                                     @NotNull @RequestParam(name ="sort-by") String sortBy,
-                                                                     @NotNull @RequestParam(name ="sort-dir") String sortDir,
-                                                                     @NotNull @RequestParam(name ="page") int page,
-                                                                     @NotNull @RequestParam(name ="size") int size) {
-
-        Page<TransactionDto> transactions = transactionService.getTransactionsByCustomerId(customerId, page, size, sortBy, sortDir);
-
-        return new PagedResponse<>(
-                transactions.getContent(),
-                transactions.getNumber(),
-                transactions.getSize(),
-                transactions.getTotalElements(),
-                transactions.getTotalPages()
-        );
-    }
-
-    @GetMapping("/payment/{paymentStatus}/status")
-    public PagedResponse<TransactionDto> getTransactionsByPaymentStatus(@NotNull @PathVariable("paymentStatus") String paymentStatus,
-                                                                       @NotNull @RequestParam(name ="sort-by") String sortBy,
-                                                                       @NotNull @RequestParam(name ="sort-dir") String sortDir,
-                                                                       @NotNull @RequestParam(name ="page") int page,
-                                                                       @NotNull @RequestParam(name ="size") int size) {
-        Page<TransactionDto> transactions = transactionService.getTransactionsByPaymentStatus(paymentStatus, page, size, sortBy, sortDir);
-        return new PagedResponse<>(
-                transactions.getContent(),
-                transactions.getNumber(),
-                transactions.getSize(),
-                transactions.getTotalElements(),
-                transactions.getTotalPages()
-        );
-    }
-
-    @GetMapping("/payment/{paymentMethod}/method")
-    public PagedResponse<TransactionDto> getTransactionsByPaymentMethod(@NotNull @PathVariable("paymentMethod") String paymentMethod,
-                                                                       @NotNull @RequestParam(name ="sort-by") String sortBy,
-                                                                       @NotNull @RequestParam(name ="sort-dir") String sortDir,
-                                                                       @NotNull @RequestParam(name ="page") int page,
-                                                                       @NotNull @RequestParam(name ="size") int size) {
-        Page<TransactionDto> transactions = transactionService.getTransactionsByPaymentMethod(paymentMethod, page, size, sortBy, sortDir);
         return new PagedResponse<>(
                 transactions.getContent(),
                 transactions.getNumber(),

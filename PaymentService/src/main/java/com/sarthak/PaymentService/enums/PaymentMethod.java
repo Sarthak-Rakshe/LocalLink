@@ -5,5 +5,14 @@ public enum PaymentMethod {
     NET_BANKING,
     UPI,
     WALLET,
-    CASH
+    CASH;
+
+    public static PaymentMethod fromString(String method) {
+        for (PaymentMethod pm : PaymentMethod.values()) {
+            if (pm.name().equalsIgnoreCase(method)) {
+                return pm;
+            }
+        }
+        return null;
+    }
 }
