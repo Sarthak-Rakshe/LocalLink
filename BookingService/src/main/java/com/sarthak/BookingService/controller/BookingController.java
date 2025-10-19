@@ -6,6 +6,7 @@ import com.sarthak.BookingService.dto.response.BookedSlotsResponse;
 import com.sarthak.BookingService.dto.response.BookingsSummaryResponse;
 import com.sarthak.BookingService.dto.response.PageResponse;
 import com.sarthak.BookingService.service.BookingService;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -31,9 +32,11 @@ public class BookingController {
     }
 
     @GetMapping()
-    public PageResponse<BookingDto> getAllBookings(@RequestParam(defaultValue = "0") int page,
-                                                   @RequestParam(defaultValue = "10") int size) {
-        Page<BookingDto> bookings = bookingService.getAllBookings(page, size);
+    public PageResponse<BookingDto> getAllBookings(@NotNull @RequestParam(name ="sort-by") String sortBy,
+                                                   @NotNull @RequestParam(name ="sort-dir") String sortDir,
+                                                   @NotNull @RequestParam(name ="page") int page,
+                                                   @NotNull @RequestParam(name ="size") int size) {
+        Page<BookingDto> bookings = bookingService.getAllBookings(page, size, sortBy, sortDir);
         return new PageResponse<>(
                 bookings.getContent(),
                 bookings.getNumber(),

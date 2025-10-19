@@ -23,12 +23,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +34,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.sarthak.BookingService.model.BookingStatus.*;
-
 
 @Service
 @Slf4j
@@ -74,8 +71,9 @@ public class BookingService {
         return bookings.map(bookingMapper::toDto);
     }
 
-    public Page<BookingDto> getAllBookings(int page, int size){
-        Page<Booking> bookings = bookingRepository.findAll(PageRequest.of(page, size));
+    public Page<BookingDto> getAllBookings(int page, int size, String sortBy, String sortDir){
+        Pageable pageable = getPageable(page, size, sortBy, sortDir);
+        Page<Booking> bookings = bookingRepository.findAll(pageable);
         log.info("Fetched {} bookings", bookings.getTotalElements());
         return bookings.map(bookingMapper::toDto);
     }
