@@ -65,8 +65,9 @@ public class BookingService {
         return bookingMapper.toDtoList(bookings);
     }
 
-    public Page<BookingDto> getAllByCustomerId(Long customerId, int page, int size){
-        Page<Booking> bookings = bookingRepository.findByCustomerId(customerId, PageRequest.of(page, size));
+    public Page<BookingDto> getAllByCustomerId(Long customerId, int page, int size, String sortBy, String sortDir){
+        Pageable pageable = getPageable(page, size, sortBy, sortDir);
+        Page<Booking> bookings = bookingRepository.findByCustomerId(customerId, pageable);
         log.info("Fetched {} bookings for customerId: {}", bookings.getTotalElements(), customerId);
         return bookings.map(bookingMapper::toDto);
     }
@@ -78,8 +79,9 @@ public class BookingService {
         return bookings.map(bookingMapper::toDto);
     }
 
-    public Page<BookingDto> getAllByServiceProviderId(Long serviceProviderId, int page, int size){
-        Page<Booking> bookings = bookingRepository.findByServiceProviderId(serviceProviderId, PageRequest.of(page, size));
+    public Page<BookingDto> getAllByServiceProviderId(Long serviceProviderId, int page, int size, String sortBy, String sortDir){
+        Pageable pageable = getPageable(page, size, sortBy, sortDir);
+        Page<Booking> bookings = bookingRepository.findByServiceProviderId(serviceProviderId, pageable);
         log.info("Fetched {} bookings for serviceProviderId: {}", bookings.getTotalElements(), serviceProviderId);
         return bookings.map(bookingMapper::toDto);
     }

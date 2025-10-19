@@ -46,16 +46,39 @@ public class BookingController {
         );
     }
 
-    @GetMapping("/serviceProvider/{serviceProviderId}")
+    @GetMapping("/serviceProvider/{serviceProviderId}/by-date")
     public ResponseEntity<List<BookingDto>> getBookingsByServiceProviderId(@PathVariable Long serviceProviderId,
                                                                            @RequestParam LocalDate date) {
         return ResponseEntity.ok(bookingService.getAllByServiceProviderIdAndDate(serviceProviderId, date));
     }
 
+    @GetMapping("/serviceProvider/{serviceProviderId}")
+    public PageResponse<BookingDto> getBookingsByServiceProviderId(
+            @PathVariable Long serviceProviderId,
+            @NotNull @RequestParam(name ="sort-by") String sortBy,
+            @NotNull @RequestParam(name ="sort-dir") String sortDir,
+            @NotNull @RequestParam(name ="page") int page,
+            @NotNull @RequestParam(name ="size") int size
+    ) {
+        Page<BookingDto> booking = bookingService.getAllByServiceProviderId(serviceProviderId, page, size, sortBy, sortDir);
+        return new PageResponse<>(
+                booking.getContent(),
+                booking.getNumber(),
+                booking.getTotalElements(),
+                booking.getTotalPages(),
+                booking.getSize()
+        );
+    }
+
     @GetMapping("/customer/{customerId}")
-    public PageResponse<BookingDto> getBookingsByCustomerId(@PathVariable Long customerId,
-                                                                   @RequestParam int page, @RequestParam int size) {
-        Page<BookingDto> booking = bookingService.getAllByCustomerId(customerId, page, size);
+    public PageResponse<BookingDto> getBookingsByCustomerId(
+            @PathVariable Long customerId,
+            @NotNull @RequestParam(name ="sort-by") String sortBy,
+            @NotNull @RequestParam(name ="sort-dir") String sortDir,
+            @NotNull @RequestParam(name ="page") int page,
+            @NotNull @RequestParam(name ="size") int size
+    ) {
+        Page<BookingDto> booking = bookingService.getAllByCustomerId(customerId, page, size, sortBy, sortDir);
         return new PageResponse<>(
                 booking.getContent(),
                 booking.getNumber(),
