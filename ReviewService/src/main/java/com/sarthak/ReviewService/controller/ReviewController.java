@@ -21,14 +21,14 @@ public class ReviewController {
         this.reviewService = reviewService;
     }
 
-    @GetMapping("/service-provider/my-reviews")
+    @GetMapping("/serviceProvider/myReviews")
     @PreAuthorize("principal.userType.equals('PROVIDER')")
     public PagedResponse<ReviewDto> getMyReviews(
             Authentication authentication,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(name = "sort-by", defaultValue = "id") String sortBy,
-            @RequestParam(name = "sort-dir", defaultValue = "asc") String sortDir
+            @RequestParam(name = "sortBy", defaultValue = "id") String sortBy,
+            @RequestParam(name = "sortDir", defaultValue = "asc") String sortDir
     ){
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         Page<ReviewDto> review = reviewService.getReviewsByServiceProviderId(userPrincipal.getUserId(), page, size, sortBy, sortDir);
@@ -41,13 +41,13 @@ public class ReviewController {
         );
     }
 
-    @GetMapping("/{service-id}/service")
+    @GetMapping("/{serviceId}/service")
     public PagedResponse<ReviewDto> getReviewsForService(
-            @PathVariable("service-id") Long serviceId,
+            @PathVariable("serviceId") Long serviceId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(name = "sort-by", defaultValue = "id") String sortBy,
-            @RequestParam(name = "sort-dir", defaultValue = "asc") String sortDir
+            @RequestParam(name = "sortBy", defaultValue = "id") String sortBy,
+            @RequestParam(name = "sortDir", defaultValue = "asc") String sortDir
     ){
         Page<ReviewDto> reviewDtos = reviewService.getReviewsForService(serviceId, page, size, sortBy, sortDir);
         return new PagedResponse<>(
@@ -59,14 +59,14 @@ public class ReviewController {
         );
     }
 
-    @GetMapping("/customer/my-reviews")
+    @GetMapping("/customer/myReviews")
     @PreAuthorize("principal.userType.equals('CUSTOMER')")
     public PagedResponse<ReviewDto> getReviewsByCustomer(
             Authentication authentication,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(name = "sort-by", defaultValue = "id") String sortBy,
-            @RequestParam(name = "sort-dir", defaultValue = "asc") String sortDir
+            @RequestParam(name = "sortBy", defaultValue = "id") String sortBy,
+            @RequestParam(name = "sortDir", defaultValue = "asc") String sortDir
     ){
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         Page<ReviewDto> reviewDtos = reviewService.getReviewsForCustomer(userPrincipal.getUserId(), page, size, sortBy, sortDir);
@@ -87,33 +87,33 @@ public class ReviewController {
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
-    @PutMapping("/{review-id}")
+    @PutMapping("/{reviewId}")
     @PreAuthorize("principal.userType.equals('CUSTOMER')")
-    public ResponseEntity<ReviewDto> updateReview(@PathVariable("review-id") Long reviewId,
+    public ResponseEntity<ReviewDto> updateReview(@PathVariable("reviewId") Long reviewId,
                                                   @RequestBody ReviewDto reviewDto, Authentication authentication){
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         ReviewDto updated = reviewService.updateReview(reviewId, reviewDto, userPrincipal.getUserId());
         return ResponseEntity.ok(updated);
     }
 
-    @DeleteMapping("/{review-id}")
+    @DeleteMapping("/{reviewId}")
     @PreAuthorize("principal.userType.equals('CUSTOMER')")
-    public ResponseEntity<Void> deleteReview(@PathVariable("review-id") Long reviewId,
+    public ResponseEntity<Void> deleteReview(@PathVariable("reviewId") Long reviewId,
                                              Authentication authentication){
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         reviewService.deleteReview(reviewId, userPrincipal.getUserId());
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/services/{service-id}/average")
-    public ResponseEntity<Double> getAverageRatingForService(@PathVariable("service-id") Long serviceId){
+    @GetMapping("/services/{serviceId}/average")
+    public ResponseEntity<Double> getAverageRatingForService(@PathVariable("serviceId") Long serviceId){
         Double averageRating = reviewService.getAverageRatingForService(serviceId);
         return ResponseEntity.ok(averageRating);
     }
 
-    @GetMapping("/providers/{service-provider-id}/aggregate")
+    @GetMapping("/providers/{serviceProviderId}/aggregate")
     public ResponseEntity<ProviderReviewAggregateResponse> getAggregateReviewsForServiceProvider(
-            @PathVariable("service-provider-id") Long serviceProviderId
+            @PathVariable("serviceProviderId") Long serviceProviderId
     ){
         return ResponseEntity.ok(reviewService.getReviewAggregateForProvider(serviceProviderId));
     }
