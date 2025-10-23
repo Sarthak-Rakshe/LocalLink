@@ -1,5 +1,6 @@
 package com.sarthak.ReviewService.service;
 
+import com.sarthak.ReviewService.dto.ReviewAggregateResponse;
 import com.sarthak.ReviewService.dto.ReviewDto;
 import com.sarthak.ReviewService.dto.response.ProviderReviewAggregateResponse;
 import com.sarthak.ReviewService.exception.DuplicateReviewForSameServiceException;
@@ -18,7 +19,9 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Slf4j
@@ -168,13 +171,17 @@ public class ReviewService {
     }
 
 
-    public ProviderReviewAggregateResponse getReviewAggregateForProvider(Long serviceProviderId) {
-        log.info("Fetching review aggregate for serviceProviderId: {}", serviceProviderId);
-        return reviewAggregateRepository.aggregateServiceProviderReviews(serviceProviderId)
-                .orElse(ProviderReviewAggregateResponse.builder()
-                        .averageRating(0.0)
-                        .totalReviews(0L)
-                        .build());
+    public Map<Long, ProviderReviewAggregateResponse> getReviewAggregateForProvider(List<Long> serviceProviderIds) {
+        log.info("Fetching review aggregate for serviceProviderId: {}", serviceProviderIds);
+        List<ProviderReviewAggregateResponse> aggregates = reviewAggregateRepository.aggregateServiceProviderReviews(serviceProviderIds);
+        Map<Long, ProviderReviewAggregateResponse> responseMap = new HashMap<>();
+        if(aggregates.isEmpty()){
+            return responseMap;
+        }
+        for(ProviderReviewAggregateResponse aggregate : aggregates){
+            responseMap.put(aggregate.serviceProviderId(), aggregate);
+        }
+        return responseMap;
     }
 
     private Pageable getPageable(int page, int size, String sortBy, String sortDir) {
@@ -192,5 +199,23 @@ public class ReviewService {
         Sort sort = sortDirNormalized.equals("asc") ? Sort.by(sortField).ascending() : Sort.by(sortField).descending();
 
         return PageRequest.of(page, size, sort);
+    }
+
+    public List<ReviewDto> getByServiceIds(List<Long> serviceIds) {
+        log.info("Fetching reviews for ids: {}", serviceIds);
+        List<Review> reviews = reviewRepository.findAllByServiceIds(serviceIds);
+        return reviews.stream()
+                .map(reviewMapper::mapToDto)
+                .toList();
+    }
+
+    public Map<Long, ReviewAggregateResponse> getAggregateByServiceIds(List<Long> serviceIds){
+        log.info("Fetching review aggregates for service ids: {}", serviceIds);
+        List<ReviewAggregate> aggregates = reviewAggregateRepository.findAllByServiceIds(serviceIds);
+        Map<Long, ReviewAggregateResponse> responseMap = new HashMap<>();
+        for(ReviewAggregate aggregate : aggregates){
+            responseMap.put(aggregate.getServiceId(), reviewMapper.mapToAggregateResponse(aggregate));
+        }
+        return responseMap;
     }
 }

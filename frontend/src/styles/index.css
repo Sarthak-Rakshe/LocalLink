@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+/* Tailwind v4 base theme adjustments for a minimalist UI */
+@layer base {
+  :root {
+    color-scheme: light dark;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI,
+      Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial,
+      "Apple Color Emoji", "Segoe UI Emoji";
+  }
+  h1 {
+    @apply text-3xl font-semibold tracking-tight;
+  }
+  h2 {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+  h3 {
+    @apply text-xl font-semibold tracking-tight;
+  }
+  a {
+    @apply text-gray-900 hover:text-black transition-colors;
+  }
+}
+
+/* Utilities for container and card to keep a consistent layout */
+@layer utilities {
+  .container-app {
+    @apply max-w-5xl mx-auto px-4;
+  }
+  .card {
+    @apply bg-white border border-gray-200 rounded-xl shadow-sm;
+  }
+  .card-body {
+    @apply p-6;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 font-medium transition-colors;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 font-medium transition-colors bg-gray-900 text-white hover:bg-black;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 font-medium transition-colors bg-transparent text-gray-700 hover:bg-gray-100;
+  }
+  .input {
+    @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400;
+  }
+  .label {
+    @apply block text-sm font-medium text-gray-700;
+  }
+}

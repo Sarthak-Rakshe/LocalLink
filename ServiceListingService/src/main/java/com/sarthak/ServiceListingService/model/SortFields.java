@@ -18,6 +18,18 @@ public enum SortFields {
         this.field = field;
     }
 
+    public String toNativeColumn() {
+        return switch (this) {
+            case ID -> "service_id";
+            case NAME -> "service_name";
+            case PROVIDER -> "service_provider_id";
+            case CATEGORY -> "service_category";
+            case PRICE -> "service_price_per_hour";
+            default -> "service_name";
+        };
+    }
+
+
     public static SortFields fromString(String field) {
         if (field == null) {
             log.warn("Invalid sort field: null. Defaulting to NAME");

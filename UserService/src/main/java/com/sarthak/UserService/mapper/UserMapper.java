@@ -1,5 +1,7 @@
 package com.sarthak.UserService.mapper;
 
+import com.sarthak.UserService.dto.ProviderReviewAggregateResponse;
+import com.sarthak.UserService.dto.response.ProviderResponse;
 import com.sarthak.UserService.dto.response.UserResponse;
 import com.sarthak.UserService.model.User;
 import org.springframework.stereotype.Component;
@@ -14,6 +16,24 @@ public class UserMapper {
                 .userEmail(user.getUserEmail())
                 .userContact(user.getUserContact())
                 .userType(user.getUserType().name())
+                .build();
+    }
+
+    public ProviderResponse toProviderResponse(User user, ProviderReviewAggregateResponse reviewAggregate) {
+        if(reviewAggregate == null){
+            reviewAggregate = ProviderReviewAggregateResponse.builder()
+                    .serviceProviderId(user.getUserId())
+                    .averageRating(0.0)
+                    .totalReviews(0L)
+                    .build();
+        }
+        return ProviderResponse.builder()
+                .providerId(user.getUserId())
+                .providerName(user.getUsername())
+                .providerEmail(user.getUserEmail())
+                .providerContact(user.getUserContact())
+                .providerAddress(user.getUserAddress())
+                .providerReviewAggregateResponse(reviewAggregate)
                 .build();
     }
 }

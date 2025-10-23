@@ -1,11 +1,8 @@
 package com.sarthak.ServiceListingService.dto;
 
-
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+
 
 @Builder
 public record ServiceItemDto (
@@ -23,6 +20,7 @@ public record ServiceItemDto (
 
         @NotNull Double latitude,
 
-        @NotNull Double longitude
-){
-}
+        @NotNull Double longitude,
+
+        ReviewAggregateResponse reviewAggregate
+){}

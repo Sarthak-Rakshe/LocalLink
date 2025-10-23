@@ -1,7 +1,10 @@
 package com.sarthak.UserService.service;
 
+import com.sarthak.UserService.client.ReviewServiceClient;
 import com.sarthak.UserService.config.PasswordEncoderConfig;
+import com.sarthak.UserService.dto.ProviderReviewAggregateResponse;
 import com.sarthak.UserService.dto.request.UserUpdateRequest;
+import com.sarthak.UserService.dto.response.ProviderResponse;
 import com.sarthak.UserService.exception.AlreadyInUseException;
 import com.sarthak.UserService.exception.InvalidUserTypeException;
 import com.sarthak.UserService.exception.PasswordCannotBeNullException;
@@ -17,6 +20,7 @@ import com.sarthak.UserService.dto.response.UserResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -25,6 +29,9 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -37,6 +44,7 @@ public class UserService implements UserDetailsService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final PasswordEncoderConfig passwordEncoderConfig;
+    private final ReviewServiceClient reviewServiceClient;
     private final Set<String> ALLOWED_SORT_FIELDS = Set.of("userId", "username", "userEmail", "userContact", "userType");
 
 
@@ -237,4 +245,25 @@ public class UserService implements UserDetailsService {
         return userType;
     }
 
+    public Page<ProviderResponse> getProviders(int page, int size, String sortBy, String sortDir) {
+        log.info("Fetching providers - page: {}, size: {}, sortBy: {}, sortDir: {}", page, size, sortBy, sortDir);
+        Pageable pageable = getPageable(page, size, sortBy, sortDir);
+        Page<User> providers = userRepository.findAllByUserTypeAndUserRole(UserType.PROVIDER, UserRole.USER,
+                pageable);
+        log.info("Found {} providers", providers.getTotalElements());
+        List<Long> providerIds = providers.stream()
+                .map(User::getUserId)
+                .toList();
+        Map<Long, ProviderReviewAggregateResponse> reviewAggregates =
+                reviewServiceClient.getProviderReviewAggregates(providerIds);
+        log.info("Fetched review aggregates for {} providers", reviewAggregates.size());
+        List<ProviderResponse> resultMap = new ArrayList<>();
+        for(User provider : providers){
+            ProviderReviewAggregateResponse aggregate = reviewAggregates.get(provider.getUserId());
+            log.info("Provider ID: {}, Review Aggregate: {}", provider.getUserId(), aggregate);
+            resultMap.add(userMapper.toProviderResponse(provider, aggregate));
+        }
+        log.info("Mapped {} providers to ProviderResponse", resultMap.size());
+        return new PageImpl<>(resultMap, pageable, providers.getTotalElements());
+    }
 }

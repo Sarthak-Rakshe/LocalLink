@@ -1,6 +1,7 @@
 package com.sarthak.UserService.repository;
 
 import com.sarthak.UserService.model.User;
+import com.sarthak.UserService.model.UserRole;
 import com.sarthak.UserService.model.UserType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,5 +27,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Page<User> findAllByIsActiveTrue(Pageable pageable);
 
-    Page<User> findAllByUserType(UserType type, Pageable pageable);
+    Page<User> findAllByUserTypeAndUserRole(UserType userType, UserRole userRole, Pageable pageable);
 }

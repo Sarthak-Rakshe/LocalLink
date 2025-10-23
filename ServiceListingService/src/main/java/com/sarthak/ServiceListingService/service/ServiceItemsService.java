@@ -1,5 +1,7 @@
 package com.sarthak.ServiceListingService.service;
 
+import com.sarthak.ServiceListingService.client.ReviewServiceClient;
+import com.sarthak.ServiceListingService.dto.ReviewAggregateResponse;
 import com.sarthak.ServiceListingService.dto.ServiceItemDto;
 import com.sarthak.ServiceListingService.exception.DuplicateServiceException;
 import com.sarthak.ServiceListingService.exception.ServiceNotFoundException;
@@ -9,6 +11,7 @@ import com.sarthak.ServiceListingService.model.SortFields;
 import com.sarthak.ServiceListingService.repository.ServiceItemRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -16,6 +19,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Slf4j
@@ -24,10 +30,13 @@ public class ServiceItemsService {
 
     private final ServiceItemRepository serviceItemRepository;
     private final ServiceItemsMapper serviceItemsMapper;
+    private final ReviewServiceClient reviewServiceClient;
 
-    public ServiceItemsService(ServiceItemRepository serviceItemRepository, ServiceItemsMapper serviceItemsMapper) {
+    public ServiceItemsService(ServiceItemRepository serviceItemRepository, ServiceItemsMapper serviceItemsMapper,
+                               ReviewServiceClient reviewServiceClient) {
         this.serviceItemRepository = serviceItemRepository;
         this.serviceItemsMapper = serviceItemsMapper;
+        this.reviewServiceClient = reviewServiceClient;
     }
 
     public ServiceItemDto getServiceById(Long id){
@@ -35,39 +44,64 @@ public class ServiceItemsService {
         ServiceItem serviceItem = serviceItemRepository.findById(id)
                 .orElseThrow(()-> new ServiceNotFoundException("Service not found for id: " + id));
         log.info("Service found: {}", serviceItem);
-        return serviceItemsMapper.entityToDto(serviceItem);
+        Map<Long, ReviewAggregateResponse> reviewAggregateMap =
+                reviewServiceClient.getAggregatesByServiceIds(List.of(id));
+        ReviewAggregateResponse reviewAggregate = reviewAggregateMap.get(id);
+        return serviceItemsMapper.entityToDto(serviceItem, reviewAggregate);
     }
 
     public Page<ServiceItemDto> getAllServices(int page, int size, String sortBy, String sortDir){
         log.info("Fetching all services - page: {}, size: {}", page, size);
 
-        Pageable pageable = getPageable(page, size, sortBy, sortDir);
+        Pageable pageable = getPageable(page, size, sortBy, sortDir, false);
 
         Page<ServiceItem> services = serviceItemRepository.findAll(pageable);
+        List<Long> serviceIds = services.map(ServiceItem::getServiceId).toList();
+        Map<Long, ReviewAggregateResponse> reviewAggregateMap =
+                    reviewServiceClient.getAggregatesByServiceIds(serviceIds);
         log.debug("Fetched {} services", services.getNumberOfElements());
-        return services.map(serviceItemsMapper::entityToDto);
+        List<ServiceItemDto> resultList = new ArrayList<>();
+        for(ServiceItem service : services){
+            ReviewAggregateResponse reviewAggregate = reviewAggregateMap.get(service.getServiceId());
+            resultList.add(serviceItemsMapper.entityToDto(service, reviewAggregate));
+        }
+        return new PageImpl<>(resultList, pageable, services.getTotalElements());
     }
 
     public Page<ServiceItemDto> getServicesByProviderId(Long providerId, int page, int size, String sortBy, String sortDir){
         log.info("Fetching services for provider id: {} - page: {}, size: {}", providerId, page, size);
 
-        Pageable pageable = getPageable(page, size, sortBy, sortDir);
+        Pageable pageable = getPageable(page, size, sortBy, sortDir, false);
 
         Page<ServiceItem> services = serviceItemRepository.findAllByServiceProviderId(providerId, pageable);
+        List<Long> serviceIds = services.map(ServiceItem::getServiceId).toList();
+        Map<Long, ReviewAggregateResponse> reviewAggregates = reviewServiceClient.getAggregatesByServiceIds(serviceIds);
+
+        List<ServiceItemDto> resultList = new ArrayList<>();
+        for(ServiceItem service : services){
+            ReviewAggregateResponse reviewAggregate = reviewAggregates.get(service.getServiceId());
+            resultList.add(serviceItemsMapper.entityToDto(service, reviewAggregate));
+        }
         log.debug("Fetched {} services for provider id: {}", services.getNumberOfElements(), providerId);
-        return services.map(serviceItemsMapper::entityToDto);
+        return new PageImpl<>(resultList, pageable, services.getTotalElements());
     }
 
     public Page<ServiceItemDto> getServicesByCategory(String category, int page, int size, String sortBy, String sortDir){
         log.info("Fetching services for category: {} - page: {}, size: {}", category, page, size);
 
-        Pageable pageable = getPageable(page, size, sortBy, sortDir);
-
-        
+        Pageable pageable = getPageable(page, size, sortBy, sortDir, false);
 
         Page<ServiceItem> services = serviceItemRepository.findAllByServiceCategoryIgnoreCase(category, pageable);
         log.debug("Fetched {} services for category: {}", services.getNumberOfElements(), category);
-        return services.map(serviceItemsMapper::entityToDto);
+
+        List<Long> serviceIds = services.map(ServiceItem::getServiceId).toList();
+        Map<Long, ReviewAggregateResponse> reviewAggregates = reviewServiceClient.getAggregatesByServiceIds(serviceIds);
+        List<ServiceItemDto> resultList = new ArrayList<>();
+        for (ServiceItem service : services) {
+            ReviewAggregateResponse reviewAggregate = reviewAggregates.get(service.getServiceId());
+            resultList.add(serviceItemsMapper.entityToDto(service, reviewAggregate));
+        }
+        return new PageImpl<>(resultList, pageable, services.getTotalElements());
     }
 
     public Page<ServiceItemDto> getNearbyService(Double userLatitude, Double userLongitude, int page, int size, String sortBy, String sortDir){
@@ -77,14 +111,20 @@ public class ServiceItemsService {
 
         log.info("Fetching nearby services for location: ({}, {}) - page: {}, size: {}", userLatitude, userLongitude, page, size);
 
-        Pageable pageable = getPageable(page, size, sortBy, sortDir);
-        
+        Pageable pageable = getPageable(page, size, sortBy, sortDir, true);
 
         // Assuming a default radius of 5 km for nearby services
         Double radiusInKm = 5.0;
         Page<ServiceItem> services = serviceItemRepository.findNearbyServices(userLatitude, userLongitude, radiusInKm, pageable);
         log.debug("Fetched {} nearby services", services.getNumberOfElements());
-        return services.map(serviceItemsMapper::entityToDto);
+        List<Long> serviceIds = services.map(ServiceItem::getServiceId).toList();
+        Map<Long, ReviewAggregateResponse> reviewAggregates = reviewServiceClient.getAggregatesByServiceIds(serviceIds);
+        List<ServiceItemDto> resultList = new ArrayList<>();
+        for (ServiceItem service : services) {
+            ReviewAggregateResponse reviewAggregate = reviewAggregates.get(service.getServiceId());
+            resultList.add(serviceItemsMapper.entityToDto(service, reviewAggregate));
+        }
+        return new PageImpl<>(resultList, pageable, services.getTotalElements());
     }
 
     @Transactional
@@ -104,7 +144,7 @@ public class ServiceItemsService {
 
         ServiceItem savedService = serviceItemRepository.save(serviceItem);
         log.info("Service created with id: {}", savedService.getServiceId());
-        return serviceItemsMapper.entityToDto(savedService);
+        return serviceItemsMapper.entityToDto(savedService, null);
     }
 
     @Transactional
@@ -144,7 +184,7 @@ public class ServiceItemsService {
 
         ServiceItem updatedService = serviceItemRepository.save(existingService);
         log.info("Service with id {} updated successfully", id);
-        return serviceItemsMapper.entityToDto(updatedService);
+        return serviceItemsMapper.entityToDto(updatedService, null);
     }
 
     @Transactional
@@ -167,26 +207,19 @@ public class ServiceItemsService {
         return SortFields.fromString(sortBy);
     }
 
-    private Pageable getPageable(int page, int size, String sortBy, String sortDir) {
-        if (page < 0) {
-            log.warn("Invalid page number: {}. Defaulting to 0.", page);
-            page = 0;
-        }
-        if (size <= 0) {
-            log.warn("Invalid page size: {}. Defaulting to 10.", size);
-            size = 10;
-        }
-        if (!sortDir.equalsIgnoreCase("asc") && !sortDir.equalsIgnoreCase("desc")) {
-            log.warn("Invalid sort direction: {}. Defaulting to 'asc'.", sortDir);
-            sortDir = "asc";
-        }
+    private Pageable getPageable(int page, int size, String sortBy, String sortDir, boolean isNative) {
+        page = Math.max(page, 0);
+        size = size > 0 ? size : 10;
 
+        // Normalize sort direction
+        boolean asc = !"desc".equalsIgnoreCase(sortDir);
+
+        // Validate and map sort field
         SortFields sortField = validateSort(sortBy);
-        log.info("Sorting by field: {} in {} order", sortField.getField(), sortDir);
+        String sortProperty = isNative ? sortField.toNativeColumn() : sortField.getField();
 
-        Sort sort = sortDir.equalsIgnoreCase("asc")
-                ? Sort.by(sortField.getField()).ascending()
-                : Sort.by(sortField.getField()).descending();
+        // Create Sort object
+        Sort sort = asc ? Sort.by(sortProperty).ascending() : Sort.by(sortProperty).descending();
 
         return PageRequest.of(page, size, sort);
     }

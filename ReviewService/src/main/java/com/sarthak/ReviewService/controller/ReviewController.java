@@ -1,6 +1,7 @@
 package com.sarthak.ReviewService.controller;
 
 import com.sarthak.ReviewService.config.shared.UserPrincipal;
+import com.sarthak.ReviewService.dto.ReviewAggregateResponse;
 import com.sarthak.ReviewService.dto.ReviewDto;
 import com.sarthak.ReviewService.dto.response.PagedResponse;
 import com.sarthak.ReviewService.dto.response.ProviderReviewAggregateResponse;
@@ -11,6 +12,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/reviews")
@@ -111,10 +115,22 @@ public class ReviewController {
         return ResponseEntity.ok(averageRating);
     }
 
-    @GetMapping("/providers/{serviceProviderId}/aggregate")
-    public ResponseEntity<ProviderReviewAggregateResponse> getAggregateReviewsForServiceProvider(
-            @PathVariable("serviceProviderId") Long serviceProviderId
+    @PostMapping("/providers/aggregate")
+    public ResponseEntity<Map<Long, ProviderReviewAggregateResponse>> getAggregateReviewsForServiceProvider(
+            @RequestBody List<Long> serviceProviderIds
     ){
-        return ResponseEntity.ok(reviewService.getReviewAggregateForProvider(serviceProviderId));
+        return ResponseEntity.ok(reviewService.getReviewAggregateForProvider(serviceProviderIds));
+    }
+
+    @PostMapping("/getByServiceIds")
+    public ResponseEntity<List<ReviewDto>> getByServiceIds(@RequestBody List<Long> serviceIds){
+        List<ReviewDto> reviews = reviewService.getByServiceIds(serviceIds);
+        return ResponseEntity.ok(reviews);
+    }
+
+    @PostMapping("/getAggregatesByServiceIds")
+    public ResponseEntity<Map<Long, ReviewAggregateResponse>> getAggregatesByServiceIds(@RequestBody List<Long> serviceIds) {
+        Map<Long, ReviewAggregateResponse> aggregates = reviewService.getAggregateByServiceIds(serviceIds);
+        return ResponseEntity.ok(aggregates);
     }
 }

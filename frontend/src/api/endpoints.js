@@ -12,6 +12,7 @@ export const API = {
     // Users CRUD and actions
     GET_BY_ID: (id) => `/users/${id}`,
     GET_ALL: "/users/all",
+    GET_PROVIDERS: "users/getProviders",
     UPDATE_BY_ID: (id) => `/users/${id}`,
     DEACTIVATE: (id) => `/users/${id}/deactivate`,
     ACTIVATE: (id) => `/users/${id}/activate`,
@@ -26,6 +27,8 @@ export const API = {
     BY_CATEGORY: (category) => `/services/category/${category}`,
     NEARBY: "/services/nearby",
     CREATE: "/services",
+    UPDATE: (id) => `/services/${id}`,
+    DELETE: (id) => `/services/${id}`,
   },
 
   AVAILABILITY: {
@@ -69,6 +72,10 @@ export const API = {
       `/bookings/summary/${serviceProviderId}`,
     BOOKED_SLOTS: (serviceProviderId, serviceId) =>
       `/bookings/bookedSlots/${serviceProviderId}/${serviceId}`,
+    CREATE: "/bookings",
+    UPDATE_STATUS: (bookingId, status) =>
+      `/bookings/${bookingId}/updateStatus/${status}`,
+    RESCHEDULE: (bookingId) => `/bookings/${bookingId}/reschedule`,
     DELETE_BY_ID: (id) => `/bookings/${id}`,
   },
 

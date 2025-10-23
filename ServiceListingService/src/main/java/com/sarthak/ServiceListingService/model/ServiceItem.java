@@ -54,7 +54,7 @@ public class ServiceItem {
     private Double servicePricePerHour;
 
     @NotNull
-    @Column(name = "service_provider_id", nullable = false, unique = true)
+    @Column(name = "service_provider_id", nullable = false)
     private Long serviceProviderId;
 
     @NotNull
