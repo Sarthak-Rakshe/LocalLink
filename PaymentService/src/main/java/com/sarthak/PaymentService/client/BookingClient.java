@@ -5,7 +5,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 
-@FeignClient(name = "BookingService")
+@FeignClient(name = "Booking-Service")
 public interface BookingClient {
 
     @PostMapping("/api/bookings/{bookingId}/updateStatus/{status}")
