@@ -1,6 +1,7 @@
 package com.sarthak.ServiceListingService.controller;
 
 import com.sarthak.ServiceListingService.config.shared.UserPrincipal;
+import com.sarthak.ServiceListingService.dto.QueryFilter;
 import com.sarthak.ServiceListingService.dto.ServiceItemDto;
 import com.sarthak.ServiceListingService.dto.response.PagedResponse;
 import com.sarthak.ServiceListingService.service.ServiceItemsService;
@@ -27,50 +28,16 @@ public class ServiceItemController {
         return ResponseEntity.ok(serviceItemDto);
     }
 
-    @GetMapping()
+    @PostMapping("/all-services")
     public PagedResponse<ServiceItemDto> getAllServices(
+            @RequestBody (required = false)QueryFilter queryFilter,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "id") String sortBy,
-            @RequestParam(defaultValue = "asc") String sortDir
+            @RequestParam(defaultValue = "asc") String sortDir,
+            Authentication authentication
     ){
-        var servicesPage = serviceItemsService.getAllServices(page, size, sortBy, sortDir);
-        return new PagedResponse<>(
-                servicesPage.getContent(),
-                servicesPage.getNumber(),
-                servicesPage.getSize(),
-                servicesPage.getTotalElements(),
-                servicesPage.getTotalPages()
-        );
-    }
-
-    @GetMapping("/provider/{providerId}")
-    public PagedResponse<ServiceItemDto> getServicesByProviderId(
-            @PathVariable Long providerId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "id") String sortBy,
-            @RequestParam(defaultValue = "asc") String sortDir
-    ){
-        var servicesPage = serviceItemsService.getServicesByProviderId(providerId, page, size, sortBy, sortDir);
-        return new PagedResponse<>(
-                servicesPage.getContent(),
-                servicesPage.getNumber(),
-                servicesPage.getSize(),
-                servicesPage.getTotalElements(),
-                servicesPage.getTotalPages()
-        );
-    }
-
-    @GetMapping("/category/{category}")
-    public PagedResponse<ServiceItemDto> getServicesByCategory(
-            @PathVariable String category,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "id") String sortBy,
-            @RequestParam(defaultValue = "asc") String sortDir
-    ){
-        var servicesPage = serviceItemsService.getServicesByCategory(category, page, size, sortBy, sortDir);
+        var servicesPage = serviceItemsService.getAllServices(page, size, sortBy, sortDir, authentication, queryFilter);
         return new PagedResponse<>(
                 servicesPage.getContent(),
                 servicesPage.getNumber(),

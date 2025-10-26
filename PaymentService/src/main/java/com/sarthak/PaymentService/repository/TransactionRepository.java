@@ -18,15 +18,5 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
 
     Optional<Transaction> findByTransactionReference(String transactionReference);
 
-    Page<Transaction> findAllByCustomerId(Long customerId, Pageable pageable);
-
-    Page<Transaction> findAllByBookingId(Long bookingId, Pageable pageable);
-
-    Page<Transaction> findAllByPaymentStatus(PaymentStatus paymentStatus, Pageable pageable);
-
-    Page<Transaction> findAllByPaymentMethod(PaymentMethod paymentMethod, Pageable pageable);
-
     List<Transaction> findAllByPaymentStatusAndCreatedAtBefore(PaymentStatus paymentStatus, Instant cutOffTime);
-
-    Page<Transaction> findAllByPaymentStatusAndPaymentMethod(PaymentStatus statusFilter, PaymentMethod methodFilter, Pageable pageable);
 }

@@ -76,6 +76,7 @@ public class AvailabilityService{
     }
 
     public ProviderExceptionDto createProviderException(ProviderExceptionDto dto){
+        validateDate(LocalDate.parse(dto.getExceptionDate()));
         ProviderExceptions exception = availabilityMapper.DtoToProviderException(dto);
         log.info("Creating provider exception for Service Provider ID: {}, Service ID: {}, Date: {}",
                 dto.getServiceProviderId(), dto.getServiceId(), dto.getExceptionDate());
@@ -211,7 +212,7 @@ public class AvailabilityService{
         if(serviceProviderId == null || serviceId == null || date == null){
             throw new IllegalArgumentException("Service Provider ID, Service ID, and Date must be provided");
         }
-
+        validateDate(date);
         AvailabilitySlotsResponse response = AvailabilitySlotsResponse.builder()
                 .date(date)
                 .availableSlots(new ArrayList<>())
@@ -446,6 +447,7 @@ public class AvailabilityService{
         if (exceptionId == null || exceptionId <= 0) {
             throw new IllegalArgumentException("Exception ID must be a positive number");
         }
+        validateDate(LocalDate.parse(dto.getExceptionDate()));
         ProviderExceptions exception = providerExceptionsRepository.findById(exceptionId)
                 .orElseThrow(()-> new EntityNotFoundException("Provider exception not found"));
 
@@ -517,6 +519,7 @@ public class AvailabilityService{
         if(request == null){
             throw new IllegalArgumentException("Request cannot be null");
         }
+        validateDate(request.date());
         log.info("Checking availability for Service Provider ID: {}, Service ID: {}, Date: {}, Start Time: {}, End Time: {}",
                 request.serviceProviderId(), request.serviceId(), request.date(), request.startTime(), request.endTime());
 
@@ -698,6 +701,11 @@ public class AvailabilityService{
         return isWithinRange;
     }
 
-
+    private void validateDate(LocalDate providedDate){
+        if(providedDate.isBefore(LocalDate.now())){
+            log.error("Provided date {} is in the past", providedDate);
+            throw new IllegalArgumentException("Date cannot be in the past");
+        }
+    }
 }
 

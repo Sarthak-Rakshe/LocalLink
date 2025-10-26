@@ -3,15 +3,13 @@ package com.sarthak.BookingService.dto;
 
 import com.sarthak.BookingService.model.BookingStatus;
 import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Builder
 public record BookingDto (
         Long bookingId,
         Long customerId,
         Long serviceId,
+        String serviceCategory,
         Long serviceProviderId,
         String bookingDate,
         String bookingStartTime,

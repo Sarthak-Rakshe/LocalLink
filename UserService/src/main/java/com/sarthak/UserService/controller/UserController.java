@@ -20,7 +20,6 @@ public class UserController {
 
     private final UserService userService;
 
-
     @GetMapping("/{userId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserResponse> getByUserId(@PathVariable Long userId) {
@@ -114,6 +113,12 @@ public class UserController {
                 providers.getTotalElements(),
                 providers.getTotalPages()
         );
+    }
+
+    @GetMapping("/provider/{providerId}")
+    public ResponseEntity<ProviderResponse> getProviderById(@PathVariable Long providerId) {
+        ProviderResponse providerResponse = userService.getProviderById(providerId);
+        return ResponseEntity.ok(providerResponse);
     }
 
 }

@@ -33,13 +33,13 @@ public class PaymentController {
         return ResponseEntity.ok(transactionDto);
     }
 
-    @GetMapping()
+    @PostMapping("/allServices")
     public PagedResponse<TransactionDto> getAllTransactions(@NotNull @RequestParam(name ="sort-by") String sortBy,
                                                             @NotNull @RequestParam(name ="sort-dir") String sortDir,
                                                             @NotNull @RequestParam(name ="page") int page,
                                                             @NotNull @RequestParam(name ="size") int size,
                                                             Authentication authentication,
-                                                            TransactionFilter transactionFilter) {
+                                                            @RequestBody(required = false) TransactionFilter transactionFilter) {
 
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         Page<TransactionDto> transactions = transactionService.getAllTransactions(page, size, sortBy, sortDir,
