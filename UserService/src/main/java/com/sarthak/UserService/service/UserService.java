@@ -266,4 +266,12 @@ public class UserService implements UserDetailsService {
         log.info("Mapped {} providers to ProviderResponse", resultMap.size());
         return new PageImpl<>(resultMap, pageable, providers.getTotalElements());
     }
+
+    public ProviderResponse getProviderById(Long providerId) {
+        User provider = userRepository.findByUserIdAndUserType(providerId, UserType.PROVIDER)
+                .orElseThrow(() -> new UserNotFoundException("Provider not found with id: " + providerId));
+        Map<Long, ProviderReviewAggregateResponse> aggregate =
+                reviewServiceClient.getProviderReviewAggregates(List.of(providerId));
+        return userMapper.toProviderResponse(provider, aggregate.get(providerId));
+    }
 }

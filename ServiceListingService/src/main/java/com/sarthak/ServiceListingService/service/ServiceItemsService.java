@@ -1,6 +1,8 @@
 package com.sarthak.ServiceListingService.service;
 
 import com.sarthak.ServiceListingService.client.ReviewServiceClient;
+import com.sarthak.ServiceListingService.config.shared.UserPrincipal;
+import com.sarthak.ServiceListingService.dto.QueryFilter;
 import com.sarthak.ServiceListingService.dto.ReviewAggregateResponse;
 import com.sarthak.ServiceListingService.dto.ServiceItemDto;
 import com.sarthak.ServiceListingService.exception.DuplicateServiceException;
@@ -9,12 +11,15 @@ import com.sarthak.ServiceListingService.mapper.ServiceItemsMapper;
 import com.sarthak.ServiceListingService.model.ServiceItem;
 import com.sarthak.ServiceListingService.model.SortFields;
 import com.sarthak.ServiceListingService.repository.ServiceItemRepository;
+import com.sarthak.ServiceListingService.repository.ServiceSpecification;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.AccessDeniedException;
@@ -50,55 +55,29 @@ public class ServiceItemsService {
         return serviceItemsMapper.entityToDto(serviceItem, reviewAggregate);
     }
 
-    public Page<ServiceItemDto> getAllServices(int page, int size, String sortBy, String sortDir){
+    public Page<ServiceItemDto> getAllServices(int page, int size, String sortBy, String sortDir, Authentication authentication, QueryFilter queryFilter){
         log.info("Fetching all services - page: {}, size: {}", page, size);
 
         Pageable pageable = getPageable(page, size, sortBy, sortDir, false);
 
-        Page<ServiceItem> services = serviceItemRepository.findAll(pageable);
+        UserPrincipal userPrincipal = (UserPrincipal)authentication.getPrincipal();
+        String userType = userPrincipal.getUserType();
+        Specification<ServiceItem> spec = null;
+        if (queryFilter != null) {
+            spec = ServiceSpecification.buildSpecification(userType, queryFilter);
+        }
+
+        Page<ServiceItem> services = serviceItemRepository.findAll(spec, pageable);
+
         List<Long> serviceIds = services.map(ServiceItem::getServiceId).toList();
         Map<Long, ReviewAggregateResponse> reviewAggregateMap =
                     reviewServiceClient.getAggregatesByServiceIds(serviceIds);
+
         log.debug("Fetched {} services", services.getNumberOfElements());
         List<ServiceItemDto> resultList = new ArrayList<>();
+
         for(ServiceItem service : services){
             ReviewAggregateResponse reviewAggregate = reviewAggregateMap.get(service.getServiceId());
-            resultList.add(serviceItemsMapper.entityToDto(service, reviewAggregate));
-        }
-        return new PageImpl<>(resultList, pageable, services.getTotalElements());
-    }
-
-    public Page<ServiceItemDto> getServicesByProviderId(Long providerId, int page, int size, String sortBy, String sortDir){
-        log.info("Fetching services for provider id: {} - page: {}, size: {}", providerId, page, size);
-
-        Pageable pageable = getPageable(page, size, sortBy, sortDir, false);
-
-        Page<ServiceItem> services = serviceItemRepository.findAllByServiceProviderId(providerId, pageable);
-        List<Long> serviceIds = services.map(ServiceItem::getServiceId).toList();
-        Map<Long, ReviewAggregateResponse> reviewAggregates = reviewServiceClient.getAggregatesByServiceIds(serviceIds);
-
-        List<ServiceItemDto> resultList = new ArrayList<>();
-        for(ServiceItem service : services){
-            ReviewAggregateResponse reviewAggregate = reviewAggregates.get(service.getServiceId());
-            resultList.add(serviceItemsMapper.entityToDto(service, reviewAggregate));
-        }
-        log.debug("Fetched {} services for provider id: {}", services.getNumberOfElements(), providerId);
-        return new PageImpl<>(resultList, pageable, services.getTotalElements());
-    }
-
-    public Page<ServiceItemDto> getServicesByCategory(String category, int page, int size, String sortBy, String sortDir){
-        log.info("Fetching services for category: {} - page: {}, size: {}", category, page, size);
-
-        Pageable pageable = getPageable(page, size, sortBy, sortDir, false);
-
-        Page<ServiceItem> services = serviceItemRepository.findAllByServiceCategoryIgnoreCase(category, pageable);
-        log.debug("Fetched {} services for category: {}", services.getNumberOfElements(), category);
-
-        List<Long> serviceIds = services.map(ServiceItem::getServiceId).toList();
-        Map<Long, ReviewAggregateResponse> reviewAggregates = reviewServiceClient.getAggregatesByServiceIds(serviceIds);
-        List<ServiceItemDto> resultList = new ArrayList<>();
-        for (ServiceItem service : services) {
-            ReviewAggregateResponse reviewAggregate = reviewAggregates.get(service.getServiceId());
             resultList.add(serviceItemsMapper.entityToDto(service, reviewAggregate));
         }
         return new PageImpl<>(resultList, pageable, services.getTotalElements());

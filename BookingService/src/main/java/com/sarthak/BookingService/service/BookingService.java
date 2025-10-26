@@ -1,6 +1,7 @@
 package com.sarthak.BookingService.service;
 
 import com.sarthak.BookingService.client.AvailabilityServiceClient;
+import com.sarthak.BookingService.config.shared.UserPrincipal;
 import com.sarthak.BookingService.dto.AvailabilityStatus;
 import com.sarthak.BookingService.dto.BookingDto;
 import com.sarthak.BookingService.dto.BookingStatusCount;
@@ -30,6 +31,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -151,9 +153,11 @@ public class BookingService {
         return mergedSlots;
     }
 
-
     @Transactional
-    public BookingDto bookService(BookingDto bookingDto){
+    public BookingDto bookService(BookingDto bookingDto, UserPrincipal userPrincipal){
+        if(Objects.equals(bookingDto.serviceProviderId(), userPrincipal.getUserId())){
+            throw new IllegalStateException("Service provider cannot book their own service");
+        }
         Booking booking = bookingMapper.toEntity(bookingDto);
         log.info("Booking process starting for serviceId: {} with providerId: {} on date: {} from {} to {}",
                 booking.getServiceId(), booking.getServiceProviderId(), booking.getBookingDate(),

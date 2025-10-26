@@ -162,7 +162,7 @@ class BookingControllerTest {
                 .build();
 
         BookingDto response = buildDto(123L);
-        when(bookingService.bookService(any(BookingDto.class))).thenReturn(response);
+        when(bookingService.bookService(any(BookingDto.class), authentication)).thenReturn(response);
 
         mockMvc.perform(post("/api/bookings")
                         .contentType(MediaType.APPLICATION_JSON)

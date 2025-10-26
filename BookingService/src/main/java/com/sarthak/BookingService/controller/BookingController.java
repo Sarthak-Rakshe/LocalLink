@@ -1,5 +1,6 @@
 package com.sarthak.BookingService.controller;
 
+import com.sarthak.BookingService.config.shared.UserPrincipal;
 import com.sarthak.BookingService.dto.BookingDto;
 import com.sarthak.BookingService.dto.request.BookingRescheduleRequest;
 import com.sarthak.BookingService.dto.response.BookedSlotsResponse;
@@ -11,6 +12,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -102,8 +105,9 @@ public class BookingController {
     }
 
     @PostMapping()
-    public ResponseEntity<BookingDto> bookService(@RequestBody BookingDto bookingDto) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(bookingService.bookService(bookingDto));
+    public ResponseEntity<BookingDto> bookService(@RequestBody BookingDto bookingDto, Authentication authentication) {
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.status(HttpStatus.CREATED).body(bookingService.bookService(bookingDto, userPrincipal));
     }
 
    @PostMapping("/{bookingId}/updateStatus/{status}")

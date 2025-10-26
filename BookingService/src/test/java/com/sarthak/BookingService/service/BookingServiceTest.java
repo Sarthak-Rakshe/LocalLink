@@ -166,7 +166,7 @@ class BookingServiceTest {
             return toSave;
         });
 
-        BookingDto result = bookingService.bookService(input);
+        BookingDto result = bookingService.bookService(input, authentication);
         assertNotNull(result.bookingId());
         assertEquals(BookingStatus.PENDING, result.bookingStatus());
         verify(bookingRepository).save(any(Booking.class));
@@ -179,7 +179,7 @@ class BookingServiceTest {
         when(availabilityServiceClient.getAvailabilityStatus(any())).thenReturn(
                 new AvailabilityStatusResponse(33L, "13:00", "14:00", "2024-01-01", AvailabilityStatus.BLOCKED)
         );
-        assertThrows(ProviderNotAvailableForGivenTimeSlotException.class, () -> bookingService.bookService(input));
+        assertThrows(ProviderNotAvailableForGivenTimeSlotException.class, () -> bookingService.bookService(input, authentication));
         verify(bookingRepository, never()).save(any());
     }
 
@@ -194,7 +194,7 @@ class BookingServiceTest {
         when(bookingRepository.findByServiceProviderIdAndServiceIdAndBookingDateAndBookingStartTimeAndBookingEndTime(
                 eq(33L), eq(22L), eq(LocalDate.parse("2024-01-01")), eq(LocalTime.parse("13:00")), eq(LocalTime.parse("14:00"))
         )).thenReturn(Optional.of(existing));
-        assertThrows(TimeSlotAlreadyBookedException.class, () -> bookingService.bookService(input));
+        assertThrows(TimeSlotAlreadyBookedException.class, () -> bookingService.bookService(input, authentication));
         verify(bookingRepository, never()).save(any());
     }
 

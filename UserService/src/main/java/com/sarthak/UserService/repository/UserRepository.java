@@ -28,4 +28,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Page<User> findAllByIsActiveTrue(Pageable pageable);
 
     Page<User> findAllByUserTypeAndUserRole(UserType userType, UserRole userRole, Pageable pageable);
+
+    Optional<User> findByUserIdAndUserType(Long providerId, UserType userType);
 }
