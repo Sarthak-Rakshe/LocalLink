@@ -25,6 +25,10 @@ const AvailabilityCalendar = lazy(() =>
   import("../pages/availability/Calendar.jsx")
 );
 const PaymentsHome = lazy(() => import("../pages/payments/Index.jsx"));
+const ServicesExplore = lazy(() => import("../pages/services/Explore.jsx"));
+const ServicesManage = lazy(() => import("../pages/services/Manage.jsx"));
+const ServiceCreate = lazy(() => import("../pages/services/Create.jsx"));
+const ServiceEdit = lazy(() => import("../pages/services/Edit.jsx"));
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -140,6 +144,33 @@ export const router = createBrowserRouter([
         ),
       },
       { path: "/payments/*", element: <PaymentsHome /> },
+      // Services explore (customers and providers can view)
+      { path: "/services", element: <ServicesExplore /> },
+      // Provider services management
+      {
+        path: "/services/manage",
+        element: (
+          <RequireUserType allowed={["PROVIDER"]}>
+            <ServicesManage />
+          </RequireUserType>
+        ),
+      },
+      {
+        path: "/services/new",
+        element: (
+          <RequireUserType allowed={["PROVIDER"]}>
+            <ServiceCreate />
+          </RequireUserType>
+        ),
+      },
+      {
+        path: "/services/:id/edit",
+        element: (
+          <RequireUserType allowed={["PROVIDER"]}>
+            <ServiceEdit />
+          </RequireUserType>
+        ),
+      },
     ],
   },
   {

@@ -8,7 +8,8 @@ public class ServiceSpecification {
 
     public static Specification<ServiceItem> hasCategory(String category) {
         return (root, query, criteriaBuilder) -> category == null
-                ? null : criteriaBuilder.equal(criteriaBuilder.lower(root.get("serviceCategory")), category.toLowerCase());
+                ? null : criteriaBuilder.like(criteriaBuilder.lower(root.get("serviceCategory")),
+                "%" + category.toLowerCase() + "%");
     }
 
     public static Specification<ServiceItem> hasServiceName(String serviceName) {

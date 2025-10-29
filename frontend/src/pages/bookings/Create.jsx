@@ -315,7 +315,7 @@ export default function BookingCreate() {
                       setOrderId(oid);
                       toast.success("Order created");
                     }
-                  } catch (e) {
+                  } catch {
                     // errors already toasted
                   }
                 }}
@@ -361,12 +361,12 @@ export default function BookingCreate() {
                             createdBookingId,
                             "CONFIRMED"
                           );
-                        } catch (_) {
+                        } catch {
                           // non-fatal
                         }
                         toast.success("Payment successful");
                         navigate(`/bookings/${createdBookingId}`);
-                      } catch (e) {
+                      } catch {
                         // errors already surfaced
                       }
                     }}

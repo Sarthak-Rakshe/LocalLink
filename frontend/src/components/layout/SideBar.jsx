@@ -4,10 +4,12 @@ import {
   CreditCardIcon,
   HomeIcon,
   ListBulletIcon,
+  Squares2X2Icon,
+  WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "../../context/AuthContext.jsx";
 
-function NavItem({ to, icon: Icon, children }) {
+function NavItem({ to, icon, children }) {
   return (
     <NavLink
       to={to}
@@ -18,7 +20,7 @@ function NavItem({ to, icon: Icon, children }) {
       }
       end
     >
-      <Icon className="size-5" />
+      <span className="size-5">{icon}</span>
       <span>{children}</span>
     </NavLink>
   );
@@ -35,23 +37,40 @@ export default function SideBar({ open, onClose }) {
       </div>
       {/* Dashboard (varies by user type) */}
       {isProvider ? (
-        <NavItem to="/dashboard/provider" icon={HomeIcon}>
+        <NavItem
+          to="/dashboard/provider"
+          icon={<HomeIcon className="size-5" />}
+        >
           Dashboard
         </NavItem>
       ) : (
-        <NavItem to="/dashboard/customer" icon={HomeIcon}>
+        <NavItem
+          to="/dashboard/customer"
+          icon={<HomeIcon className="size-5" />}
+        >
           Dashboard
         </NavItem>
       )}
-      <NavItem to="/bookings" icon={ListBulletIcon}>
+      <NavItem to="/bookings" icon={<ListBulletIcon className="size-5" />}>
         Bookings
       </NavItem>
+      <NavItem to="/services" icon={<Squares2X2Icon className="size-5" />}>
+        Services
+      </NavItem>
       {isProvider && (
-        <NavItem to="/availability" icon={CalendarIcon}>
+        <NavItem to="/availability" icon={<CalendarIcon className="size-5" />}>
           Availability
         </NavItem>
       )}
-      <NavItem to="/payments" icon={CreditCardIcon}>
+      {isProvider && (
+        <NavItem
+          to="/services/manage"
+          icon={<WrenchScrewdriverIcon className="size-5" />}
+        >
+          My Services
+        </NavItem>
+      )}
+      <NavItem to="/payments" icon={<CreditCardIcon className="size-5" />}>
         Payments
       </NavItem>
     </div>

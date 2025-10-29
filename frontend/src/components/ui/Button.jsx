@@ -17,19 +17,20 @@ const sizes = {
 };
 
 export default function Button({
-  as: Comp = "button",
+  as = "button",
   variant = "primary",
   size = "md",
   className,
   children,
   ...props
 }) {
+  const CompTag = as || "button";
   return (
-    <Comp
+    <CompTag
       className={clsx(base, variants[variant], sizes[size], className)}
       {...props}
     >
       {children}
-    </Comp>
+    </CompTag>
   );
 }
