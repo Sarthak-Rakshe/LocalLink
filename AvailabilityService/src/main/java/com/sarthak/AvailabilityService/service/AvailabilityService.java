@@ -7,6 +7,7 @@ import com.sarthak.AvailabilityService.dto.ProviderExceptionDto;
 import com.sarthak.AvailabilityService.dto.Slot;
 import com.sarthak.AvailabilityService.dto.request.DayAndTimeAvailabilityRequest;
 import com.sarthak.AvailabilityService.dto.response.AvailabilitySlotsResponse;
+import com.sarthak.AvailabilityService.exception.ConflictingRulesException;
 import com.sarthak.AvailabilityService.exception.DuplicateEntityException;
 import com.sarthak.AvailabilityService.exception.EntityNotFoundException;
 import com.sarthak.AvailabilityService.exception.InvalidTimeSlotParametersException;
@@ -55,21 +56,35 @@ public class AvailabilityService{
     }
 
 
-    public AvailabilityRulesDto createAvailabilityRule(AvailabilityRulesDto dto) {
+    public AvailabilityRulesDto createAvailabilityRule(AvailabilityRulesDto availabilityRulesDto) {
         log.info("Creating availability rule for Service Provider ID: {}, Service ID: {}",
-                dto.getServiceProviderId(), dto.getServiceId());
-        AvailabilityRules rule = availabilityMapper.AvailabilityDtoToEntity(dto);
+                availabilityRulesDto.getServiceProviderId(), availabilityRulesDto.getServiceId());
+        AvailabilityRules rule = availabilityMapper.AvailabilityDtoToEntity(availabilityRulesDto);
 
         Optional<AvailabilityRules> existingRule = availabilityRulesRepository
                 .findByServiceProviderIdAndServiceIdAndStartTimeAndEndTime(rule.getServiceProviderId(),
                         rule.getServiceId(), rule.getStartTime(), rule.getEndTime());
 
         if (existingRule.isPresent()) {
-            log.info("Duplicate availability rule found for Service Provider ID: {}, Service ID: {}",
-                    dto.getServiceProviderId(), dto.getServiceId());
+            log.info("Duplicate rule found for Service Provider ID: {}, Service ID: {}, Start Time: {}, End Time: {}, Days of Week: {}",
+                    availabilityRulesDto.getServiceProviderId(), availabilityRulesDto.getServiceId(),
+                    availabilityRulesDto.getStartTime(), availabilityRulesDto.getEndTime(), availabilityRulesDto.getDaysOfWeek());
             throw new DuplicateEntityException("An availability rule with the same parameters already exists.");
         }
 
+        byte daysOfWeek = 0;
+        for(DayOfWeek day : rule.getDaysOfWeek()){
+            daysOfWeek |= (byte) (1 << day.getValue());
+        }
+        List<AvailabilityRules> conflictingRules = availabilityRulesRepository
+                .findConflictingRules(rule.getServiceProviderId(), rule.getServiceId(),
+                        rule.getStartTime(), rule.getEndTime(), daysOfWeek);
+
+        if(!conflictingRules.isEmpty()){
+            log.error("Conflicting availability rules found for Service Provider ID: {}, Service ID: {}",
+                    availabilityRulesDto.getServiceProviderId(), availabilityRulesDto.getServiceId());
+            throw new ConflictingRulesException("Conflicting availability rules exist for the given time slot and days.");
+        }
         AvailabilityRules savedRule = availabilityRulesRepository.save(rule);
         log.info("Availability rule created with ID: {}", savedRule.getRuleId());
         return availabilityMapper.AvailabilityToDto(savedRule);
@@ -88,8 +103,7 @@ public class AvailabilityService{
         if (existingException.isPresent()) {
             log.error("Duplicate provider exception found for Service Provider ID: {}, Service ID: {}, Date: {}",
                     dto.getServiceProviderId(), dto.getServiceId(), dto.getExceptionDate());
-            throw new DuplicateEntityException("An exception for the same date " +
-                    "and time already exists.");
+            throw new DuplicateEntityException("An exception for the same date and time already exists.");
         }
 
         ProviderExceptions savedException = providerExceptionsRepository.save(exception);

@@ -321,7 +321,7 @@ class BookingServiceTest {
     @Test
     @DisplayName("getBookingSummaryForServiceProvider aggregates counts and computes totals")
     void getBookingSummaryForServiceProvider_counts() {
-        when(bookingRepository.countBookingsByStatusGrouped(33L)).thenReturn(
+        when(bookingRepository.countBookingsByStatusGroupedForProvider(33L)).thenReturn(
                 List.of(
                         new BookingStatusCount(BookingStatus.COMPLETED, 2L),
                         new BookingStatusCount(BookingStatus.PENDING, 3L),
@@ -343,7 +343,7 @@ class BookingServiceTest {
     @Test
     @DisplayName("getBookingSummaryForServiceProvider returns zeros when no data")
     void getBookingSummaryForServiceProvider_empty() {
-        when(bookingRepository.countBookingsByStatusGrouped(99L)).thenReturn(List.of());
+        when(bookingRepository.countBookingsByStatusGroupedForProvider(99L)).thenReturn(List.of());
         var summary = bookingService.getBookingSummaryForServiceProvider(99L);
         assertEquals(0L, summary.completedBookings());
         assertEquals(0L, summary.pendingBookings());

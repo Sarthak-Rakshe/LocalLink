@@ -24,6 +24,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -89,6 +90,14 @@ public class BookingService {
         Page<Booking> bookings = bookingRepository.findByServiceProviderId(serviceProviderId, pageable);
         log.info("Fetched {} bookings for serviceProviderId: {}", bookings.getTotalElements(), serviceProviderId);
         return bookings.map(bookingMapper::toDto);
+    }
+
+    public BookingDto getBookingByServiceIdAndCustomerId(Long serviceId, Long customerId){
+        Booking booking = bookingRepository.findByServiceIdAndCustomerId(serviceId, customerId)
+                .orElseThrow(() -> new BookingNotFoundException("Booking not found for serviceId: " + serviceId +
+                        " and customerId: " + customerId));
+        log.info("Fetched booking for serviceId: {} and customerId: {}", serviceId, customerId);
+        return bookingMapper.toDto(booking);
     }
 
     public BookedSlotsResponse getBookedSlotsForProviderOnDate(Long serviceProviderId, Long serviceId, LocalDate date) {
@@ -261,10 +270,20 @@ public class BookingService {
         bookingRepository.save(booking);
     }
 
-    public BookingsSummaryResponse getBookingSummaryForServiceProvider(Long serviceProviderId) {
-        log.info("Generating booking summary for serviceProviderId: {}", serviceProviderId);
-        List<BookingStatusCount> rows = bookingRepository.countBookingsByStatusGrouped(serviceProviderId);
-        log.info("Fetched booking status counts: {}", rows);
+    public BookingsSummaryResponse getBookingSummaryForServiceProvider(Authentication authentication) {
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        Long userId = userPrincipal.getUserId();
+        String userType = userPrincipal.getUserType();
+        List<BookingStatusCount> rows;
+        if(userType.equalsIgnoreCase("CUSTOMER")){
+            rows = bookingRepository.countBookingsByStatusGroupedForCustomer(userId);
+        }else if (userType.equalsIgnoreCase("PROVIDER")){
+            log.info("Generating booking summary for serviceProviderId: {}", userId);
+            rows = bookingRepository.countBookingsByStatusGroupedForProvider(userId);
+            log.info("Fetched booking status counts: {}", rows);
+        }else {
+            rows = new ArrayList<>();
+        }
 
         long completed = 0, pending = 0, cancelled = 0, deleted = 0, rescheduled = 0;
         log.info("Processing booking status counts");

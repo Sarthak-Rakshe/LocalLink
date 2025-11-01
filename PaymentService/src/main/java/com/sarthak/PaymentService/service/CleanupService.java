@@ -1,12 +1,10 @@
 package com.sarthak.PaymentService.service;
 
-import com.sarthak.PaymentService.client.PayPalClient;
 import com.sarthak.PaymentService.enums.PaymentMethod;
 import com.sarthak.PaymentService.enums.PaymentStatus;
 import com.sarthak.PaymentService.model.Transaction;
 import com.sarthak.PaymentService.repository.TransactionRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -22,16 +20,14 @@ import java.util.List;
 public class CleanupService {
 
     private final TransactionRepository transactionRepository;
-    private final TransactionService transactionService;
-    private final long CLEANUP_INTERVAL_MS = 300 * 1000; //  5 minutes
+    private final long CLEANUP_INTERVAL_MS = 300 * 1000; // 5 minutes
 
-    public CleanupService(TransactionRepository transactionRepository, TransactionService transactionService) {
+    public CleanupService(TransactionRepository transactionRepository) {
         this.transactionRepository = transactionRepository;
-        this.transactionService = transactionService;
     }
 
     @Scheduled(fixedRate = CLEANUP_INTERVAL_MS)
-    public void clearPendingTransactions(){
+    public void clearPendingTransactions() {
         log.debug("Scheduled task started: Clearing old pending transactions");
 
         Instant cutOffTime = Instant.now().minus(30, ChronoUnit.MINUTES);
@@ -39,8 +35,8 @@ public class CleanupService {
         List<Transaction> oldPendingTransactions = transactionRepository
                 .findAllByPaymentStatusAndCreatedAtBefore(PaymentStatus.PENDING, cutOffTime)
                 .stream()
-                        .filter( t-> t.getPaymentMethod() != PaymentMethod.CASH)
-                        .toList();
+                .filter(t -> t.getPaymentMethod() != PaymentMethod.CASH)
+                .toList();
 
         int batchSize = 30;
         List<List<Transaction>> batches = partitionList(oldPendingTransactions, batchSize);
@@ -56,23 +52,28 @@ public class CleanupService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void clearPendingTransactionsBatchwise(List<Transaction> batch) {
-        batch.forEach( t -> {
+        for (Transaction t : batch) {
             try {
-                transactionService.updateTransactionStatus(t.getTransactionId(), PaymentStatus.FAILED);
-                log.debug("Updated old pending transaction with id: {} as FAILED", t.getTransactionId());
+                transactionRepository.findById(t.getTransactionId()).ifPresent(managed -> {
+                    // double-check current state to avoid unexpected inserts/duplicates
+                    if (managed.getPaymentMethod() == PaymentMethod.CASH) return;
+                    if (managed.getPaymentStatus() != PaymentStatus.PENDING) return;
+
+                    managed.setPaymentStatus(PaymentStatus.FAILED);
+                    transactionRepository.save(managed); // will perform an update/merge for managed entity
+                    log.debug("Updated old pending transaction with id: {} as FAILED", managed.getTransactionId());
+                });
             } catch (Exception e) {
                 log.error("Error marking old pending transaction with id: {} as FAILED. Error: {}", t.getTransactionId(), e.getMessage());
             }
-        });
+        }
     }
 
     private <T> List<List<T>> partitionList(List<T> list, int batchSize) {
         List<List<T>> partitions = new ArrayList<>();
-
-        for(int i = 0; i < list.size(); i += batchSize) {
+        for (int i = 0; i < list.size(); i += batchSize) {
             partitions.add(list.subList(i, Math.min(i + batchSize, list.size())));
         }
-
         return partitions;
     }
 }

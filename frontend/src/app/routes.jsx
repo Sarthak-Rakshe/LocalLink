@@ -25,7 +25,8 @@ const AvailabilityManage = lazy(() =>
 const AvailabilityCalendar = lazy(() =>
   import("../pages/availability/Calendar.jsx")
 );
-const PaymentsHome = lazy(() => import("../pages/payments/Index.jsx"));
+const PaymentsList = lazy(() => import("../pages/payments/List.jsx"));
+const PaymentDetails = lazy(() => import("../pages/payments/Details.jsx"));
 const ServicesExplore = lazy(() => import("../pages/services/Explore.jsx"));
 const ServicesManage = lazy(() => import("../pages/services/Manage.jsx"));
 const ServiceCreate = lazy(() => import("../pages/services/Create.jsx"));
@@ -153,7 +154,8 @@ export const router = createBrowserRouter([
           </RequireUserType>
         ),
       },
-      { path: "/payments/*", element: <PaymentsHome /> },
+      { path: "/payments", element: <PaymentsList /> },
+      { path: "/payments/:id", element: <PaymentDetails /> },
       // Services explore (customers and providers can view)
       { path: "/services", element: <ServicesExplore /> },
       { path: "/services/:id", element: <ServiceDetails /> },

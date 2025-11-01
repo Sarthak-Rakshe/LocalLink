@@ -87,7 +87,7 @@ public class ReviewController {
     @PostMapping()
     @PreAuthorize("principal.userType.equals('CUSTOMER')")
     public ResponseEntity<ReviewDto> addReview(@RequestBody ReviewDto reviewDto){
-        ReviewDto saved = reviewService.addReview(reviewDto);
+        ReviewDto saved = reviewService.validateAndAddReview(reviewDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 

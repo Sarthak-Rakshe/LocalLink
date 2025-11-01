@@ -8,6 +8,7 @@ import { Input, Label } from "../../components/ui/Input.jsx";
 import toast from "react-hot-toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { PayPalButtons } from "@paypal/react-paypal-js";
 
 function toISODate(d) {
   const dt = new Date(d);
@@ -295,6 +296,7 @@ export default function BookingCreate() {
   );
 
   // No payment, so skip amount derivation
+  const showPayPal = String(paymentMethod).toUpperCase() === "PAYPAL";
 
   return (
     <div className="space-y-4">
@@ -582,6 +584,7 @@ export default function BookingCreate() {
                 <option value="NET_BANKING">Net Banking</option>
                 <option value="WALLET">Wallet</option>
                 <option value="CASH">Cash</option>
+                <option value="PAYPAL">PayPal</option>
               </select>
             </div>
             <div>
@@ -590,33 +593,131 @@ export default function BookingCreate() {
             </div>
           </div>
 
-          <div className="mt-4 flex items-center gap-2">
-            <Button
-              onClick={handleCreateAndPay}
-              disabled={!canSubmit || isPaying}
-            >
-              {isPaying ? "Processing…" : "Create & Pay"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={async () => {
-                try {
-                  const resp = await createBookingMutation.mutateAsync();
-                  const bid = resp?.id ?? resp?.bookingId;
-                  navigate(bid ? `/bookings/${bid}` : "/bookings");
-                } catch {
-                  /* handled */
-                }
-              }}
-              disabled={!canSubmit || createBookingMutation.isPending}
-            >
-              {createBookingMutation.isPending
-                ? "Creating…"
-                : "Create without payment"}
-            </Button>
-            <Button variant="outline" onClick={() => navigate("/bookings")}>
-              Cancel
-            </Button>
+          <div className="mt-4 flex flex-col gap-3">
+            {!showPayPal ? (
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={handleCreateAndPay}
+                  disabled={!canSubmit || isPaying}
+                >
+                  {isPaying ? "Processing…" : "Create & Pay"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      const resp = await createBookingMutation.mutateAsync();
+                      const bid = resp?.id ?? resp?.bookingId;
+                      navigate(bid ? `/bookings/${bid}` : "/bookings");
+                    } catch {
+                      /* handled */
+                    }
+                  }}
+                  disabled={!canSubmit || createBookingMutation.isPending}
+                >
+                  {createBookingMutation.isPending
+                    ? "Creating…"
+                    : "Create without payment"}
+                </Button>
+                <Button variant="outline" onClick={() => navigate("/bookings")}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="text-sm text-zinc-600">
+                  Complete your payment securely with PayPal
+                </div>
+                <PayPalButtons
+                  style={{ layout: "vertical", shape: "rect" }}
+                  disabled={!canSubmit}
+                  forceReRender={[computeAmount()]}
+                  createOrder={async () => {
+                    try {
+                      // Ensure booking exists
+                      let bid = createdBookingId;
+                      if (!bid) {
+                        const b = await createBookingMutation.mutateAsync();
+                        bid = b?.bookingId || b?.id;
+                        setCreatedBookingId(bid || null);
+                      }
+                      // Build order via backend
+                      const pricePerHour = Number(
+                        selectedService?.servicePricePerHour || 0
+                      );
+                      const start = (
+                        timeWithinSlot ||
+                        selectedSlot?.startTime ||
+                        slot ||
+                        ""
+                      )
+                        .toString()
+                        .slice(0, 5);
+                      const end = (
+                        endTimeWithinSlot ||
+                        computeEndTime(start, selectedSlot?.endTime) ||
+                        ""
+                      )
+                        .toString()
+                        .slice(0, 5);
+                      const orderId = await Payments.createOrder({
+                        serviceId: Number(serviceId),
+                        slot: { startTime: start, endTime: end },
+                        pricePerHour,
+                      });
+                      if (!orderId) throw new Error("No order id returned");
+                      return orderId;
+                    } catch (e) {
+                      const msg =
+                        e?.response?.data?.message ||
+                        e?.message ||
+                        "Failed to create PayPal order";
+                      toast.error(msg);
+                      throw e;
+                    }
+                  }}
+                  onApprove={async (data, actions) => {
+                    try {
+                      const orderId = data?.orderID;
+                      const bookingId = createdBookingId;
+                      if (!orderId || !bookingId)
+                        throw new Error("Missing order or booking id");
+                      const amount = computeAmount();
+                      // Let backend capture and mark transaction
+                      const txn = await Payments.processPayment({
+                        orderId,
+                        bookingId: Number(bookingId),
+                        customerId: Number(user?.userId),
+                        amount,
+                        // Backend enum does not include PAYPAL; map PayPal UI to CREDIT_CARD for storage
+                        paymentMethod: "CREDIT_CARD",
+                      });
+                      const status = txn?.paymentStatus || "COMPLETED";
+                      toast.success(`Payment ${status.toLowerCase()}`);
+                      navigate(`/bookings/${bookingId}`);
+                    } catch (e) {
+                      const msg =
+                        e?.response?.data?.message ||
+                        e?.message ||
+                        "PayPal approval failed";
+                      toast.error(msg);
+                    }
+                  }}
+                  onError={(err) => {
+                    const msg = err?.message || "PayPal error";
+                    toast.error(msg);
+                  }}
+                />
+                <div>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate("/bookings")}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </Card>
       )}

@@ -1,5 +1,7 @@
 package com.sarthak.ReviewService.service;
 
+import com.sarthak.ReviewService.client.BookingClient;
+import com.sarthak.ReviewService.dto.BookingDto;
 import com.sarthak.ReviewService.dto.ReviewAggregateResponse;
 import com.sarthak.ReviewService.dto.ReviewDto;
 import com.sarthak.ReviewService.dto.response.ProviderReviewAggregateResponse;
@@ -30,16 +32,33 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final ReviewAggregateRepository reviewAggregateRepository;
     private final ReviewMapper reviewMapper;
+    private final BookingClient bookingClient;
     private final List<String> ALLOWED_SORT_FIELDS = List.of("reviewId", "createdAt", "updatedAt", "rating");
 
-    public ReviewService(ReviewRepository reviewRepository, ReviewMapper reviewMapper, ReviewAggregateRepository reviewAggregateRepository) {
+    public ReviewService(ReviewRepository reviewRepository, ReviewMapper reviewMapper, ReviewAggregateRepository reviewAggregateRepository, BookingClient bookingClient) {
         this.reviewRepository = reviewRepository;
         this.reviewMapper = reviewMapper;
         this.reviewAggregateRepository = reviewAggregateRepository;
+        this.bookingClient = bookingClient;
+    }
+
+    public ReviewDto validateAndAddReview(ReviewDto reviewDto){
+        log.info("Validating if user is authorized to add review: {}", reviewDto);
+        BookingDto bookingDto = bookingClient.getBookingByServiceAndCustomer(reviewDto.serviceId(), reviewDto.customerId());
+        if(bookingDto != null){
+            if (bookingDto.bookingStatus().equalsIgnoreCase("COMPLETED")) {
+                log.info("User {} is authorized to add review for service {}", reviewDto.customerId(), reviewDto.serviceId());
+            } else {
+                log.error("User {} attempted to add review for service {} without completing the booking", reviewDto.customerId(), reviewDto.serviceId());
+                throw new AccessDeniedException("You can only review services you have completed booking for");
+            }
+        }
+        
+        return addReview(reviewDto);
     }
 
     @Transactional
-    public ReviewDto addReview(ReviewDto reviewDto){
+    private ReviewDto addReview(ReviewDto reviewDto){
         log.info("Adding review: {}", reviewDto);
         if (reviewRepository.findByCustomerIdAndServiceId(reviewDto.customerId(), reviewDto.serviceId()).isPresent()) {
             log.error("Duplicate review attempt by customer {} for service {}", reviewDto.customerId(), reviewDto.serviceId());

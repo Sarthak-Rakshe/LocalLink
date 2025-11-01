@@ -10,8 +10,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
@@ -39,9 +39,19 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             WHERE b.serviceProviderId = :serviceProviderId
             GROUP BY b.bookingStatus
             """)
-    List<BookingStatusCount> countBookingsByStatusGrouped(
+    List<BookingStatusCount> countBookingsByStatusGroupedForProvider(
             @Param("serviceProviderId") Long serviceProviderId
     );
 
-    List<Booking> findAllByBookingStatusAndCreatedAtBefore(BookingStatus bookingStatus, LocalDateTime cutOff);
+    List<Booking> findAllByBookingStatusAndCreatedAtBefore(BookingStatus bookingStatus, Instant cutOff);
+
+    @Query(value = """
+            SELECT new com.sarthak.BookingService.dto.BookingStatusCount(b.bookingStatus, COUNT(b))
+            FROM Booking b
+            WHERE b.customerId = :customerId
+            GROUP BY b.bookingStatus
+            """)
+    List<BookingStatusCount> countBookingsByStatusGroupedForCustomer(@Param("customerId") Long customerId);
+
+    Optional<Booking> findByServiceIdAndCustomerId(Long serviceId, Long customerId);
 }

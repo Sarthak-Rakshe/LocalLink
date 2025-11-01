@@ -7,9 +7,17 @@ const queryClient = new QueryClient();
 
 export function AppProviders({ children }) {
   const paypalClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID || "";
+  const paypalCurrency = import.meta.env.VITE_PAYPAL_CURRENCY || "USD";
 
   return (
-    <PayPalScriptProvider options={{ clientId: paypalClientId }}>
+    <PayPalScriptProvider
+      options={{
+        clientId: paypalClientId,
+        currency: paypalCurrency,
+        intent: "capture",
+        components: "buttons",
+      }}
+    >
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           {children}

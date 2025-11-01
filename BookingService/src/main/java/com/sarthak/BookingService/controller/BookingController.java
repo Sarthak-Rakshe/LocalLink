@@ -50,7 +50,7 @@ public class BookingController {
     }
 
     @GetMapping("/serviceProvider/{serviceProviderId}/by-date")
-    public ResponseEntity<List<BookingDto>> getBookingsByServiceProviderId(@PathVariable Long serviceProviderId,
+    public ResponseEntity<List<BookingDto>> getBookingsByServiceProviderIdAndDate(@PathVariable Long serviceProviderId,
                                                                            @RequestParam LocalDate date) {
         return ResponseEntity.ok(bookingService.getAllByServiceProviderIdAndDate(serviceProviderId, date));
     }
@@ -91,9 +91,17 @@ public class BookingController {
         );
     }
 
-    @GetMapping("summary/{serviceProviderId}")
-    public ResponseEntity<BookingsSummaryResponse> getBookingSummaryForProvider(@PathVariable Long serviceProviderId) {
-        return ResponseEntity.ok(bookingService.getBookingSummaryForServiceProvider(serviceProviderId));
+    @GetMapping("/{serviceId}/{customerId}/bookings")
+    public ResponseEntity<BookingDto> getBookingByServiceAndCustomer(
+            @PathVariable Long serviceId,
+            @PathVariable Long customerId
+    ) {
+        return ResponseEntity.ok(bookingService.getBookingByServiceIdAndCustomerId(serviceId, customerId));
+    }
+
+    @GetMapping("/my-summary")
+    public ResponseEntity<BookingsSummaryResponse> getBookingSummaryForProvider(Authentication authentication) {
+        return ResponseEntity.ok(bookingService.getBookingSummaryForServiceProvider(authentication));
     }
     
     @GetMapping("bookedSlots/{serviceProviderId}/{serviceId}")

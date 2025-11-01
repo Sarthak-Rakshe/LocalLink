@@ -32,7 +32,7 @@ export default function AvailabilityManage() {
     queryKey: ["provider-services", providerId],
     queryFn: async () =>
       Services.getAll(
-        { userId: Number(providerId) },
+        { serviceProviderId: Number(providerId) },
         {
           page: 0,
           size: 50, // keep light to avoid heavy initial loads

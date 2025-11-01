@@ -30,7 +30,7 @@ export default function ManageServices() {
     setError("");
     try {
       const res = await Services.getAll(
-        { userId: Number(providerId) },
+        { serviceProviderId: Number(providerId) },
         { page, size, sortBy, sortDir }
       );
       setData(res);
