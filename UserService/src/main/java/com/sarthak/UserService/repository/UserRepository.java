@@ -6,13 +6,14 @@ import com.sarthak.UserService.model.UserType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
 @Repository
-public interface UserRepository extends JpaRepository<User, Long> {
+public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
 
     boolean existsByUsername(String username);
     boolean existsByUserEmail(String userEmail);
@@ -26,8 +27,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUsernameOrUserEmailOrUserContact(String username, String userEmail, String userContact);
 
     Page<User> findAllByIsActiveTrue(Pageable pageable);
-
-    Page<User> findAllByUserTypeAndUserRole(UserType userType, UserRole userRole, Pageable pageable);
 
     Optional<User> findByUserIdAndUserType(Long providerId, UserType userType);
 }

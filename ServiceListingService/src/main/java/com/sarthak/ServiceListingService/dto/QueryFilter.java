@@ -2,7 +2,7 @@ package com.sarthak.ServiceListingService.dto;
 
 public record QueryFilter(
         String category,
-        Long userId,
+        Long serviceProviderId,
         String serviceName,
         Double minPrice,
         Double maxPrice

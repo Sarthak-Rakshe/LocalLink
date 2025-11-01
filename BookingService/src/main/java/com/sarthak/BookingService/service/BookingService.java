@@ -47,60 +47,64 @@ public class BookingService {
     private final Set<String> ALLOWED_SORT_FIELDS = Set.of("bookingId", "serviceProviderId", "serviceId",
             "customerId", "bookingDate", "bookingStartTime", "bookingEndTime", "bookingStatus", "createdAt");
 
-    public BookingService(BookingRepository bookingRepository, BookingMapper bookingMapper, AvailabilityServiceClient availabilityServiceClient) {
+    public BookingService(BookingRepository bookingRepository, BookingMapper bookingMapper,
+            AvailabilityServiceClient availabilityServiceClient) {
         this.bookingRepository = bookingRepository;
         this.bookingMapper = bookingMapper;
         this.availabilityServiceClient = availabilityServiceClient;
     }
 
-    public BookingDto getBookingDetails(Long bookingId){
+    public BookingDto getBookingDetails(Long bookingId) {
         Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(()-> new BookingNotFoundException("Booking not found"));
+                .orElseThrow(() -> new BookingNotFoundException("Booking not found"));
         log.info("Fetched booking details for bookingId: {}", bookingId);
         return bookingMapper.toDto(booking);
     }
 
-    public List<BookingDto> getAllByServiceProviderIdAndDate(Long serviceProviderId, LocalDate date){
-        List<Booking> bookings = bookingRepository.findAllByServiceProviderIdAndBookingDateOrderByBookingStartTime(serviceProviderId,
-                        date);
+    public List<BookingDto> getAllByServiceProviderIdAndDate(Long serviceProviderId, LocalDate date) {
+        List<Booking> bookings = bookingRepository.findAllByServiceProviderIdAndBookingDateOrderByBookingStartTime(
+                serviceProviderId,
+                date);
         log.info("Fetched {} bookings for serviceProviderId: {} on date: {}", bookings.size(), serviceProviderId, date);
         return bookingMapper.toDtoList(bookings);
     }
 
-    public Page<BookingDto> getAllByCustomerId(Long customerId, int page, int size, String sortBy, String sortDir){
+    public Page<BookingDto> getAllByCustomerId(Long customerId, int page, int size, String sortBy, String sortDir) {
         Pageable pageable = getPageable(page, size, sortBy, sortDir);
         Page<Booking> bookings = bookingRepository.findByCustomerId(customerId, pageable);
         log.info("Fetched {} bookings for customerId: {}", bookings.getTotalElements(), customerId);
         return bookings.map(bookingMapper::toDto);
     }
 
-    public Page<BookingDto> getAllBookings(int page, int size, String sortBy, String sortDir){
+    public Page<BookingDto> getAllBookings(int page, int size, String sortBy, String sortDir) {
         Pageable pageable = getPageable(page, size, sortBy, sortDir);
         Page<Booking> bookings = bookingRepository.findAll(pageable);
         log.info("Fetched {} bookings", bookings.getTotalElements());
         return bookings.map(bookingMapper::toDto);
     }
 
-    public Page<BookingDto> getAllByServiceProviderId(Long serviceProviderId, int page, int size, String sortBy, String sortDir){
+    public Page<BookingDto> getAllByServiceProviderId(Long serviceProviderId, int page, int size, String sortBy,
+            String sortDir) {
         Pageable pageable = getPageable(page, size, sortBy, sortDir);
         Page<Booking> bookings = bookingRepository.findByServiceProviderId(serviceProviderId, pageable);
         log.info("Fetched {} bookings for serviceProviderId: {}", bookings.getTotalElements(), serviceProviderId);
         return bookings.map(bookingMapper::toDto);
     }
 
-    public BookedSlotsResponse getBookedSlotsForProviderOnDate(Long serviceProviderId, Long serviceId, LocalDate date){
-        List<Booking> bookings =
-                bookingRepository.findAllByServiceProviderIdAndServiceIdAndBookingDateOrderByBookingStartTime(serviceProviderId,
+    public BookedSlotsResponse getBookedSlotsForProviderOnDate(Long serviceProviderId, Long serviceId, LocalDate date) {
+        List<Booking> bookings = bookingRepository
+                .findAllByServiceProviderIdAndServiceIdAndBookingDateOrderByBookingStartTime(serviceProviderId,
                         serviceId, date);
 
-        Set<BookingStatus> allowedStatuses = Set.of(PENDING , CONFIRMED);
+        Set<BookingStatus> allowedStatuses = Set.of(PENDING, CONFIRMED);
 
         bookings = bookings.stream().filter(b -> allowedStatuses.contains(b.getBookingStatus())).toList();
 
         List<Slot> bookedSlots = new ArrayList<>();
 
         if (bookings.isEmpty()) {
-            log.info("No bookings found for serviceProviderId: {} and serviceId: {} on date: {}", serviceProviderId, serviceId, date);
+            log.info("No bookings found for serviceProviderId: {} and serviceId: {} on date: {}", serviceProviderId,
+                    serviceId, date);
             return BookedSlotsResponse.builder()
                     .serviceProviderId(serviceProviderId)
                     .serviceId(serviceId)
@@ -108,15 +112,14 @@ public class BookingService {
                     .date(date.toString())
                     .build();
         }
-        log.debug("Fetched {} bookings for serviceProviderId: {} and serviceId: {} on date: {}", bookings.size(), serviceProviderId, serviceId, date);
+        log.debug("Fetched {} bookings for serviceProviderId: {} and serviceId: {} on date: {}", bookings.size(),
+                serviceProviderId, serviceId, date);
 
         bookedSlots = bookings.stream()
-                .map(b ->
-                        Slot.builder()
-                                .startTime(b.getBookingStartTime())
-                                .endTime(b.getBookingEndTime())
-                                .build()
-                )
+                .map(b -> Slot.builder()
+                        .startTime(b.getBookingStartTime())
+                        .endTime(b.getBookingEndTime())
+                        .build())
                 .toList();
 
         bookedSlots = mergeBookedSlots(bookedSlots);
@@ -132,7 +135,7 @@ public class BookingService {
                 .build();
     }
 
-    private List<Slot> mergeBookedSlots(List<Slot> slots){
+    private List<Slot> mergeBookedSlots(List<Slot> slots) {
         List<Slot> mergedSlots = new ArrayList<>();
 
         LocalTime start = slots.getFirst().startTime();
@@ -141,9 +144,9 @@ public class BookingService {
         for (int i = 1; i < slots.size(); i++) {
             Slot current = slots.get(i);
 
-            if(!current.startTime().isAfter(end)){
+            if (!current.startTime().isAfter(end)) {
                 end = current.endTime().isAfter(end) ? current.endTime() : end;
-            }else {
+            } else {
                 mergedSlots.add(Slot.builder().startTime(start).endTime(end).build());
                 start = current.startTime();
                 end = current.endTime();
@@ -154,8 +157,8 @@ public class BookingService {
     }
 
     @Transactional
-    public BookingDto bookService(BookingDto bookingDto, UserPrincipal userPrincipal){
-        if(Objects.equals(bookingDto.serviceProviderId(), userPrincipal.getUserId())){
+    public BookingDto bookService(BookingDto bookingDto, UserPrincipal userPrincipal) {
+        if (Objects.equals(bookingDto.serviceProviderId(), userPrincipal.getUserId())) {
             throw new IllegalStateException("Service provider cannot book their own service");
         }
         Booking booking = bookingMapper.toEntity(bookingDto);
@@ -170,36 +173,36 @@ public class BookingService {
                         .startTime(booking.getBookingStartTime())
                         .endTime(booking.getBookingEndTime())
                         .date(booking.getBookingDate())
-                        .build()
-        );
+                        .build());
 
         log.info("Availability status for serviceId: {} with providerId: {} on date: {} from {} to {} is {}",
                 booking.getServiceId(), booking.getServiceProviderId(), booking.getBookingDate(),
                 booking.getBookingStartTime(), booking.getBookingEndTime(), response.status());
 
-        if(response.status().equals(AvailabilityStatus.BLOCKED) ||
-           response.status().equals(AvailabilityStatus.OUTSIDE_WORKING_HOURS)){
+        if (response.status().equals(AvailabilityStatus.BLOCKED) ||
+                response.status().equals(AvailabilityStatus.OUTSIDE_WORKING_HOURS)) {
             throw new ProviderNotAvailableForGivenTimeSlotException("Time slot not available");
-        }else if (response.status().equals(AvailabilityStatus.AVAILABLE)) {
-            Optional<Booking> existingBooking =
-                    bookingRepository.findByServiceProviderIdAndServiceIdAndBookingDateAndBookingStartTimeAndBookingEndTime(
-                    booking.getServiceProviderId(), booking.getServiceId(),booking.getBookingDate(),
+        } else if (response.status().equals(AvailabilityStatus.AVAILABLE)) {
+            Optional<Booking> existingBooking = bookingRepository
+                    .findByServiceProviderIdAndServiceIdAndBookingDateAndBookingStartTimeAndBookingEndTime(
+                            booking.getServiceProviderId(), booking.getServiceId(), booking.getBookingDate(),
                             booking.getBookingStartTime(), booking.getBookingEndTime());
 
             log.info("Checking for existing bookings for serviceId: {} with providerId: {} on date: {} from {} to {}",
                     booking.getServiceId(), booking.getServiceProviderId(), booking.getBookingDate(),
                     booking.getBookingStartTime(), booking.getBookingEndTime());
 
-            if(existingBooking.isPresent() && (existingBooking.get().getBookingStatus().equals(PENDING) ||
-                    existingBooking.get().getBookingStatus().equals(CONFIRMED))){
+            if (existingBooking.isPresent() && (existingBooking.get().getBookingStatus().equals(PENDING) ||
+                    existingBooking.get().getBookingStatus().equals(CONFIRMED))) {
                 log.error("Time slot already booked for serviceId: {} with providerId: {} on date: {} from {} to {}",
                         booking.getServiceId(), booking.getServiceProviderId(), booking.getBookingDate(),
                         booking.getBookingStartTime(), booking.getBookingEndTime());
                 throw new TimeSlotAlreadyBookedException("Time slot already booked");
             }
 
-        }else {
-            log.error("Unknown availability status received: {} for serviceId: {} with providerId: {} on date: {} from {} to {}",
+        } else {
+            log.error(
+                    "Unknown availability status received: {} for serviceId: {} with providerId: {} on date: {} from {} to {}",
                     response.status(), booking.getServiceId(), booking.getServiceProviderId(), booking.getBookingDate(),
                     booking.getBookingStartTime(), booking.getBookingEndTime());
             throw new UnknownAvailabilityStatusException("Unknown availability status");
@@ -215,40 +218,40 @@ public class BookingService {
 
     }
 
-    //After payment is successful
+    // After payment is successful
     @Transactional
-    private BookingDto confirmBooking(Long bookingId){
+    private BookingDto confirmBooking(Long bookingId) {
         Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(()-> new BookingNotFoundException("Booking not found"));
+                .orElseThrow(() -> new BookingNotFoundException("Booking not found"));
         booking.setBookingStatus(BookingStatus.CONFIRMED);
         Booking updatedBooking = bookingRepository.save(booking);
         log.info("Booking confirmed with bookingId: {}", bookingId);
         return bookingMapper.toDto(updatedBooking);
     }
 
-    //For cancelling a booking
+    // For cancelling a booking
     @Transactional
-    private BookingDto cancelBooking(Long bookingId){
+    private BookingDto cancelBooking(Long bookingId) {
         Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(()-> new BookingNotFoundException("Booking not found"));
+                .orElseThrow(() -> new BookingNotFoundException("Booking not found"));
         booking.setBookingStatus(CANCELLED);
         Booking updatedBooking = bookingRepository.save(booking);
         log.info("Booking cancelled with bookingId: {}", bookingId);
         return bookingMapper.toDto(updatedBooking);
     }
 
-    //After service is delivered
+    // After service is delivered
     @Transactional
-    private BookingDto completeBooking(Long bookingId){
+    private BookingDto completeBooking(Long bookingId) {
         Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(()-> new BookingNotFoundException("Booking not found"));
+                .orElseThrow(() -> new BookingNotFoundException("Booking not found"));
         booking.setBookingStatus(COMPLETED);
         Booking updatedBooking = bookingRepository.save(booking);
         log.info("Booking completed with bookingId: {}", bookingId);
         return bookingMapper.toDto(updatedBooking);
     }
 
-    //For deleting a booking record (soft delete)
+    // For deleting a booking record (soft delete)
     @Transactional
     public void deleteBooking(Long bookingId) {
         Booking booking = bookingRepository.findById(bookingId)
@@ -258,10 +261,9 @@ public class BookingService {
         bookingRepository.save(booking);
     }
 
-    public BookingsSummaryResponse getBookingSummaryForServiceProvider(Long serviceProviderId){
+    public BookingsSummaryResponse getBookingSummaryForServiceProvider(Long serviceProviderId) {
         log.info("Generating booking summary for serviceProviderId: {}", serviceProviderId);
-        List<BookingStatusCount> rows =
-                bookingRepository.countBookingsByStatusGrouped(serviceProviderId);
+        List<BookingStatusCount> rows = bookingRepository.countBookingsByStatusGrouped(serviceProviderId);
         log.info("Fetched booking status counts: {}", rows);
 
         long completed = 0, pending = 0, cancelled = 0, deleted = 0, rescheduled = 0;
@@ -269,17 +271,19 @@ public class BookingService {
         for (BookingStatusCount r : rows) {
             switch (r.status()) {
                 case COMPLETED -> completed = r.count();
-                case PENDING   -> pending   = r.count();
+                case PENDING -> pending = r.count();
                 case CANCELLED -> cancelled = r.count();
-                case DELETED   -> deleted   = r.count();
+                case DELETED -> deleted = r.count();
                 case RESCHEDULED -> rescheduled = r.count();
-                default -> {}
+                default -> {
+                }
             }
         }
-        log.info("Processed booking status counts - Completed: {}, Pending: {}, Cancelled: {}, Deleted: {}, Rescheduled: {}",
+        log.info(
+                "Processed booking status counts - Completed: {}, Pending: {}, Cancelled: {}, Deleted: {}, Rescheduled: {}",
                 completed, pending, cancelled, deleted, rescheduled);
 
-        long total = completed + pending + cancelled ;
+        long total = completed + pending + cancelled;
 
         return BookingsSummaryResponse.builder()
                 .totalBookings(total)
@@ -292,19 +296,23 @@ public class BookingService {
     }
 
     @Transactional
-    public BookingDto rescheduleBooking(Long bookingId, BookingRescheduleRequest request){
+    public BookingDto rescheduleBooking(Long bookingId, BookingRescheduleRequest request) {
         log.info("Rescheduling booking with bookingId: {}", bookingId);
 
         Booking existingBooking = bookingRepository.findById(bookingId)
-                .orElseThrow(()-> new BookingNotFoundException("Booking not found"));
+                .orElseThrow(() -> new BookingNotFoundException("Booking not found"));
 
         log.info("Existing booking details: {}", existingBooking);
 
-        LocalDate changedDate = request.newBookingDate() != null ? request.newBookingDate() : existingBooking.getBookingDate();
-        LocalTime changedStartTime = request.newBookingStartTime() != null ? request.newBookingStartTime() : existingBooking.getBookingStartTime();
-        LocalTime changedEndTime = request.newBookingEndTime() != null ? request.newBookingEndTime() : existingBooking.getBookingEndTime();
+        LocalDate changedDate = request.newBookingDate() != null ? request.newBookingDate()
+                : existingBooking.getBookingDate();
+        LocalTime changedStartTime = request.newBookingStartTime() != null ? request.newBookingStartTime()
+                : existingBooking.getBookingStartTime();
+        LocalTime changedEndTime = request.newBookingEndTime() != null ? request.newBookingEndTime()
+                : existingBooking.getBookingEndTime();
 
-        log.info("Changed booking details - Date: {}, StartTime: {}, EndTime: {}", changedDate, changedStartTime, changedEndTime);
+        log.info("Changed booking details - Date: {}, StartTime: {}, EndTime: {}", changedDate, changedStartTime,
+                changedEndTime);
 
         AvailabilityStatusResponse response = availabilityServiceClient.getAvailabilityStatus(
                 AvailabilityStatusRequest.builder()
@@ -313,35 +321,39 @@ public class BookingService {
                         .startTime(changedStartTime)
                         .endTime(changedEndTime)
                         .date(changedDate)
-                        .build()
-        );
+                        .build());
 
-        log.info("Availability status for rescheduling - serviceId: {} with providerId: {} on date: {} from {} to {} is {}",
+        log.info(
+                "Availability status for rescheduling - serviceId: {} with providerId: {} on date: {} from {} to {} is {}",
                 existingBooking.getServiceId(), existingBooking.getServiceProviderId(), changedDate,
                 changedStartTime, changedEndTime, response.status());
 
         if (response.status().equals(AvailabilityStatus.BLOCKED) ||
-                response.status().equals(AvailabilityStatus.OUTSIDE_WORKING_HOURS)){
+                response.status().equals(AvailabilityStatus.OUTSIDE_WORKING_HOURS)) {
             throw new TimeSlotAlreadyBookedException("Time slot not available");
-        }else if (response.status().equals(AvailabilityStatus.AVAILABLE)) {
-            Optional<Booking> conflictingBooking =
-                    bookingRepository.findByServiceProviderIdAndServiceIdAndBookingDateAndBookingStartTimeAndBookingEndTime(
+        } else if (response.status().equals(AvailabilityStatus.AVAILABLE)) {
+            Optional<Booking> conflictingBooking = bookingRepository
+                    .findByServiceProviderIdAndServiceIdAndBookingDateAndBookingStartTimeAndBookingEndTime(
                             existingBooking.getServiceProviderId(), existingBooking.getServiceId(),
                             changedDate, changedStartTime, changedEndTime);
 
-            log.info(" Checking for conflicting bookings for rescheduling - serviceId: {} with providerId: {} on date: {} from {} to {}",
+            log.info(
+                    " Checking for conflicting bookings for rescheduling - serviceId: {} with providerId: {} on date: {} from {} to {}",
                     existingBooking.getServiceId(), existingBooking.getServiceProviderId(), changedDate,
                     changedStartTime, changedEndTime);
 
-            if(conflictingBooking.isPresent() && !conflictingBooking.get().getBookingId().equals(bookingId)){
-                log.error("Time slot already booked for rescheduling - serviceId: {} with providerId: {} on date: {} from {} to {}",
+            if (conflictingBooking.isPresent() && !conflictingBooking.get().getBookingId().equals(bookingId)) {
+                log.error(
+                        "Time slot already booked for rescheduling - serviceId: {} with providerId: {} on date: {} from {} to {}",
                         existingBooking.getServiceId(), existingBooking.getServiceProviderId(), changedDate,
                         changedStartTime, changedEndTime);
                 throw new TimeSlotAlreadyBookedException("Time slot already booked");
             }
-        }else {
-            log.error("Unknown availability status received: {} for rescheduling - serviceId: {} with providerId: {} on date: {} from {} to {}",
-                    response.status(), existingBooking.getServiceId(), existingBooking.getServiceProviderId(), changedDate,
+        } else {
+            log.error(
+                    "Unknown availability status received: {} for rescheduling - serviceId: {} with providerId: {} on date: {} from {} to {}",
+                    response.status(), existingBooking.getServiceId(), existingBooking.getServiceProviderId(),
+                    changedDate,
                     changedStartTime, changedEndTime);
             throw new UnknownAvailabilityStatusException("Unknown availability status");
         }
@@ -351,6 +363,7 @@ public class BookingService {
         Booking newBooking = Booking.builder()
                 .serviceProviderId(existingBooking.getServiceProviderId())
                 .serviceId(existingBooking.getServiceId())
+                .serviceCategory(existingBooking.getServiceCategory())
                 .customerId(existingBooking.getCustomerId())
                 .bookingDate(changedDate)
                 .bookingStartTime(changedStartTime)
@@ -373,7 +386,7 @@ public class BookingService {
                 .orElseThrow(() -> new BookingNotFoundException("Booking not found"));
 
         String currentStatus = existingBooking.getBookingStatus().name();
-        if(currentStatus.equals("COMPLETED") || currentStatus.equals("DELETED")){
+        if (currentStatus.equals("COMPLETED") || currentStatus.equals("DELETED")) {
             log.error("Cannot update status for completed or deleted booking with bookingId: {}", bookingId);
             throw new IllegalStateException("Cannot update status for completed or deleted booking");
         }
@@ -381,7 +394,7 @@ public class BookingService {
             case "CONFIRMED" -> confirmBooking(bookingId);
             case "CANCELLED" -> cancelBooking(bookingId);
             case "COMPLETED" -> completeBooking(bookingId);
-            case "DELETED"   -> {
+            case "DELETED" -> {
                 deleteBooking(bookingId);
                 yield null;
             }
@@ -390,9 +403,12 @@ public class BookingService {
     }
 
     private Pageable getPageable(int page, int size, String sortBy, String sortDir) {
-        if (page < 0) page = 0;
-        if (size <= 0) size = 10; // default page size
-        if(sortBy == null || sortBy.isEmpty()) sortBy = "createdAt";
+        if (page < 0)
+            page = 0;
+        if (size <= 0)
+            size = 10; // default page size
+        if (sortBy == null || sortBy.isEmpty())
+            sortBy = "createdAt";
         String sortDirNormalized = (sortDir != null) ? sortDir.toLowerCase() : "desc";
 
         if (!sortDirNormalized.equals("asc") && !sortDirNormalized.equals("desc")) {

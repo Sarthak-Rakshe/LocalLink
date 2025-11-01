@@ -1,6 +1,7 @@
 package com.sarthak.UserService.controller;
 
 import com.sarthak.UserService.dto.PagedResponse;
+import com.sarthak.UserService.dto.QueryFilter;
 import com.sarthak.UserService.dto.request.UserUpdateRequest;
 import com.sarthak.UserService.dto.response.ProviderResponse;
 import com.sarthak.UserService.dto.response.UserResponse;
@@ -100,12 +101,13 @@ public class UserController {
 
     @GetMapping("/getProviders")
     public PagedResponse<ProviderResponse> getProviders(
+            @RequestBody (required = false) QueryFilter queryFilter,
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "10") int size,
             @RequestParam(name = "sort-by", defaultValue = "id") String sortBy,
             @RequestParam(name = "sort-dir", defaultValue = "asc") String sortDir
     ){
-        Page<ProviderResponse> providers = userService.getProviders(page, size, sortBy, sortDir);
+        Page<ProviderResponse> providers = userService.getProviders(page, size, sortBy, sortDir, queryFilter);
         return new PagedResponse<>(
                 providers.getContent(),
                 providers.getNumber(),

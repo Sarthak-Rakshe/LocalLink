@@ -55,16 +55,13 @@ public class ServiceItemsService {
         return serviceItemsMapper.entityToDto(serviceItem, reviewAggregate);
     }
 
-    public Page<ServiceItemDto> getAllServices(int page, int size, String sortBy, String sortDir, Authentication authentication, QueryFilter queryFilter){
+    public Page<ServiceItemDto> getAllServices(int page, int size, String sortBy, String sortDir, QueryFilter queryFilter){
         log.info("Fetching all services - page: {}, size: {}", page, size);
 
         Pageable pageable = getPageable(page, size, sortBy, sortDir, false);
-
-        UserPrincipal userPrincipal = (UserPrincipal)authentication.getPrincipal();
-        String userType = userPrincipal.getUserType();
         Specification<ServiceItem> spec = null;
         if (queryFilter != null) {
-            spec = ServiceSpecification.buildSpecification(userType, queryFilter);
+            spec = ServiceSpecification.buildSpecification(queryFilter);
         }
 
         Page<ServiceItem> services = serviceItemRepository.findAll(spec, pageable);

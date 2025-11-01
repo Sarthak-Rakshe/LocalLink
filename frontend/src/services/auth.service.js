@@ -20,6 +20,13 @@ export const AuthService = {
     if (token) setAuthToken(token);
     return data;
   },
+  async register(payload) {
+    // payload: { username, email, password, userType }
+    const data = await Auth.register(payload);
+    const token = extractToken(data);
+    if (token) setAuthToken(token);
+    return data;
+  },
   async logout() {
     try {
       await Auth.logout();

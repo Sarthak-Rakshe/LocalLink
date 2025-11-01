@@ -30,14 +30,13 @@ public class ServiceItemController {
 
     @PostMapping("/all-services")
     public PagedResponse<ServiceItemDto> getAllServices(
-            @RequestBody (required = false)QueryFilter queryFilter,
+            @RequestBody (required = false) QueryFilter queryFilter,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "id") String sortBy,
-            @RequestParam(defaultValue = "asc") String sortDir,
-            Authentication authentication
+            @RequestParam(defaultValue = "asc") String sortDir
     ){
-        var servicesPage = serviceItemsService.getAllServices(page, size, sortBy, sortDir, authentication, queryFilter);
+        var servicesPage = serviceItemsService.getAllServices(page, size, sortBy, sortDir, queryFilter);
         return new PagedResponse<>(
                 servicesPage.getContent(),
                 servicesPage.getNumber(),

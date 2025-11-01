@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../../context/AuthContext.jsx";
 import toast from "react-hot-toast";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function Login() {
   const { login } = useAuth();
@@ -63,6 +63,12 @@ export default function Login() {
             {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
+        <p className="mt-4 text-center text-sm text-zinc-600">
+          Don't have an account?{" "}
+          <Link className="text-blue-600 hover:underline" to="/register">
+            Create one
+          </Link>
+        </p>
       </div>
     </div>
   );

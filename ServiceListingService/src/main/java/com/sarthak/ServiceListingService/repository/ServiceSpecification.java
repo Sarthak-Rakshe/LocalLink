@@ -31,18 +31,12 @@ public class ServiceSpecification {
         };
     }
 
-    public static Specification<ServiceItem> resolveByUserId(String userType, Long userId){
-        if(userType == null || userId == null){
-            throw new SecurityException("Invalid access: User type or User ID is null");
-        }
-        return (root, query, criteriaBuilder) -> switch (userType.toUpperCase()) {
-            case "CUSTOMER" -> criteriaBuilder.equal(root.get("customerId"), userId);
-            case "PROVIDER" -> criteriaBuilder.equal(root.get("serviceProviderId"), userId);
-            default -> throw  new SecurityException("Invalid access: Unknown user type " + userType);
-        };
+    public static Specification<ServiceItem> byServiceProviderId(Long serviceProviderId) {
+        return (root, query, criteriaBuilder) -> serviceProviderId == null
+                ? null : criteriaBuilder.equal(root.get("serviceProviderId"), serviceProviderId);
     }
 
-    public static Specification<ServiceItem> buildSpecification(String userType, QueryFilter queryFilter) {
+    public static Specification<ServiceItem> buildSpecification(QueryFilter queryFilter) {
         Specification<ServiceItem> spec = null;
         if(queryFilter == null) {
             return null;
@@ -64,11 +58,11 @@ public class ServiceSpecification {
                 spec = spec.and(ServiceSpecification.hasPriceBetween(queryFilter.minPrice(), queryFilter.maxPrice()));
             }
         }
-        if(queryFilter.userId() != null){
+        if(queryFilter.serviceProviderId() != null){
             if(spec == null){
-                spec = ServiceSpecification.resolveByUserId(userType, queryFilter.userId());
+                spec = ServiceSpecification.byServiceProviderId(queryFilter.serviceProviderId());
             }else{
-                spec = spec.and(ServiceSpecification.resolveByUserId(userType, queryFilter.userId()));
+                spec = spec.and(ServiceSpecification.byServiceProviderId(queryFilter.serviceProviderId()));
             }
         }
         return spec;

@@ -33,13 +33,20 @@ export function AuthProvider({ children }) {
     return me;
   };
 
+  const register = async (payload) => {
+    await AuthService.register(payload);
+    const me = await AuthService.me();
+    setUser(me);
+    return me;
+  };
+
   const logout = async () => {
     await AuthService.logout();
     setUser(null);
   };
 
   const value = useMemo(
-    () => ({ user, setUser, loading, login, logout }),
+    () => ({ user, setUser, loading, login, register, logout }),
     [user, loading]
   );
 

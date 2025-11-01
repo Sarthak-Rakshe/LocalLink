@@ -6,6 +6,7 @@ import AppShell from "../components/layout/AppShell.jsx";
 
 // Lazy-loaded route components for faster initial loads
 const Login = lazy(() => import("../pages/auth/Login.jsx"));
+const Register = lazy(() => import("../pages/auth/Register.jsx"));
 const CustomerDashboard = lazy(() =>
   import("../pages/dashboard/CustomerDashboard.jsx")
 );
@@ -29,6 +30,7 @@ const ServicesExplore = lazy(() => import("../pages/services/Explore.jsx"));
 const ServicesManage = lazy(() => import("../pages/services/Manage.jsx"));
 const ServiceCreate = lazy(() => import("../pages/services/Create.jsx"));
 const ServiceEdit = lazy(() => import("../pages/services/Edit.jsx"));
+const ServiceDetails = lazy(() => import("../pages/services/Details.jsx"));
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -82,6 +84,14 @@ export const router = createBrowserRouter([
     element: (
       <Suspense fallback={<div className="p-6 text-center">Loading...</div>}>
         <Login />
+      </Suspense>
+    ),
+  },
+  {
+    path: "/register",
+    element: (
+      <Suspense fallback={<div className="p-6 text-center">Loading...</div>}>
+        <Register />
       </Suspense>
     ),
   },
@@ -146,6 +156,7 @@ export const router = createBrowserRouter([
       { path: "/payments/*", element: <PaymentsHome /> },
       // Services explore (customers and providers can view)
       { path: "/services", element: <ServicesExplore /> },
+      { path: "/services/:id", element: <ServiceDetails /> },
       // Provider services management
       {
         path: "/services/manage",

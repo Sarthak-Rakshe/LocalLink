@@ -2,6 +2,7 @@ package com.sarthak.PaymentService.controller;
 
 import com.sarthak.PaymentService.config.shared.UserPrincipal;
 import com.sarthak.PaymentService.dto.TransactionDto;
+import com.sarthak.PaymentService.dto.request.CreateOrderRequest;
 import com.sarthak.PaymentService.dto.request.TransactionFilter;
 import com.sarthak.PaymentService.dto.request.PaymentRequest;
 import com.sarthak.PaymentService.dto.response.PagedResponse;
@@ -28,12 +29,12 @@ public class PaymentController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TransactionDto> getTransactionById(Long transactionId) {
+    public ResponseEntity<TransactionDto> getTransactionById(@PathVariable("id") Long transactionId) {
         TransactionDto transactionDto = transactionService.getTransactionById(transactionId);
         return ResponseEntity.ok(transactionDto);
     }
 
-    @PostMapping("/allServices")
+    @PostMapping("/allTransactions")
     public PagedResponse<TransactionDto> getAllTransactions(@NotNull @RequestParam(name ="sort-by") String sortBy,
                                                             @NotNull @RequestParam(name ="sort-dir") String sortDir,
                                                             @NotNull @RequestParam(name ="page") int page,
@@ -54,11 +55,11 @@ public class PaymentController {
         );
     }
 
-    @PostMapping("/createOrder/{amount}")
-    public ResponseEntity<String> createOrder(@PathVariable("amount") Double amount) {
+    @PostMapping("/createOrder")
+    public ResponseEntity<String> createOrder(@RequestBody CreateOrderRequest createOrderRequest) {
         String orderId = null;
         try {
-            orderId = transactionService.createOrder(amount);
+            orderId = transactionService.createOrder(createOrderRequest);
         } catch (IOException | InterruptedException e) {
             throw new FailedToCreatePaymentOrderException("Failed to create payment order: " + e.getMessage());
         }

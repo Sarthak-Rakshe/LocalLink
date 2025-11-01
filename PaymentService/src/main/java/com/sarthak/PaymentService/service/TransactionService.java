@@ -5,6 +5,7 @@ import com.sarthak.PaymentService.client.PayPalClient;
 import com.sarthak.PaymentService.config.shared.UserPrincipal;
 import com.sarthak.PaymentService.dto.BookingDto;
 import com.sarthak.PaymentService.dto.TransactionDto;
+import com.sarthak.PaymentService.dto.request.CreateOrderRequest;
 import com.sarthak.PaymentService.dto.request.TransactionFilter;
 import com.sarthak.PaymentService.dto.request.PaymentRequest;
 import com.sarthak.PaymentService.dto.response.CreateOrderResponse;
@@ -27,11 +28,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.time.LocalTime;
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.sarthak.PaymentService.enums.PaymentStatus.COMPLETED;
-import static javax.management.remote.JMXConnectionNotification.FAILED;
+import static com.sarthak.PaymentService.enums.PaymentStatus.DECLINED;
 
 
 @Service
@@ -58,8 +60,11 @@ public class TransactionService {
         return mapper.toDto(transaction);
     }
 
-    public String createOrder(Double amount) throws IOException, InterruptedException {
+    public String createOrder(CreateOrderRequest createOrderRequest) throws IOException, InterruptedException {
 
+        LocalTime startTime = createOrderRequest.slot().startTime();
+        LocalTime endTime = createOrderRequest.slot().endTime();
+        Double amount = createOrderRequest.pricePerHour() * (endTime.getHour() - startTime.getHour());
         log.info("Creating PayPal order for amount: {}", amount);
         CreateOrderResponse response =  payPalClient.createOrder(amount.toString());
 
@@ -181,6 +186,8 @@ public class TransactionService {
         String bookingStatus;
         if (Objects.requireNonNull(response.paymentStatus()) == COMPLETED) {
             bookingStatus = "CONFIRMED";
+        } else if(response.paymentStatus() == DECLINED){
+            bookingStatus = "FAILED";
         } else {
             bookingStatus = "PENDING";
         }

@@ -55,7 +55,7 @@ export default function AvailabilityManage() {
     exceptionDate: "",
     newStartTime: "",
     newEndTime: "",
-    exceptionType: "CLOSED",
+    exceptionType: "BLOCKED",
     exceptionReason: "",
   });
 
@@ -430,12 +430,12 @@ export default function AvailabilityManage() {
                   }
                   required
                 >
-                  <option value="CLOSED">CLOSED</option>
-                  <option value="OPEN">OPEN</option>
+                  <option value="BLOCKED">BLOCKED</option>
+                  <option value="OVERRIDE">OVERRIDE</option>
                 </select>
               </div>
               <div className="md:col-span-2">
-                <Label>Reason (optional)</Label>
+                <Label>Reason</Label>
                 <Input
                   placeholder="e.g., personal leave, maintenance"
                   value={excForm.exceptionReason}
@@ -455,10 +455,10 @@ export default function AvailabilityManage() {
                   return toast.error("Service ID is required");
                 if (!excForm.exceptionDate)
                   return toast.error("Date is required");
-                if (excForm.exceptionType === "OPEN") {
+                if (excForm.exceptionType === "OVERRIDE") {
                   if (!excForm.newStartTime || !excForm.newEndTime)
                     return toast.error(
-                      "Start and end time are required for OPEN"
+                      "Start and end time are required for OVERRIDE"
                     );
                   if (!(excForm.newStartTime < excForm.newEndTime))
                     return toast.error("End time must be after start time");
@@ -489,7 +489,7 @@ export default function AvailabilityManage() {
               exceptions.length === 0 && (
                 <EmptyState
                   title="No exceptions"
-                  message="Add one-off closures or openings."
+                  message="Add one-off blocks or overrides."
                 />
               )}
             <ul className="divide-y">
@@ -512,7 +512,7 @@ export default function AvailabilityManage() {
                     {(x.exceptionType || x.type) && (
                       <Badge
                         color={
-                          (x.exceptionType || x.type) === "CLOSED"
+                          (x.exceptionType || x.type) === "BLOCKED"
                             ? "red"
                             : "green"
                         }

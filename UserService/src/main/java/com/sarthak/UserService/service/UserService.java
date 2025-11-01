@@ -3,6 +3,7 @@ package com.sarthak.UserService.service;
 import com.sarthak.UserService.client.ReviewServiceClient;
 import com.sarthak.UserService.config.PasswordEncoderConfig;
 import com.sarthak.UserService.dto.ProviderReviewAggregateResponse;
+import com.sarthak.UserService.dto.QueryFilter;
 import com.sarthak.UserService.dto.request.UserUpdateRequest;
 import com.sarthak.UserService.dto.response.ProviderResponse;
 import com.sarthak.UserService.exception.AlreadyInUseException;
@@ -17,6 +18,7 @@ import com.sarthak.UserService.model.UserType;
 import com.sarthak.UserService.repository.UserRepository;
 import com.sarthak.UserService.dto.request.UserRegistrationRequest;
 import com.sarthak.UserService.dto.response.UserResponse;
+import com.sarthak.UserService.repository.UserSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -24,6 +26,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -245,11 +248,13 @@ public class UserService implements UserDetailsService {
         return userType;
     }
 
-    public Page<ProviderResponse> getProviders(int page, int size, String sortBy, String sortDir) {
+    public Page<ProviderResponse> getProviders(int page, int size, String sortBy, String sortDir, QueryFilter queryFilter) {
         log.info("Fetching providers - page: {}, size: {}, sortBy: {}, sortDir: {}", page, size, sortBy, sortDir);
         Pageable pageable = getPageable(page, size, sortBy, sortDir);
-        Page<User> providers = userRepository.findAllByUserTypeAndUserRole(UserType.PROVIDER, UserRole.USER,
-                pageable);
+
+        Specification<User> spec = UserSpecification.buildSpecification(queryFilter);
+
+        Page<User> providers = userRepository.findAll(spec, pageable);
         log.info("Found {} providers", providers.getTotalElements());
         List<Long> providerIds = providers.stream()
                 .map(User::getUserId)

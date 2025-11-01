@@ -1,3 +1,5 @@
+import { useNavigate } from "react-router-dom";
+
 export default function ServiceCard({ service }) {
   if (!service) return null;
   const {
@@ -7,10 +9,12 @@ export default function ServiceCard({ service }) {
     servicePricePerHour,
     reviewAggregate,
     serviceProviderId,
+    serviceId,
   } = service;
 
   const rating = reviewAggregate?.averageRating ?? null;
   const reviewsCount = reviewAggregate?.totalReviews ?? 0;
+  const navigate = useNavigate();
 
   return (
     <div className="rounded-lg border bg-white p-4 shadow-sm">
@@ -23,7 +27,6 @@ export default function ServiceCard({ service }) {
             <span className="inline-flex items-center rounded bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-700">
               {serviceCategory}
             </span>
-            <span className="ml-2">Provider ID: {serviceProviderId}</span>
           </div>
         </div>
         <div className="text-right">
@@ -51,10 +54,11 @@ export default function ServiceCard({ service }) {
           <div className="text-zinc-400">No ratings yet</div>
         )}
 
-        {/* Placeholder action - wire to details/booking later */}
+        {/* View details navigates to dedicated page */}
         <button
           type="button"
           className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-zinc-50"
+          onClick={() => navigate(`/services/${serviceId ?? service?.id}`)}
         >
           View details
         </button>

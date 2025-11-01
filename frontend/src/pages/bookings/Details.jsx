@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Availability, Bookings } from "../../services/api.js";
+import { useAvailableSlots } from "../../hooks/useAvailability.js";
 import Card from "../../components/ui/Card.jsx";
 import Button from "../../components/ui/Button.jsx";
 import { Input, Label } from "../../components/ui/Input.jsx";
@@ -24,6 +25,25 @@ export default function BookingDetails() {
   });
 
   const b = q.data;
+
+  // If the current booking is RESCHEDULED and has a rescheduledToId, fetch the new booking details
+  const isRescheduled = useMemo(
+    () =>
+      String(b?.bookingStatus ?? b?.status ?? "").toUpperCase() ===
+      "RESCHEDULED",
+    [b]
+  );
+  const rescheduledToId = useMemo(() => {
+    const v = b?.rescheduledToId;
+    if (!v || v === "N/A") return null;
+    return String(v);
+  }, [b]);
+
+  const qRescheduled = useQuery({
+    queryKey: ["booking", "rescheduled", rescheduledToId],
+    queryFn: () => Bookings.getById(rescheduledToId),
+    enabled: !!rescheduledToId && isRescheduled,
+  });
 
   // Derive provider/service ids with fallbacks
   const providerId = useMemo(
@@ -50,31 +70,77 @@ export default function BookingDetails() {
   // Reschedule state
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [newDate, setNewDate] = useState("");
-  const [newSlot, setNewSlot] = useState("");
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [timeWithinSlot, setTimeWithinSlot] = useState("");
+  const [endTimeWithinSlot, setEndTimeWithinSlot] = useState("");
 
   useEffect(() => {
-    setNewSlot("");
+    setSelectedSlot(null);
+    setTimeWithinSlot("");
+    setEndTimeWithinSlot("");
   }, [newDate]);
 
-  const slotsQ = useQuery({
-    queryKey: ["reschedule-slots", providerId, serviceId, newDate],
-    queryFn: async () =>
-      Availability.getAvailableSlots(
-        Number(providerId),
-        Number(serviceId),
-        newDate
-      ),
-    enabled: !!providerId && !!serviceId && !!newDate,
-  });
+  const slotsQ = useAvailableSlots(
+    Number(providerId),
+    Number(serviceId),
+    newDate
+  );
+  const slots = slotsQ.data ?? [];
 
-  const slots = useMemo(() => {
-    const raw = slotsQ.data ?? [];
-    return Array.isArray(raw) ? raw : raw?.slots ?? [];
-  }, [slotsQ.data]);
+  function computeEndTime(start, slotEnd) {
+    if (!start) return slotEnd || "";
+    try {
+      const [h, m] = String(start)
+        .split(":")
+        .map((v) => parseInt(v, 10));
+      const d = new Date();
+      d.setHours(h || 0, m || 0, 0, 0);
+      d.setMinutes(d.getMinutes() + 60);
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      const plus1h = `${hh}:${mm}`;
+      if (slotEnd && plus1h > String(slotEnd).slice(0, 5))
+        return String(slotEnd).slice(0, 5);
+      return plus1h;
+    } catch {
+      return slotEnd || "";
+    }
+  }
+
+  function timeToMinutes(t) {
+    if (!t) return null;
+    const [hh, mm] = String(t).slice(0, 5).split(":");
+    const h = parseInt(hh, 10);
+    const m = parseInt(mm, 10);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
+    return h * 60 + m;
+  }
 
   const rescheduleMutation = useMutation({
-    mutationFn: async () =>
-      Bookings.reschedule(id, { startTime: newSlot || newDate }),
+    mutationFn: async () => {
+      const start = (timeWithinSlot || selectedSlot?.startTime || "")
+        .toString()
+        .slice(0, 5);
+      const computedEnd = computeEndTime(start, selectedSlot?.endTime);
+      const end = (endTimeWithinSlot || computedEnd || "")
+        .toString()
+        .slice(0, 5);
+      /**
+       * Backend expects:
+       * {
+       *   newBookingDate: YYYY-MM-DD,
+       *   newBookingStartTime: HH:mm,
+       *   newBookingEndTime: HH:mm
+       * }
+       * Any null fields fall back to existing values on server.
+       */
+      const payload = {
+        newBookingDate: newDate || null,
+        newBookingStartTime: start || null,
+        newBookingEndTime: end || null,
+      };
+      return Bookings.reschedule(id, payload);
+    },
     onSuccess: () => {
       toast.success("Booking rescheduled");
       setRescheduleOpen(false);
@@ -83,6 +149,43 @@ export default function BookingDetails() {
     onError: (e) =>
       toast.error(e?.response?.data?.message || "Failed to reschedule booking"),
   });
+
+  // Availability check for selected date/time
+  const [availability, setAvailability] = useState(null); // AVAILABLE | BLOCKED | OUTSIDE_WORKING_HOURS
+  const [checkingAvail, setCheckingAvail] = useState(false);
+  async function handleCheckAvailability() {
+    try {
+      setCheckingAvail(true);
+      const start = (timeWithinSlot || selectedSlot?.startTime || "")
+        .toString()
+        .slice(0, 5);
+      const computedEnd = computeEndTime(start, selectedSlot?.endTime);
+      const end = (endTimeWithinSlot || computedEnd || "")
+        .toString()
+        .slice(0, 5);
+      const req = {
+        serviceProviderId: Number(providerId),
+        serviceId: Number(serviceId),
+        date: newDate,
+        startTime: start,
+        endTime: end,
+      };
+      const res = await Availability.checkAvailability(req);
+      const status = res?.status ?? res; // support plain string fallback
+      setAvailability(status);
+      if (String(status).toUpperCase() === "AVAILABLE") {
+        toast.success("Selected time is available");
+      } else if (status) {
+        toast.error(`Not available (${status})`);
+      } else {
+        toast("Could not determine availability");
+      }
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "Failed to check availability");
+    } finally {
+      setCheckingAvail(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -100,39 +203,56 @@ export default function BookingDetails() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <div className="text-sm text-zinc-500">Booking ID</div>
-                <div className="font-medium">{b.id ?? b.bookingId}</div>
+                <div className="font-medium">{b.bookingId ?? b.id}</div>
               </div>
               <div>
                 <div className="text-sm text-zinc-500">Status</div>
-                <div className="font-medium">{b.status ?? ""}</div>
+                <div className="font-medium">
+                  {b.bookingStatus ?? b.status ?? ""}
+                </div>
               </div>
               <div>
                 <div className="text-sm text-zinc-500">When</div>
                 <div className="font-medium">
-                  {formatDateTime(b.date ?? b.startTime ?? b.createdAt)}
+                  {b.bookingDate ? (
+                    <>
+                      <span>{b.bookingDate}</span>{" "}
+                      <span>
+                        {(b.bookingStartTime || "").toString().slice(0, 5)} -{" "}
+                        {(b.bookingEndTime || "").toString().slice(0, 5)}
+                      </span>
+                    </>
+                  ) : (
+                    formatDateTime(b.createdAt)
+                  )}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-zinc-500">Service</div>
-                <div className="font-medium">
-                  {b.serviceName ?? b.service?.name ?? "Service"}
-                </div>
+                <div className="text-sm text-zinc-500">Service ID</div>
+                <div className="font-medium">{b.serviceId ?? "-"}</div>
               </div>
               <div>
-                <div className="text-sm text-zinc-500">Provider</div>
-                <div className="font-medium">
-                  {b.providerName ??
-                    b.serviceProviderName ??
-                    b.provider?.name ??
-                    "Provider"}
-                </div>
+                <div className="text-sm text-zinc-500">Service category</div>
+                <div className="font-medium">{b.serviceCategory ?? "-"}</div>
               </div>
               <div>
-                <div className="text-sm text-zinc-500">Customer</div>
-                <div className="font-medium">
-                  {b.customerName ?? b.customer?.name ?? "Customer"}
-                </div>
+                <div className="text-sm text-zinc-500">Provider ID</div>
+                <div className="font-medium">{b.serviceProviderId ?? "-"}</div>
               </div>
+              <div>
+                <div className="text-sm text-zinc-500">Customer ID</div>
+                <div className="font-medium">{b.customerId ?? "-"}</div>
+              </div>
+              <div>
+                <div className="text-sm text-zinc-500">Created at</div>
+                <div className="font-medium">{formatDateTime(b.createdAt)}</div>
+              </div>
+              {b.rescheduledToId && b.rescheduledToId !== "N/A" && (
+                <div>
+                  <div className="text-sm text-zinc-500">Rescheduled to</div>
+                  <div className="font-medium">{b.rescheduledToId}</div>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -152,6 +272,100 @@ export default function BookingDetails() {
               </Button>
             </div>
 
+            {isRescheduled && rescheduledToId && (
+              <div className="rounded-md border p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h2 className="text-lg font-medium">Rescheduled to</h2>
+                  <Link
+                    to={`/bookings/${rescheduledToId}`}
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    Open rescheduled booking
+                  </Link>
+                </div>
+                {qRescheduled.isLoading && (
+                  <div className="text-sm text-zinc-500">Loading…</div>
+                )}
+                {qRescheduled.isError && (
+                  <div className="text-sm text-red-600">
+                    {qRescheduled.error?.response?.data?.message ||
+                      "Failed to load rescheduled booking."}
+                  </div>
+                )}
+                {qRescheduled.data && (
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                      <div className="text-sm text-zinc-500">Booking ID</div>
+                      <div className="font-medium">
+                        {qRescheduled.data.bookingId ?? qRescheduled.data.id}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-zinc-500">Status</div>
+                      <div className="font-medium">
+                        {qRescheduled.data.bookingStatus ??
+                          qRescheduled.data.status ??
+                          ""}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-zinc-500">When</div>
+                      <div className="font-medium">
+                        {qRescheduled.data.bookingDate ? (
+                          <>
+                            <span>{qRescheduled.data.bookingDate}</span>{" "}
+                            <span>
+                              {(qRescheduled.data.bookingStartTime || "")
+                                .toString()
+                                .slice(0, 5)}{" "}
+                              -{" "}
+                              {(qRescheduled.data.bookingEndTime || "")
+                                .toString()
+                                .slice(0, 5)}
+                            </span>
+                          </>
+                        ) : (
+                          formatDateTime(qRescheduled.data.createdAt)
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-zinc-500">Service ID</div>
+                      <div className="font-medium">
+                        {qRescheduled.data.serviceId ?? "-"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-zinc-500">
+                        Service category
+                      </div>
+                      <div className="font-medium">
+                        {qRescheduled.data.serviceCategory ?? "-"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-zinc-500">Provider ID</div>
+                      <div className="font-medium">
+                        {qRescheduled.data.serviceProviderId ?? "-"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-zinc-500">Customer ID</div>
+                      <div className="font-medium">
+                        {qRescheduled.data.customerId ?? "-"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-zinc-500">Created at</div>
+                      <div className="font-medium">
+                        {formatDateTime(qRescheduled.data.createdAt)}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {rescheduleOpen && (
               <div className="rounded-md border p-3">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -167,8 +381,23 @@ export default function BookingDetails() {
                     <Label>Available slots</Label>
                     <select
                       className="w-full rounded-md border px-3 py-2"
-                      value={newSlot}
-                      onChange={(e) => setNewSlot(e.target.value)}
+                      value={selectedSlot?.startTime || ""}
+                      onChange={(e) => {
+                        const start = e.target.value;
+                        const found = (slots || []).find(
+                          (s) => String(s.startTime) === String(start)
+                        );
+                        setSelectedSlot(found || null);
+                        const startVal = found?.startTime
+                          ? String(found.startTime).slice(0, 5)
+                          : "";
+                        setTimeWithinSlot(startVal);
+                        const defaultEnd = computeEndTime(
+                          startVal,
+                          found?.endTime
+                        );
+                        setEndTimeWithinSlot(defaultEnd || "");
+                      }}
                       disabled={!newDate || slotsQ.isLoading}
                     >
                       <option value="">
@@ -177,17 +406,100 @@ export default function BookingDetails() {
                           : "Select a slot (optional)"}
                       </option>
                       {slots.map((s, idx) => (
-                        <option key={idx} value={s?.startTime ?? s?.time ?? s}>
-                          {s?.label ?? s?.startTime ?? s}
+                        <option key={idx} value={s.startTime}>
+                          {s.label ?? s.startTime}
                         </option>
                       ))}
                     </select>
                   </div>
-                  <div className="flex items-end">
+                  {selectedSlot?.startTime && (
+                    <div className="md:col-span-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div>
+                        <Label>Start time</Label>
+                        <Input
+                          type="time"
+                          value={timeWithinSlot}
+                          min={String(selectedSlot?.startTime || "").slice(
+                            0,
+                            5
+                          )}
+                          max={String(selectedSlot?.endTime || "").slice(0, 5)}
+                          onChange={(e) => {
+                            const newStart = e.target.value;
+                            setTimeWithinSlot(newStart);
+                            const em = timeToMinutes(endTimeWithinSlot);
+                            const sm = timeToMinutes(newStart);
+                            if (em != null && sm != null && em <= sm) {
+                              setEndTimeWithinSlot(
+                                computeEndTime(
+                                  newStart,
+                                  selectedSlot?.endTime
+                                ) || ""
+                              );
+                            }
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label>End time</Label>
+                        <Input
+                          type="time"
+                          value={endTimeWithinSlot}
+                          min={(timeWithinSlot || "").slice(0, 5)}
+                          max={String(selectedSlot?.endTime || "").slice(0, 5)}
+                          onChange={(e) => setEndTimeWithinSlot(e.target.value)}
+                        />
+                        {(() => {
+                          const em = timeToMinutes(endTimeWithinSlot);
+                          const sm = timeToMinutes(timeWithinSlot);
+                          const maxm = timeToMinutes(selectedSlot?.endTime);
+                          return (
+                            <>
+                              {em != null && sm != null && em <= sm && (
+                                <p className="mt-1 text-xs text-red-600">
+                                  End time must be after start time.
+                                </p>
+                              )}
+                              {em != null && maxm != null && em > maxm && (
+                                <p className="mt-1 text-xs text-red-600">
+                                  End time must be within the selected slot.
+                                </p>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={handleCheckAvailability}
+                      disabled={
+                        !newDate ||
+                        !timeWithinSlot ||
+                        checkingAvail ||
+                        slotsQ.isLoading
+                      }
+                    >
+                      {checkingAvail ? "Checking…" : "Check availability"}
+                    </Button>
+                    {availability && (
+                      <span
+                        className={
+                          "self-center rounded px-2 py-1 text-xs font-medium " +
+                          (String(availability).toUpperCase() === "AVAILABLE"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700")
+                        }
+                      >
+                        {String(availability)}
+                      </span>
+                    )}
                     <Button
                       onClick={() => rescheduleMutation.mutate()}
                       disabled={!newDate || rescheduleMutation.isPending}
-                      className="w-full"
+                      className="ml-auto"
                     >
                       {rescheduleMutation.isPending
                         ? "Rescheduling…"

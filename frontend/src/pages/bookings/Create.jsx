@@ -1,17 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-  Availability,
-  Bookings,
-  Users,
-  Services,
-  Payments,
-} from "../../services/api.js";
+import { Bookings, Users, Services, Payments } from "../../services/api.js";
+import { useAvailableSlots } from "../../hooks/useAvailability.js";
 import Card from "../../components/ui/Card.jsx";
 import Button from "../../components/ui/Button.jsx";
 import { Input, Label } from "../../components/ui/Input.jsx";
 import toast from "react-hot-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext.jsx";
 
 function toISODate(d) {
   const dt = new Date(d);
@@ -20,21 +16,55 @@ function toISODate(d) {
 
 export default function BookingCreate() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const [query, setQuery] = useState("");
   const [providerId, setProviderId] = useState("");
   const [serviceId, setServiceId] = useState("");
   const [date, setDate] = useState(toISODate(new Date()));
   const [slot, setSlot] = useState("");
-  const [amount, setAmount] = useState("");
-
-  // Flow states
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [timeWithinSlot, setTimeWithinSlot] = useState("");
+  const [endTimeWithinSlot, setEndTimeWithinSlot] = useState("");
+  // Flow state
   const [createdBookingId, setCreatedBookingId] = useState(null);
-  const [orderId, setOrderId] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState("UPI");
+  const [isPaying, setIsPaying] = useState(false);
 
-  // Provider search
+  // Prefill from URL query params
+  useEffect(() => {
+    const pid = searchParams.get("providerId");
+    const sid = searchParams.get("serviceId");
+    const d = searchParams.get("date");
+    const slotStart = searchParams.get("slotStart");
+    const slotEnd = searchParams.get("slotEnd");
+    if (pid) setProviderId(String(pid));
+    if (sid) setServiceId(String(sid));
+    if (d) setDate(d);
+    if (slotStart || slotEnd) {
+      const s = { startTime: slotStart || "", endTime: slotEnd || "" };
+      setSelectedSlot(s);
+      setSlot(slotStart || "");
+      if (slotStart) setTimeWithinSlot(String(slotStart).slice(0, 5));
+    }
+  }, [searchParams]);
+
+  // Reset service selection when provider changes
+  useEffect(() => {
+    setServiceId("");
+  }, [providerId]);
+
+  // Providers from backend with server-side filtering
   const providersQ = useQuery({
     queryKey: ["providers", query],
-    queryFn: async () => Users.getProviders({ q: query, page: 0, size: 10 }),
+    queryFn: async () => {
+      const filter = query
+        ? query.includes("@")
+          ? { providerEmail: query }
+          : { providerName: query }
+        : undefined;
+      return Users.getProviders(filter, { page: 0, size: 20 });
+    },
   });
 
   // Services for selected provider
@@ -42,60 +72,175 @@ export default function BookingCreate() {
     queryKey: ["provider-services", providerId],
     queryFn: async () =>
       Services.getAll(
-        // Try filtering by provider; backend should support this in query filter
-        providerId ? { serviceProviderId: Number(providerId) } : {},
+        // Filter by provider; send multiple keys for backend compatibility
+        providerId
+          ? {
+              serviceProviderId: Number(providerId),
+              providerId: Number(providerId),
+            }
+          : {},
         { page: 0, size: 100 }
       ),
     enabled: !!providerId,
   });
 
   // Available slots when provider, service, and date are present
-  const slotsQ = useQuery({
-    queryKey: ["slots", providerId, serviceId, date],
-    queryFn: async () =>
-      Availability.getAvailableSlots(
-        Number(providerId),
-        Number(serviceId),
-        date
-      ),
-    enabled: !!providerId && !!serviceId && !!date,
-  });
+  const slotsQ = useAvailableSlots(Number(providerId), Number(serviceId), date);
 
   useEffect(() => {
     setSlot("");
+    setSelectedSlot(null);
+    setTimeWithinSlot("");
+    setEndTimeWithinSlot("");
   }, [providerId, serviceId, date]);
 
-  // Create booking (used during confirm step)
+  // Compute end time (+60 min) and clamp to slot end if provided
+  function computeEndTime(start, slotEnd) {
+    if (!start) return slotEnd || "";
+    try {
+      const [h, m] = String(start)
+        .split(":")
+        .map((v) => parseInt(v, 10));
+      const d = new Date();
+      d.setHours(h || 0, m || 0, 0, 0);
+      d.setMinutes(d.getMinutes() + 60);
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      const plus1h = `${hh}:${mm}`;
+      if (slotEnd && plus1h > String(slotEnd).slice(0, 5))
+        return String(slotEnd).slice(0, 5);
+      return plus1h;
+    } catch {
+      return slotEnd || "";
+    }
+  }
+
+  function timeToMinutes(t) {
+    if (!t) return null;
+    const [hh, mm] = String(t).slice(0, 5).split(":");
+    const h = parseInt(hh, 10);
+    const m = parseInt(mm, 10);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
+    return h * 60 + m;
+  }
+
+  // Create booking (separate from payment)
   const createBookingMutation = useMutation({
     mutationFn: async () => {
+      const start = (timeWithinSlot || selectedSlot?.startTime || slot || "")
+        .toString()
+        .slice(0, 5);
+      const chosenEnd = (endTimeWithinSlot || "").toString().slice(0, 5);
+      const computed = computeEndTime(start, selectedSlot?.endTime);
+      // Prefer user-chosen end time if valid; otherwise fallback to computed
+      let end = chosenEnd || computed;
+      // Clamp to slot end if provided
+      if (selectedSlot?.endTime) {
+        const max = String(selectedSlot.endTime).slice(0, 5);
+        if (end > max) end = max;
+      }
+      const service = selectedService || {};
+      const serviceCategory = service.serviceCategory || service.category || "";
       const dto = {
         serviceProviderId: Number(providerId),
         serviceId: Number(serviceId),
-        startTime: slot || date,
+        customerId: Number(user?.userId),
+        serviceCategory,
+        bookingDate: date,
+        bookingStartTime: start,
+        bookingEndTime: end,
       };
       return Bookings.create(dto);
     },
     onError: (e) => {
       toast.error(e?.response?.data?.message || "Failed to create booking");
     },
-  });
-
-  // Payment order creation
-  const createOrderMutation = useMutation({
-    mutationFn: async (amt) => Payments.createOrder(Number(amt)),
-    onError: (e) => {
-      toast.error(e?.response?.data?.message || "Failed to create order");
+    onSuccess: (resp) => {
+      const bid = resp?.bookingId || resp?.id;
+      setCreatedBookingId(bid || null);
+      toast.success("Booking created");
     },
   });
 
-  // Payment processing
-  const processPaymentMutation = useMutation({
-    mutationFn: async ({ orderId: oid, bookingId: bid, amt }) =>
-      Payments.processPayment({ orderId: oid, bookingId: bid, amount: amt }),
-    onError: (e) => {
-      toast.error(e?.response?.data?.message || "Payment failed");
-    },
-  });
+  // Helper: compute amount based on selected service price and chosen time window
+  function computeAmount() {
+    const pricePerHour = Number(selectedService?.servicePricePerHour || 0);
+    const start = (timeWithinSlot || selectedSlot?.startTime || slot || "")
+      .toString()
+      .slice(0, 5);
+    const end = (
+      endTimeWithinSlot ||
+      computeEndTime(start, selectedSlot?.endTime) ||
+      ""
+    )
+      .toString()
+      .slice(0, 5);
+    const toMin = (t) => {
+      if (!t) return 0;
+      const [h, m] = t.split(":").map((n) => parseInt(n, 10));
+      return (h || 0) * 60 + (m || 0);
+    };
+    const mins = Math.max(0, toMin(end) - toMin(start));
+    const hours = mins / 60;
+    return Number((pricePerHour * hours).toFixed(2));
+  }
+
+  // Create booking and initiate payment transaction
+  async function handleCreateAndPay() {
+    setIsPaying(true);
+    try {
+      // 1) Ensure booking exists
+      const bookingResp = await createBookingMutation.mutateAsync();
+      const bookingId = bookingResp?.bookingId || bookingResp?.id;
+      if (!bookingId) throw new Error("Missing booking id");
+
+      // 2) Build request shapes
+      const pricePerHour = Number(selectedService?.servicePricePerHour || 0);
+      const start = (timeWithinSlot || selectedSlot?.startTime || slot || "")
+        .toString()
+        .slice(0, 5);
+      const end = (
+        endTimeWithinSlot ||
+        computeEndTime(start, selectedSlot?.endTime) ||
+        ""
+      )
+        .toString()
+        .slice(0, 5);
+      const amount = computeAmount();
+
+      // 3) Get orderId (skip PayPal order for CASH)
+      let orderId = `CASH-${bookingId}-${Date.now()}`;
+      if (String(paymentMethod).toUpperCase() !== "CASH") {
+        const orderReq = {
+          serviceId: Number(serviceId),
+          slot: { startTime: start, endTime: end },
+          pricePerHour,
+        };
+        orderId = await Payments.createOrder(orderReq);
+        if (!orderId) throw new Error("Failed to create payment order");
+      }
+
+      // 4) Create transaction as PENDING
+      const payReq = {
+        orderId,
+        bookingId: Number(bookingId),
+        customerId: Number(user?.userId),
+        amount,
+        paymentMethod: String(paymentMethod).toUpperCase(),
+      };
+      const txn = await Payments.processPayment(payReq);
+      const status = txn?.paymentStatus || "PENDING";
+      toast.success(`Payment initiated (status: ${status})`);
+
+      // 5) Navigate to details
+      navigate(`/bookings/${bookingId}`);
+    } catch (e) {
+      const msg = e?.response?.data?.message || e?.message || "Payment failed";
+      toast.error(msg);
+    } finally {
+      setIsPaying(false);
+    }
+  }
 
   const providers = useMemo(() => {
     const raw = providersQ.data ?? [];
@@ -116,14 +261,31 @@ export default function BookingCreate() {
     return list;
   }, [servicesQ.data]);
 
-  const slots = useMemo(() => {
-    const raw = slotsQ.data ?? [];
-    return Array.isArray(raw) ? raw : raw?.slots ?? [];
-  }, [slotsQ.data]);
+  const slots = slotsQ.data ?? [];
+
+  // Validation: ensure end time is after start time and within slot bounds
+  const startMins = timeToMinutes(
+    timeWithinSlot || selectedSlot?.startTime || slot
+  );
+  const endMins = timeToMinutes(endTimeWithinSlot);
+  const slotEndMins = timeToMinutes(
+    selectedSlot?.endTime || searchParams.get("slotEnd")
+  );
+  const endAfterStart =
+    startMins != null && endMins != null ? endMins > startMins : true;
+  const withinSlot =
+    endMins != null && slotEndMins != null ? endMins <= slotEndMins : true;
+  const canSubmit =
+    !!providerId &&
+    !!serviceId &&
+    !!date &&
+    !!(timeWithinSlot || selectedSlot?.startTime || slot) &&
+    endAfterStart &&
+    withinSlot &&
+    !createBookingMutation.isPending;
 
   const selectedProvider = useMemo(
-    () =>
-      providers.find((p) => String(p.id ?? p.userId) === String(providerId)),
+    () => providers.find((p) => String(p.providerId) === String(providerId)),
     [providers, providerId]
   );
   const selectedService = useMemo(
@@ -132,18 +294,7 @@ export default function BookingCreate() {
     [services, serviceId]
   );
 
-  // Derive a default amount from service if available (editable)
-  useEffect(() => {
-    if (!selectedService) return;
-    const inferred =
-      selectedService.price ??
-      selectedService.rate ??
-      selectedService.amount ??
-      "";
-    setAmount(
-      inferred !== undefined && inferred !== null ? String(inferred) : ""
-    );
-  }, [selectedService]);
+  // No payment, so skip amount derivation
 
   return (
     <div className="space-y-4">
@@ -154,31 +305,59 @@ export default function BookingCreate() {
             placeholder="Search providers by name…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            disabled={!!searchParams.get("providerId")}
           />
           <div className="max-h-48 overflow-auto rounded-md border">
             <ul className="divide-y">
               {providers.map((p) => (
                 <li
-                  key={p.id ?? p.userId}
-                  className="flex items-center justify-between px-3 py-2 text-sm"
+                  key={p.providerId}
+                  className={
+                    "flex items-center justify-between px-3 py-2 text-sm cursor-pointer " +
+                    (String(p.providerId) === String(providerId)
+                      ? "bg-blue-50 border-l-4 border-blue-500"
+                      : "hover:bg-zinc-50")
+                  }
+                  onClick={() => setProviderId(String(p.providerId))}
                 >
                   <div>
                     <div className="font-medium">
-                      {p.name ?? p.username ?? "Provider"}
+                      {p.providerName ?? p.name ?? p.username ?? "Provider"}
                     </div>
-                    {p.email && <div className="text-zinc-600">{p.email}</div>}
+                    {(p.providerEmail || p.email) && (
+                      <div className="text-zinc-600">
+                        {p.providerEmail ?? p.email}
+                      </div>
+                    )}
                   </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => setProviderId(String(p.id ?? p.userId))}
-                  >
-                    Select
-                  </Button>
+                  <div>
+                    {String(p.providerId) === String(providerId) ? (
+                      <span className="rounded bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
+                        Selected
+                      </span>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProviderId(String(p.providerId));
+                        }}
+                        disabled={!!searchParams.get("providerId")}
+                      >
+                        Select
+                      </Button>
+                    )}
+                  </div>
                 </li>
               ))}
-              {providers.length === 0 && (
+              {providersQ.isLoading && (
+                <li className="px-3 py-2 text-sm text-zinc-500">Loading…</li>
+              )}
+              {!providersQ.isLoading && providers.length === 0 && (
                 <li className="px-3 py-2 text-sm text-zinc-500">
-                  No providers found.
+                  {query
+                    ? "No providers match your search."
+                    : "No providers found."}
                 </li>
               )}
             </ul>
@@ -194,7 +373,11 @@ export default function BookingCreate() {
               className="w-full rounded-md border px-3 py-2"
               value={serviceId}
               onChange={(e) => setServiceId(e.target.value)}
-              disabled={!providerId || servicesQ.isLoading}
+              disabled={
+                !providerId ||
+                servicesQ.isLoading ||
+                !!searchParams.get("serviceId")
+              }
             >
               <option value="">
                 {servicesQ.isLoading
@@ -205,7 +388,10 @@ export default function BookingCreate() {
               </option>
               {services.map((s) => (
                 <option key={s.id ?? s.serviceId} value={s.id ?? s.serviceId}>
-                  {s.name ?? s.title ?? `Service #${s.id ?? s.serviceId}`}
+                  {s.serviceName ??
+                    s.name ??
+                    s.title ??
+                    `Service #${s.id ?? s.serviceId}`}
                 </option>
               ))}
             </select>
@@ -237,8 +423,22 @@ export default function BookingCreate() {
             <Label>Available slots</Label>
             <select
               className="w-full rounded-md border px-3 py-2"
-              value={slot}
-              onChange={(e) => setSlot(e.target.value)}
+              value={selectedSlot?.startTime || slot}
+              onChange={(e) => {
+                const start = e.target.value;
+                const found = (slots || []).find(
+                  (s) => String(s.startTime) === String(start)
+                );
+                setSelectedSlot(found || null);
+                setSlot(start);
+                const startVal = found?.startTime
+                  ? String(found.startTime).slice(0, 5)
+                  : "";
+                setTimeWithinSlot(startVal);
+                // Prefill end time to +60m (clamped) when slot changes
+                const defaultEnd = computeEndTime(startVal, found?.endTime);
+                setEndTimeWithinSlot(defaultEnd || "");
+              }}
               disabled={!providerId || !serviceId || !date || slotsQ.isLoading}
             >
               <option value="">
@@ -247,11 +447,83 @@ export default function BookingCreate() {
                   : "Select a slot (optional)"}
               </option>
               {slots.map((s, idx) => (
-                <option key={idx} value={s?.startTime ?? s?.time ?? s}>
-                  {s?.label ?? s?.startTime ?? s}
+                <option key={idx} value={s.startTime}>
+                  {s.label ?? s.startTime}
                 </option>
               ))}
             </select>
+            {(selectedSlot?.startTime || searchParams.get("slotStart")) && (
+              <div className="mt-2">
+                <Label>Choose time within slot</Label>
+                <Input
+                  type="time"
+                  value={timeWithinSlot}
+                  min={String(
+                    selectedSlot?.startTime ||
+                      searchParams.get("slotStart") ||
+                      ""
+                  ).slice(0, 5)}
+                  max={String(
+                    selectedSlot?.endTime || searchParams.get("slotEnd") || ""
+                  ).slice(0, 5)}
+                  onChange={(e) => {
+                    const newStart = e.target.value;
+                    setTimeWithinSlot(newStart);
+                    // If end is empty or now before start, adjust end to default
+                    if (!endTimeWithinSlot) {
+                      setEndTimeWithinSlot(
+                        computeEndTime(newStart, selectedSlot?.endTime) || ""
+                      );
+                    } else {
+                      const em = timeToMinutes(endTimeWithinSlot);
+                      const sm = timeToMinutes(newStart);
+                      if (em != null && sm != null && em <= sm) {
+                        setEndTimeWithinSlot(
+                          computeEndTime(newStart, selectedSlot?.endTime) || ""
+                        );
+                      }
+                    }
+                  }}
+                />
+                <p className="mt-1 text-xs text-zinc-500">
+                  Allowed range:{" "}
+                  {(
+                    selectedSlot?.startTime ||
+                    searchParams.get("slotStart") ||
+                    ""
+                  )?.slice(0, 5)}
+                  {selectedSlot?.endTime || searchParams.get("slotEnd")
+                    ? ` - ${(
+                        selectedSlot?.endTime ||
+                        searchParams.get("slotEnd") ||
+                        ""
+                      )?.slice(0, 5)}`
+                    : ""}
+                </p>
+                <div className="mt-3">
+                  <Label>End time</Label>
+                  <Input
+                    type="time"
+                    value={endTimeWithinSlot}
+                    min={(timeWithinSlot || "").slice(0, 5)}
+                    max={String(
+                      selectedSlot?.endTime || searchParams.get("slotEnd") || ""
+                    ).slice(0, 5)}
+                    onChange={(e) => setEndTimeWithinSlot(e.target.value)}
+                  />
+                  {endTimeWithinSlot && !endAfterStart && (
+                    <p className="mt-1 text-xs text-red-600">
+                      End time must be after start time.
+                    </p>
+                  )}
+                  {endTimeWithinSlot && !withinSlot && (
+                    <p className="mt-1 text-xs text-red-600">
+                      End time must be within the selected slot.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </Card>
@@ -263,7 +535,8 @@ export default function BookingCreate() {
             <div>
               <div className="text-sm text-zinc-500">Provider</div>
               <div className="font-medium">
-                {selectedProvider?.name ??
+                {selectedProvider?.providerName ??
+                  selectedProvider?.name ??
                   selectedProvider?.username ??
                   `#${providerId}`}
               </div>
@@ -278,114 +551,73 @@ export default function BookingCreate() {
             </div>
             <div>
               <div className="text-sm text-zinc-500">When</div>
-              <div className="font-medium">{slot || date}</div>
+              <div className="font-medium">
+                {date}{" "}
+                {(timeWithinSlot || selectedSlot?.startTime || slot) && (
+                  <>
+                    {(timeWithinSlot || selectedSlot?.startTime || slot)
+                      ?.toString()
+                      .slice(0, 5)}{" "}
+                    -{" "}
+                    {(
+                      endTimeWithinSlot ||
+                      computeEndTime(timeWithinSlot, selectedSlot?.endTime)
+                    )
+                      ?.toString()
+                      .slice(0, 5)}
+                  </>
+                )}
+              </div>
+            </div>
+            {/* Payment */}
+            <div>
+              <div className="text-sm text-zinc-500">Payment method</div>
+              <select
+                className="mt-1 w-full rounded-md border px-3 py-2"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+              >
+                <option value="UPI">UPI</option>
+                <option value="CREDIT_CARD">Credit/Debit Card</option>
+                <option value="NET_BANKING">Net Banking</option>
+                <option value="WALLET">Wallet</option>
+                <option value="CASH">Cash</option>
+              </select>
             </div>
             <div>
-              <Label>Amount</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="Enter amount"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-              />
+              <div className="text-sm text-zinc-500">Estimated amount</div>
+              <div className="font-medium">₹{computeAmount()}</div>
             </div>
           </div>
 
-          {!createdBookingId && (
-            <div className="mt-4 flex items-center gap-2">
-              <Button
-                onClick={async () => {
-                  try {
-                    const resp = await createBookingMutation.mutateAsync();
-                    const bid = resp?.id ?? resp?.bookingId;
-                    if (!bid) throw new Error("Missing booking id");
-                    setCreatedBookingId(bid);
-                    toast.success("Booking created");
-                    // Create order immediately
-                    const order = await createOrderMutation.mutateAsync(
-                      amount || 0
-                    );
-                    const oid =
-                      order?.id ?? order?.orderId ?? order?.paypalOrderId;
-                    if (!oid) {
-                      toast.error("Order id missing from response");
-                    } else {
-                      setOrderId(oid);
-                      toast.success("Order created");
-                    }
-                  } catch {
-                    // errors already toasted
-                  }
-                }}
-                disabled={
-                  !providerId ||
-                  !serviceId ||
-                  !date ||
-                  createBookingMutation.isPending ||
-                  createOrderMutation.isPending ||
-                  !amount
+          <div className="mt-4 flex items-center gap-2">
+            <Button
+              onClick={handleCreateAndPay}
+              disabled={!canSubmit || isPaying}
+            >
+              {isPaying ? "Processing…" : "Create & Pay"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  const resp = await createBookingMutation.mutateAsync();
+                  const bid = resp?.id ?? resp?.bookingId;
+                  navigate(bid ? `/bookings/${bid}` : "/bookings");
+                } catch {
+                  /* handled */
                 }
-              >
-                {createBookingMutation.isPending ||
-                createOrderMutation.isPending
-                  ? "Preparing checkout…"
-                  : "Confirm & Pay"}
-              </Button>
-              <Button variant="outline" onClick={() => navigate("/bookings")}>
-                Cancel
-              </Button>
-            </div>
-          )}
-
-          {createdBookingId && (
-            <div className="mt-4 space-y-2">
-              <div className="text-sm text-zinc-600">
-                Booking #{createdBookingId} created.{" "}
-                {orderId ? `Order #${orderId} ready.` : "Creating order…"}
-              </div>
-              {orderId && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={async () => {
-                      try {
-                        await processPaymentMutation.mutateAsync({
-                          orderId,
-                          bookingId: createdBookingId,
-                          amt: Number(amount || 0),
-                        });
-                        // Update booking status to CONFIRMED by default
-                        try {
-                          await Bookings.updateStatus(
-                            createdBookingId,
-                            "CONFIRMED"
-                          );
-                        } catch {
-                          // non-fatal
-                        }
-                        toast.success("Payment successful");
-                        navigate(`/bookings/${createdBookingId}`);
-                      } catch {
-                        // errors already surfaced
-                      }
-                    }}
-                    disabled={processPaymentMutation.isPending}
-                  >
-                    {processPaymentMutation.isPending
-                      ? "Processing…"
-                      : "Complete Payment"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => navigate(`/bookings/${createdBookingId}`)}
-                  >
-                    View booking
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
+              }}
+              disabled={!canSubmit || createBookingMutation.isPending}
+            >
+              {createBookingMutation.isPending
+                ? "Creating…"
+                : "Create without payment"}
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/bookings")}>
+              Cancel
+            </Button>
+          </div>
         </Card>
       )}
     </div>

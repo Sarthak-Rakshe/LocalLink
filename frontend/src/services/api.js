@@ -31,9 +31,19 @@ export const Users = {
   delete: (id) => api.delete(`/users/${id}`).then((r) => r.data),
   /** any of username/email/contact */
   exists: (params) => api.get(`/users/exists`, { params }).then((r) => r.data),
-  /** providers listing */
-  getProviders: (params) =>
-    api.get(`/users/getProviders`, { params }).then((r) => r.data),
+  /** providers listing with optional backend filter (providerName/providerEmail)
+   * @param {{providerName?: string, providerEmail?: string}|undefined} filter
+   * @param {{page?: number, size?: number, 'sort-by'?: string, 'sort-dir'?: string}|undefined} page
+   */
+  getProviders: (filter, page) =>
+    api
+      .request({
+        method: "get",
+        url: `/users/getProviders`,
+        params: page,
+        data: filter ?? undefined,
+      })
+      .then((r) => r.data),
   /** provider public profile */
   getProviderById: (providerId) =>
     api.get(`/users/provider/${providerId}`).then((r) => r.data),
@@ -158,10 +168,11 @@ export const Payments = {
   /** admin list or user scoped based on backend service; params require sort-by, sort-dir, page, size */
   listAll: (params, filter) =>
     api
-      .post(`/payments/allServices`, filter ?? {}, { params })
+      .post(`/payments/allTransactions`, filter ?? {}, { params })
       .then((r) => r.data),
-  createOrder: (amount) =>
-    api.post(`/payments/createOrder/${amount}`).then((r) => r.data),
+  /** @param {{serviceId:number, slot:{startTime:string,endTime:string}, pricePerHour:number}} payload */
+  createOrder: (payload) =>
+    api.post(`/payments/createOrder`, payload).then((r) => r.data),
   processPayment: (request) =>
     api.post(`/payments/processPayment`, request).then((r) => r.data),
 };
