@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import Switch from "../../components/ui/Switch.jsx";
 import { Services } from "../../services/api.js";
 import ServiceCard from "../../components/services/ServiceCard.jsx";
 import { Input, Label } from "../../components/ui/Input.jsx";
@@ -9,9 +12,10 @@ import EmptyState from "../../components/ui/EmptyState.jsx";
 import Alert from "../../components/ui/Alert.jsx";
 
 export default function ServicesExplore() {
+  const [searchParams, setSearchParams] = useSearchParams();
   // Filters as per backend QueryFilter
   const [filters, setFilters] = useState({
-    serviceName: "",
+    serviceName: searchParams.get("q") || "",
     category: "",
     minPrice: "",
     maxPrice: "",
@@ -159,6 +163,16 @@ export default function ServicesExplore() {
     setPage(0);
   }, [filterPayload, useNearby, sortBy, sortDir, size]);
 
+  // Keep URL in sync with search term for shareability
+  useEffect(() => {
+    const q = filters.serviceName?.trim() || null;
+    const next = new URLSearchParams(searchParams);
+    if (q) next.set("q", q);
+    else next.delete("q");
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.serviceName]);
+
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -181,8 +195,108 @@ export default function ServicesExplore() {
           description="Find trusted local providers. Filter by category, price, and more."
         />
       </div>
+      {/* Prominent search bar */}
+      <div className="lg:col-span-12">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setPage(0);
+          }}
+          className="rounded-2xl border bg-white p-3 md:p-4 shadow-sm"
+          role="search"
+          aria-label="Search services"
+        >
+          <label htmlFor="top-search" className="sr-only">
+            Search services
+          </label>
+          <div className="relative">
+            <input
+              id="top-search"
+              className="w-full rounded-full border border-zinc-300 bg-white pl-12 pr-32 py-3 text-base md:text-lg shadow-sm placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/50"
+              placeholder="Search services, categories, providers…"
+              value={filters.serviceName}
+              onChange={(e) =>
+                setFilters((f) => ({ ...f, serviceName: e.target.value }))
+              }
+            />
+            <MagnifyingGlassIcon className="pointer-events-none absolute left-4 top-1/2 size-6 -translate-y-1/2 text-zinc-400" />
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+              {filters.serviceName && (
+                <button
+                  type="button"
+                  onClick={() => setFilters((f) => ({ ...f, serviceName: "" }))}
+                  className="btn btn-ghost px-3 py-1 text-sm"
+                >
+                  Clear
+                </button>
+              )}
+              <Button type="submit" className="px-4 py-2">
+                Search
+              </Button>
+            </div>
+          </div>
+        </form>
+      </div>
       {/* Filters */}
-      <aside className="lg:col-span-3 space-y-4">
+      <aside className="lg:col-span-3 space-y-4 lg:sticky lg:top-20 self-start h-fit">
+        <div
+          className={`rounded-xl border bg-white p-4 shadow-sm ${
+            useNearby ? "ring-1 ring-indigo-500" : ""
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">Nearby services</h2>
+            <Switch checked={useNearby} onChange={setUseNearby} />
+          </div>
+          <p className="mt-1 text-xs text-zinc-600">
+            Use your location to find providers close to you.
+          </p>
+          {useNearby && (
+            <div className="mt-2 text-xs text-zinc-500">
+              {coords.error
+                ? coords.error
+                : coords.lat
+                ? "Using your location"
+                : "Getting location..."}
+            </div>
+          )}
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <select
+              className="w-full rounded-md border border-zinc-300 px-2 py-2 text-sm"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+            >
+              <option value="name">Sort: Name</option>
+              <option value="price">Sort: Price</option>
+              <option value="category">Sort: Category</option>
+              <option value="id">Sort: Newest</option>
+            </select>
+            <select
+              className="w-full rounded-md border border-zinc-300 px-2 py-2 text-sm"
+              value={sortDir}
+              onChange={(e) => setSortDir(e.target.value)}
+            >
+              <option value="asc">Asc</option>
+              <option value="desc">Desc</option>
+            </select>
+          </div>
+          <div className="mt-3">
+            <Label htmlFor="pageSize">Page size</Label>
+            <select
+              id="pageSize"
+              className="w-full rounded-md border border-zinc-300 px-2 py-2 text-sm"
+              value={size}
+              onChange={(e) => setSize(Number(e.target.value))}
+            >
+              {[6, 12, 24, 48].map((n) => (
+                <option key={n} value={n}>
+                  {n} per page
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         <div className="rounded-xl border bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold">Filters</h2>
@@ -203,17 +317,6 @@ export default function ServicesExplore() {
             </button>
           </div>
           <div className="mt-3 space-y-3">
-            <div>
-              <Label htmlFor="serviceName">Search</Label>
-              <Input
-                id="serviceName"
-                placeholder="Service name..."
-                value={filters.serviceName}
-                onChange={(e) =>
-                  setFilters((f) => ({ ...f, serviceName: e.target.value }))
-                }
-              />
-            </div>
             <div>
               <Label htmlFor="category">Category</Label>
               <Input
@@ -268,69 +371,6 @@ export default function ServicesExplore() {
               <p className="mt-1 text-xs text-zinc-500">
                 Sends serviceProviderId in query filter.
               </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-semibold">Options</h2>
-          <div className="mt-3 space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="size-4 rounded border-zinc-300"
-                  checked={useNearby}
-                  onChange={(e) => setUseNearby(e.target.checked)}
-                />
-                Show nearby services
-              </label>
-              {useNearby && (
-                <span className="text-xs text-zinc-500">
-                  {coords.error
-                    ? coords.error
-                    : coords.lat
-                    ? "Using your location"
-                    : "Getting location..."}
-                </span>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <select
-                className="w-full rounded-md border border-zinc-300 px-2 py-2 text-sm"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-              >
-                <option value="name">Sort: Name</option>
-                <option value="price">Sort: Price</option>
-                <option value="category">Sort: Category</option>
-                <option value="id">Sort: Newest</option>
-              </select>
-              <select
-                className="w-full rounded-md border border-zinc-300 px-2 py-2 text-sm"
-                value={sortDir}
-                onChange={(e) => setSortDir(e.target.value)}
-              >
-                <option value="asc">Asc</option>
-                <option value="desc">Desc</option>
-              </select>
-            </div>
-
-            <div>
-              <Label htmlFor="pageSize">Page size</Label>
-              <select
-                id="pageSize"
-                className="w-full rounded-md border border-zinc-300 px-2 py-2 text-sm"
-                value={size}
-                onChange={(e) => setSize(Number(e.target.value))}
-              >
-                {[6, 12, 24, 48].map((n) => (
-                  <option key={n} value={n}>
-                    {n} per page
-                  </option>
-                ))}
-              </select>
             </div>
           </div>
         </div>

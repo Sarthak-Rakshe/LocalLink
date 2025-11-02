@@ -7,6 +7,8 @@ import Button from "../../components/ui/Button.jsx";
 import { Input, Label } from "../../components/ui/Input.jsx";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
+import PageHeader from "../../components/ui/PageHeader.jsx";
+import Badge from "../../components/ui/Badge.jsx";
 import {
   isInCooldown,
   getRemainingMs,
@@ -88,41 +90,44 @@ export default function PaymentsList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Payments</h1>
-        <div className="flex items-center gap-2">
-          <select
-            className="rounded-md border border-zinc-300 px-2 py-2 text-sm"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-          >
-            {SORT_FIELDS.map((f) => (
-              <option key={f.value} value={f.value}>
-                Sort: {f.label}
-              </option>
-            ))}
-          </select>
-          <select
-            className="rounded-md border border-zinc-300 px-2 py-2 text-sm"
-            value={sortDir}
-            onChange={(e) => setSortDir(e.target.value)}
-          >
-            <option value="asc">Asc</option>
-            <option value="desc">Desc</option>
-          </select>
-          <select
-            className="rounded-md border border-zinc-300 px-2 py-2 text-sm"
-            value={size}
-            onChange={(e) => setSize(Number(e.target.value))}
-          >
-            {[10, 20, 50].map((n) => (
-              <option key={n} value={n}>
-                {n} / page
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <PageHeader
+        title="Payments"
+        description="Track transactions, filter by method or status, and retry pending ones."
+        actions={
+          <div className="flex items-center gap-2">
+            <select
+              className="rounded-md border border-zinc-300 px-2 py-2 text-sm"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+            >
+              {SORT_FIELDS.map((f) => (
+                <option key={f.value} value={f.value}>
+                  Sort: {f.label}
+                </option>
+              ))}
+            </select>
+            <select
+              className="rounded-md border border-zinc-300 px-2 py-2 text-sm"
+              value={sortDir}
+              onChange={(e) => setSortDir(e.target.value)}
+            >
+              <option value="asc">Asc</option>
+              <option value="desc">Desc</option>
+            </select>
+            <select
+              className="rounded-md border border-zinc-300 px-2 py-2 text-sm"
+              value={size}
+              onChange={(e) => setSize(Number(e.target.value))}
+            >
+              {[10, 20, 50].map((n) => (
+                <option key={n} value={n}>
+                  {n} / page
+                </option>
+              ))}
+            </select>
+          </div>
+        }
+      />
 
       <Card>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -218,9 +223,26 @@ export default function PaymentsList() {
                   <td className="px-3 py-2 text-sm">
                     ₹{t.amount?.toFixed?.(2) ?? t.amount}
                   </td>
-                  <td className="px-3 py-2 text-sm">{t.paymentMethod}</td>
-                  <td className="px-3 py-2 text-sm">{t.paymentStatus}</td>
-                  <td className="px-3 py-2 text-sm">{t.createdAt}</td>
+                  <td className="px-3 py-2 text-sm">
+                    <Badge color="blue">{t.paymentMethod}</Badge>
+                  </td>
+                  <td className="px-3 py-2 text-sm">
+                    <Badge
+                      color={
+                        t.paymentStatus === "COMPLETED"
+                          ? "green"
+                          : t.paymentStatus === "FAILED" ||
+                            t.paymentStatus === "DECLINED"
+                          ? "red"
+                          : "amber"
+                      }
+                    >
+                      {t.paymentStatus}
+                    </Badge>
+                  </td>
+                  <td className="px-3 py-2 text-sm">
+                    {new Date(t.createdAt).toLocaleString?.() || t.createdAt}
+                  </td>
                   <td className="px-3 py-2 text-right text-sm">
                     <div className="flex items-center justify-end gap-3">
                       {(t.paymentStatus === "PENDING" ||

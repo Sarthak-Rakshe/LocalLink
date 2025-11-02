@@ -7,6 +7,8 @@ import Card from "../../components/ui/Card.jsx";
 import Button from "../../components/ui/Button.jsx";
 import { Label } from "../../components/ui/Input.jsx";
 import toast from "react-hot-toast";
+import PageHeader from "../../components/ui/PageHeader.jsx";
+import { StarIcon } from "@heroicons/react/24/solid";
 
 export default function ReviewsHome() {
   const { user } = useAuth();
@@ -131,7 +133,14 @@ export default function ReviewsHome() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Reviews</h1>
+      <PageHeader
+        title="Reviews"
+        description={
+          isCustomer
+            ? "Share feedback on services you’ve used, or update your past reviews."
+            : "See what customers are saying about your services."
+        }
+      />
       {isCustomer && editing && (
         <Card>
           <div className="mb-3 text-lg font-medium">
@@ -140,17 +149,24 @@ export default function ReviewsHome() {
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <Label>Rating</Label>
-              <select
-                className="w-full rounded-md border px-3 py-2"
-                value={rating}
-                onChange={(e) => setRating(parseInt(e.target.value, 10))}
-              >
-                {[5, 4, 3, 2, 1].map((r) => (
-                  <option key={r} value={r}>
-                    {r} star{r > 1 ? "s" : ""}
-                  </option>
+              <div className="flex items-center gap-1 py-2">
+                {[1, 2, 3, 4, 5].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    className="p-1"
+                    aria-label={`${r} star${r > 1 ? "s" : ""}`}
+                    onClick={() => setRating(r)}
+                  >
+                    <StarIcon
+                      className={`size-6 ${
+                        r <= rating ? "text-amber-400" : "text-zinc-300"
+                      }`}
+                    />
+                  </button>
                 ))}
-              </select>
+                <span className="ml-2 text-sm text-zinc-600">{rating}/5</span>
+              </div>
             </div>
             <div className="md:col-span-2">
               <Label>Comment (optional)</Label>
@@ -202,7 +218,7 @@ export default function ReviewsHome() {
               {(myReviewsQ.data.content ?? myReviewsQ.data ?? []).map((r) => (
                 <li key={r.reviewId} className="py-3">
                   <div className="flex items-start justify-between gap-3 text-sm">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <Button
                         variant="outline"
                         onClick={() =>
@@ -220,8 +236,17 @@ export default function ReviewsHome() {
                         )}
                       </div>
                     </div>
-                    <div className="text-zinc-700 whitespace-nowrap">
-                      {r.rating}/5
+                    <div className="text-zinc-700 whitespace-nowrap flex items-center gap-1">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <StarIcon
+                          key={i}
+                          className={`size-4 ${
+                            i < (r.rating ?? 0)
+                              ? "text-amber-400"
+                              : "text-zinc-300"
+                          }`}
+                        />
+                      ))}
                     </div>
                   </div>
                 </li>
@@ -258,7 +283,18 @@ export default function ReviewsHome() {
                         <div className="text-zinc-600">{r.comment}</div>
                       )}
                     </div>
-                    <div className="text-zinc-700">{r.rating}/5</div>
+                    <div className="text-zinc-700 flex items-center gap-1">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <StarIcon
+                          key={i}
+                          className={`size-4 ${
+                            i < (r.rating ?? 0)
+                              ? "text-amber-400"
+                              : "text-zinc-300"
+                          }`}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </li>
               ))}

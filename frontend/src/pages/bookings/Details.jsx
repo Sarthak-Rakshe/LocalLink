@@ -17,6 +17,58 @@ function formatDateTime(d) {
   }
 }
 
+function joinName(obj) {
+  if (!obj) return null;
+  const first = obj.firstName || obj.givenName || obj.firstname;
+  const last = obj.lastName || obj.surname || obj.lastname;
+  const full = obj.fullName || obj.name;
+  if (full && String(full).trim()) return String(full);
+  if ((first || last) && String(`${first || ""} ${last || ""}`).trim())
+    return String(`${first || ""} ${last || ""}`).trim();
+  return obj.username || obj.email || null;
+}
+
+function serviceLabel(b) {
+  const id = b?.serviceId ?? b?.service?.id;
+  return (
+    b?.serviceName ||
+    b?.serviceTitle ||
+    b?.service?.name ||
+    b?.service?.title ||
+    (id != null ? `Service #${id}` : "Service")
+  );
+}
+
+function providerLabel(b) {
+  const id =
+    b?.serviceProviderId ??
+    b?.providerId ??
+    b?.provider?.id ??
+    b?.serviceProvider?.id;
+  return (
+    b?.providerName ||
+    b?.serviceProviderName ||
+    b?.providerFullName ||
+    b?.serviceProviderFullName ||
+    joinName(b?.provider) ||
+    joinName(b?.serviceProvider) ||
+    b?.provider?.name ||
+    b?.serviceProvider?.name ||
+    (id != null ? `#${id}` : "—")
+  );
+}
+
+function customerLabel(b) {
+  const id = b?.customerId ?? b?.customer?.id;
+  return (
+    b?.customerName ||
+    b?.customerFullName ||
+    joinName(b?.customer) ||
+    b?.customer?.name ||
+    (id != null ? `#${id}` : "—")
+  );
+}
+
 export default function BookingDetails() {
   const { user } = useAuth();
   const { id } = useParams();
@@ -249,6 +301,28 @@ export default function BookingDetails() {
 
         {b && (
           <div className="space-y-6">
+            {/* Summary header with names */}
+            <div className="rounded-md bg-white/60 p-3 ring-1 ring-zinc-200">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+                <div className="min-w-0">
+                  <div className="text-sm text-zinc-500">Service</div>
+                  <div className="truncate text-lg font-medium">
+                    {serviceLabel(b)}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div>
+                    <div className="text-sm text-zinc-500">Provider</div>
+                    <div className="font-medium">{providerLabel(b)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-zinc-500">Customer</div>
+                    <div className="font-medium">{customerLabel(b)}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <div className="text-sm text-zinc-500">Booking ID</div>
@@ -277,20 +351,20 @@ export default function BookingDetails() {
                 </div>
               </div>
               <div>
-                <div className="text-sm text-zinc-500">Service ID</div>
-                <div className="font-medium">{b.serviceId ?? "-"}</div>
+                <div className="text-sm text-zinc-500">Service</div>
+                <div className="font-medium">{serviceLabel(b)}</div>
               </div>
               <div>
                 <div className="text-sm text-zinc-500">Service category</div>
                 <div className="font-medium">{b.serviceCategory ?? "-"}</div>
               </div>
               <div>
-                <div className="text-sm text-zinc-500">Provider ID</div>
-                <div className="font-medium">{b.serviceProviderId ?? "-"}</div>
+                <div className="text-sm text-zinc-500">Provider</div>
+                <div className="font-medium">{providerLabel(b)}</div>
               </div>
               <div>
-                <div className="text-sm text-zinc-500">Customer ID</div>
-                <div className="font-medium">{b.customerId ?? "-"}</div>
+                <div className="text-sm text-zinc-500">Customer</div>
+                <div className="font-medium">{customerLabel(b)}</div>
               </div>
               <div>
                 <div className="text-sm text-zinc-500">Created at</div>
