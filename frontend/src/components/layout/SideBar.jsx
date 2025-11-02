@@ -4,6 +4,7 @@ import {
   CreditCardIcon,
   HomeIcon,
   ListBulletIcon,
+  StarIcon,
   Squares2X2Icon,
   WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline";
@@ -14,8 +15,10 @@ function NavItem({ to, icon, children }) {
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-zinc-100 ${
-          isActive ? "bg-zinc-100 text-zinc-900" : "text-zinc-700"
+        `flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+          isActive
+            ? "bg-indigo-50 text-indigo-700"
+            : "text-zinc-700 hover:bg-zinc-100"
         }`
       }
       end
@@ -56,6 +59,9 @@ export default function SideBar({ open, onClose }) {
       </NavItem>
       <NavItem to="/services" icon={<Squares2X2Icon className="size-5" />}>
         Services
+      </NavItem>
+      <NavItem to="/reviews" icon={<StarIcon className="size-5" />}>
+        Reviews
       </NavItem>
       {isProvider && (
         <NavItem to="/availability" icon={<CalendarIcon className="size-5" />}>

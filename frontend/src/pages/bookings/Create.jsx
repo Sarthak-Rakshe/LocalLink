@@ -30,6 +30,8 @@ export default function BookingCreate() {
   // Flow state
   const [createdBookingId, setCreatedBookingId] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("UPI");
+  // When using PayPal, let user choose the underlying payment channel to record in backend
+  const [paypalMethod, setPaypalMethod] = useState("CREDIT_CARD");
   const [isPaying, setIsPaying] = useState(false);
 
   // Prefill from URL query params
@@ -50,10 +52,12 @@ export default function BookingCreate() {
     }
   }, [searchParams]);
 
-  // Reset service selection when provider changes
+  // Reset service selection when provider changes (but don't wipe prefilled query param)
   useEffect(() => {
+    // If serviceId was provided via URL, keep it; otherwise clear when provider changes
+    if (searchParams.get("serviceId")) return;
     setServiceId("");
-  }, [providerId]);
+  }, [providerId, searchParams]);
 
   // Providers from backend with server-side filtering
   const providersQ = useQuery({
@@ -225,6 +229,7 @@ export default function BookingCreate() {
       const payReq = {
         orderId,
         bookingId: Number(bookingId),
+        serviceProviderId: Number(providerId),
         customerId: Number(user?.userId),
         amount,
         paymentMethod: String(paymentMethod).toUpperCase(),
@@ -544,6 +549,12 @@ export default function BookingCreate() {
               </div>
             </div>
             <div>
+              <div className="text-sm text-zinc-500">Service Provider ID</div>
+              <div className="font-medium">
+                {selectedProvider?.providerId ?? providerId}
+              </div>
+            </div>
+            <div>
               <div className="text-sm text-zinc-500">Service</div>
               <div className="font-medium">
                 {selectedService?.name ??
@@ -586,6 +597,26 @@ export default function BookingCreate() {
                 <option value="CASH">Cash</option>
                 <option value="PAYPAL">PayPal</option>
               </select>
+              {showPayPal && (
+                <div className="mt-3">
+                  <div className="text-sm text-zinc-500">
+                    PayPal payment type
+                  </div>
+                  <select
+                    className="mt-1 w-full rounded-md border px-3 py-2"
+                    value={paypalMethod}
+                    onChange={(e) => setPaypalMethod(e.target.value)}
+                  >
+                    <option value="UPI">UPI</option>
+                    <option value="WALLET">Wallet</option>
+                    <option value="CREDIT_CARD">Credit Card</option>
+                  </select>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    This will be recorded as the payment method for your PayPal
+                    transaction.
+                  </p>
+                </div>
+              )}
             </div>
             <div>
               <div className="text-sm text-zinc-500">Estimated amount</div>
@@ -676,7 +707,7 @@ export default function BookingCreate() {
                       throw e;
                     }
                   }}
-                  onApprove={async (data, actions) => {
+                  onApprove={async (data) => {
                     try {
                       const orderId = data?.orderID;
                       const bookingId = createdBookingId;
@@ -687,10 +718,11 @@ export default function BookingCreate() {
                       const txn = await Payments.processPayment({
                         orderId,
                         bookingId: Number(bookingId),
+                        serviceProviderId: Number(providerId),
                         customerId: Number(user?.userId),
                         amount,
-                        // Backend enum does not include PAYPAL; map PayPal UI to CREDIT_CARD for storage
-                        paymentMethod: "CREDIT_CARD",
+                        // Record the chosen method for PayPal (UPI | WALLET | CREDIT_CARD)
+                        paymentMethod: String(paypalMethod).toUpperCase(),
                       });
                       const status = txn?.paymentStatus || "COMPLETED";
                       toast.success(`Payment ${status.toLowerCase()}`);

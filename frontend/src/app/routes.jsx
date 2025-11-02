@@ -18,6 +18,7 @@ const BookingsHome = lazy(() => import("../pages/bookings/Index.jsx"));
 const BookingsList = lazy(() => import("../pages/bookings/List.jsx"));
 const BookingDetails = lazy(() => import("../pages/bookings/Details.jsx"));
 const BookingCreate = lazy(() => import("../pages/bookings/Create.jsx"));
+const BookingSummary = lazy(() => import("../pages/bookings/Summary.jsx"));
 const AvailabilityHome = lazy(() => import("../pages/availability/Index.jsx"));
 const AvailabilityManage = lazy(() =>
   import("../pages/availability/Manage.jsx")
@@ -32,6 +33,7 @@ const ServicesManage = lazy(() => import("../pages/services/Manage.jsx"));
 const ServiceCreate = lazy(() => import("../pages/services/Create.jsx"));
 const ServiceEdit = lazy(() => import("../pages/services/Edit.jsx"));
 const ServiceDetails = lazy(() => import("../pages/services/Details.jsx"));
+const ReviewsHome = lazy(() => import("../pages/reviews/Index.jsx"));
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -129,6 +131,7 @@ export const router = createBrowserRouter([
       // Bookings
       { path: "/bookings", element: <BookingsList /> },
       { path: "/bookings/:id", element: <BookingDetails /> },
+      { path: "/bookings/summary", element: <BookingSummary /> },
       {
         path: "/bookings/create",
         element: (
@@ -156,6 +159,8 @@ export const router = createBrowserRouter([
       },
       { path: "/payments", element: <PaymentsList /> },
       { path: "/payments/:id", element: <PaymentDetails /> },
+      // Reviews
+      { path: "/reviews", element: <ReviewsHome /> },
       // Services explore (customers and providers can view)
       { path: "/services", element: <ServicesExplore /> },
       { path: "/services/:id", element: <ServiceDetails /> },

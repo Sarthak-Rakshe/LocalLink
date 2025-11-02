@@ -25,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.Duration;
@@ -55,7 +56,7 @@ public class AvailabilityService{
         this.bookingClient = bookingClient;
     }
 
-
+    @Transactional
     public AvailabilityRulesDto createAvailabilityRule(AvailabilityRulesDto availabilityRulesDto) {
         log.info("Creating availability rule for Service Provider ID: {}, Service ID: {}",
                 availabilityRulesDto.getServiceProviderId(), availabilityRulesDto.getServiceId());
@@ -76,8 +77,7 @@ public class AvailabilityService{
         for(DayOfWeek day : rule.getDaysOfWeek()){
             daysOfWeek |= (byte) (1 << day.getValue());
         }
-        List<AvailabilityRules> conflictingRules = availabilityRulesRepository
-                .findConflictingRules(rule.getServiceProviderId(), rule.getServiceId(),
+        List<AvailabilityRules> conflictingRules = availabilityRulesRepository.findConflictingRules(rule.getServiceProviderId(),
                         rule.getStartTime(), rule.getEndTime(), daysOfWeek);
 
         if(!conflictingRules.isEmpty()){
@@ -90,6 +90,7 @@ public class AvailabilityService{
         return availabilityMapper.AvailabilityToDto(savedRule);
     }
 
+    @Transactional
     public ProviderExceptionDto createProviderException(ProviderExceptionDto dto){
         validateDate(LocalDate.parse(dto.getExceptionDate()));
         ProviderExceptions exception = availabilityMapper.DtoToProviderException(dto);

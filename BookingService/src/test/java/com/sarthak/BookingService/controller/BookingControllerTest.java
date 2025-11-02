@@ -127,7 +127,7 @@ class BookingControllerTest {
 
     @Test
     @DisplayName("GET /api/bookings/summary/{serviceProviderId} returns summary")
-    void getBookingSummaryForProvider() throws Exception {
+    void getBookingSummary() throws Exception {
         var response = com.sarthak.BookingService.dto.response.BookingsSummaryResponse.builder()
                 .requesterId(33L)
                 .totalBookings(5L)
@@ -137,7 +137,7 @@ class BookingControllerTest {
                 .deletedBookings(0L)
                 .rescheduledBookings(0L)
                 .build();
-        when(bookingService.getBookingSummaryForServiceProvider(33L)).thenReturn(response);
+        when(bookingService.getBookingSummary(33L)).thenReturn(response);
 
         mockMvc.perform(get("/api/bookings/summary/33"))
                 .andExpect(status().isOk())

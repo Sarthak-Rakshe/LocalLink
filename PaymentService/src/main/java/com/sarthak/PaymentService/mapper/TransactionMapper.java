@@ -16,6 +16,7 @@ public class TransactionMapper {
         return new TransactionDto(
                 transaction.getTransactionId(),
                 transaction.getBookingId(),
+                transaction.getServiceProviderId(),
                 transaction.getCustomerId(),
                 transaction.getAmount(),
                 transaction.getPaymentMethod().name(),
@@ -29,6 +30,7 @@ public class TransactionMapper {
         return Transaction.builder()
                 .transactionId(transactionDto.transactionId())
                 .bookingId(transactionDto.bookingId())
+                .serviceProviderId(transactionDto.serviceProviderId())
                 .customerId(transactionDto.customerId())
                 .amount(transactionDto.amount())
                 .paymentMethod(PaymentMethod.valueOf(transactionDto.paymentMethod()))

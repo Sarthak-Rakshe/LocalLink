@@ -52,6 +52,9 @@ export default function CustomerDashboard() {
             <Button as={Link} to="/bookings" variant="primary">
               View all bookings
             </Button>
+            <Button as={Link} to="/bookings/summary" variant="secondary">
+              Booking summary
+            </Button>
             <Button as={Link} to="/payments" variant="outline">
               Payments
             </Button>

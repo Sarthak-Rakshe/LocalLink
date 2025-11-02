@@ -1,6 +1,8 @@
 import { useNavigate } from "react-router-dom";
+import Button from "../ui/Button.jsx";
 
 export default function ServiceCard({ service }) {
+  const navigate = useNavigate();
   if (!service) return null;
   const {
     serviceName,
@@ -8,16 +10,14 @@ export default function ServiceCard({ service }) {
     serviceCategory,
     servicePricePerHour,
     reviewAggregate,
-    serviceProviderId,
     serviceId,
   } = service;
 
   const rating = reviewAggregate?.averageRating ?? null;
   const reviewsCount = reviewAggregate?.totalReviews ?? 0;
-  const navigate = useNavigate();
 
   return (
-    <div className="rounded-lg border bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-zinc-900">
@@ -55,13 +55,13 @@ export default function ServiceCard({ service }) {
         )}
 
         {/* View details navigates to dedicated page */}
-        <button
-          type="button"
-          className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-zinc-50"
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => navigate(`/services/${serviceId ?? service?.id}`)}
         >
           View details
-        </button>
+        </Button>
       </div>
     </div>
   );

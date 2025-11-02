@@ -20,9 +20,7 @@ import java.time.temporal.ChronoUnit;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-@Table(name = "booking", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_service_provider_service_booking_time", columnNames = {"service_provider_id", "service_id", "booking_date", "booking_start_time", "booking_end_time"})
-}, indexes = {
+@Table(name = "booking", indexes = {
         @Index(name = "idx_customer_id", columnList = "customer_id"),
         @Index(name = "idx_service_provider_id", columnList = "service_provider_id"),
         @Index(name = "idx_service_id", columnList = "service_id"),

@@ -2,7 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Services } from "../../services/api.js";
 import ServiceCard from "../../components/services/ServiceCard.jsx";
 import { Input, Label } from "../../components/ui/Input.jsx";
+import Select from "../../components/ui/Select.jsx";
+import Button from "../../components/ui/Button.jsx";
+import PageHeader from "../../components/ui/PageHeader.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import Alert from "../../components/ui/Alert.jsx";
 
 export default function ServicesExplore() {
   // Filters as per backend QueryFilter
@@ -74,12 +78,12 @@ export default function ServicesExplore() {
       payload.minPrice = Number(filters.minPrice);
     if (filters.maxPrice !== "" && !Number.isNaN(Number(filters.maxPrice)))
       payload.maxPrice = Number(filters.maxPrice);
-    // Provider filter: backend expects QueryFilter.userId; it resolves based on principal userType
+    // Provider filter: backend expects QueryFilter.serviceProviderId for public listing
     if (
       filters.providerId !== "" &&
       !Number.isNaN(Number(filters.providerId))
     ) {
-      payload.userId = Number(filters.providerId);
+      payload.serviceProviderId = Number(filters.providerId);
     }
     return payload;
   }, [filters]);
@@ -171,6 +175,12 @@ export default function ServicesExplore() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-12">
+      <div className="lg:col-span-12">
+        <PageHeader
+          title="Explore services"
+          description="Find trusted local providers. Filter by category, price, and more."
+        />
+      </div>
       {/* Filters */}
       <aside className="lg:col-span-3 space-y-4">
         <div className="rounded-xl border bg-white p-4 shadow-sm">
@@ -256,8 +266,7 @@ export default function ServicesExplore() {
                 }
               />
               <p className="mt-1 text-xs text-zinc-500">
-                Sends userId in QueryFilter. Backend resolves by your user type
-                (PROVIDER filters by serviceProviderId).
+                Sends serviceProviderId in query filter.
               </p>
             </div>
           </div>
@@ -329,22 +338,13 @@ export default function ServicesExplore() {
 
       {/* Results */}
       <section className="lg:col-span-9">
-        <div className="mb-3 flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-zinc-900">
-            Explore services
-          </h1>
-          {displayData?.totalElements != null && (
-            <div className="text-sm text-zinc-600">
-              {displayData.totalElements} results
-            </div>
-          )}
-        </div>
-
-        {error && (
-          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
+        {displayData?.totalElements != null && (
+          <div className="mb-3 text-sm text-zinc-600">
+            {displayData.totalElements} results
           </div>
         )}
+
+        {error && <Alert variant="error">{error}</Alert>}
         {loading ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: Math.min(size, 9) }).map((_, i) => (
@@ -372,25 +372,25 @@ export default function ServicesExplore() {
         {/* Pagination */}
         {displayData?.totalPages > 1 && (
           <div className="mt-6 flex items-center justify-center gap-2">
-            <button
-              type="button"
-              className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm disabled:opacity-50"
+            <Button
+              variant="outline"
+              size="sm"
               disabled={page <= 0}
               onClick={() => setPage((p) => Math.max(0, p - 1))}
             >
               Previous
-            </button>
+            </Button>
             <div className="text-sm text-zinc-600">
               Page {displayData.pageNumber + 1} of {displayData.totalPages}
             </div>
-            <button
-              type="button"
-              className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm disabled:opacity-50"
+            <Button
+              variant="outline"
+              size="sm"
               disabled={displayData.pageNumber + 1 >= displayData.totalPages}
               onClick={() => setPage((p) => p + 1)}
             >
               Next
-            </button>
+            </Button>
           </div>
         )}
       </section>

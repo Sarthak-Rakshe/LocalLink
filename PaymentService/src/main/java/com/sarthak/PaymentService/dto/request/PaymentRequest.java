@@ -6,6 +6,7 @@ import lombok.Builder;
 public record PaymentRequest (
         String orderId,
         Long bookingId,
+        Long serviceProviderId,
         Long customerId,
         Double amount,
         String paymentMethod

@@ -3,6 +3,7 @@ package com.sarthak.PaymentService.client;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sarthak.PaymentService.dto.response.CaptureOrderResponse;
 import com.sarthak.PaymentService.dto.response.CreateOrderResponse;
 import com.sarthak.PaymentService.dto.response.WebhookResponse;
 import com.sarthak.PaymentService.enums.PaymentStatus;
@@ -34,12 +35,29 @@ public class PayPalClient {
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    private void ensure2xx(HttpResponse<String> response, String action) {
+        int status = response.statusCode();
+        if (status / 100 != 2) {
+            log.error("PayPal {} failed. Status: {}, Body: {}", action, status, response.body());
+            throw new IllegalStateException("PayPal " + action + " failed with status " + status);
+        }
+    }
 
-    private String getAccessToken() throws IOException,InterruptedException {
+    private String readRequired(JsonNode node, String field, String action) {
+        JsonNode valueNode = node.get(field);
+        if (valueNode == null || valueNode.isNull()) {
+            throw new IllegalStateException("PayPal " + action + " missing field: " + field);
+        }
+        String value = valueNode.asText();
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException("PayPal " + action + " empty field: " + field);
+        }
+        return value;
+    }
 
+    private String getAccessToken() throws IOException, InterruptedException {
         log.info("Fetching PayPal access token from {}", baseUrl);
-        String auth = Base64.getEncoder()
-                .encodeToString((clientId + ":" + clientSecret).getBytes());
+        String auth = Base64.getEncoder().encodeToString((clientId + ":" + clientSecret).getBytes());
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + "/v1/oauth2/token"))
@@ -48,29 +66,31 @@ public class PayPalClient {
                 .POST(HttpRequest.BodyPublishers.ofString("grant_type=client_credentials"))
                 .build();
 
-        HttpResponse<String> response =
-                httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        log.info("Request sent to PayPal for access token");
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        ensure2xx(response, "token");
+        log.debug("PayPal token response: {}", response.body());
 
         JsonNode jsonNode = objectMapper.readTree(response.body());
+        String accessToken = readRequired(jsonNode, "access_token", "token");
         log.info("Received PayPal access token");
-        return jsonNode.get("access_token").asText();
+        return accessToken;
     }
 
-    public CreateOrderResponse createOrder(String amount) throws IOException, InterruptedException{
-
+    public CreateOrderResponse createOrder(String amount) throws IOException, InterruptedException {
         String accessToken = getAccessToken();
         log.info("Starting order creation process for amount: {}", amount);
 
         String payload = """
                 {
-                    "intent" : "CAPTURE",
-                    "purchase_units" : [ {
-                        "amount" : {
-                            "currency_code" : "USD",
-                            "value" : "%s"
-                           }
-                       } ]
+                  "intent": "CAPTURE",
+                  "purchase_units": [
+                    {
+                      "amount": {
+                        "currency_code": "USD",
+                        "value": "%s"
+                      }
+                    }
+                  ]
                 }
                 """.formatted(amount);
 
@@ -80,23 +100,41 @@ public class PayPalClient {
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(payload))
                 .build();
-        log.info("Sending order creation request to PayPal");
 
-        HttpResponse<String> response =
-                httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        ensure2xx(response, "create order");
+        log.debug("PayPal create order response: {}", response.body());
 
         JsonNode jsonNode = objectMapper.readTree(response.body());
-        String orderId = jsonNode.get("id").asText();
-        String status = jsonNode.get("status").asText();
+        String orderId = readRequired(jsonNode, "id", "create order");
+        String status = readRequired(jsonNode, "status", "create order");
 
         log.info("Order created with ID: {}, Status: {}", orderId, status);
-
-        return CreateOrderResponse.builder()
-                .orderId(orderId)
-                .status(status)
-                .build();
+        return CreateOrderResponse.builder().orderId(orderId).status(status).build();
     }
 
+    public CaptureOrderResponse captureOrder(String orderId) throws IOException, InterruptedException {
+        String accessToken = getAccessToken();
+        log.info("Starting order capture process for orderId: {}", orderId);
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/v2/checkout/orders/" + orderId + "/capture"))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        ensure2xx(response, "capture order");
+        log.debug("PayPal capture order response: {}", response.body());
+
+        JsonNode jsonNode = objectMapper.readTree(response.body());
+        String status = readRequired(jsonNode, "status", "capture order");
+
+        log.info("Order captured with ID: {}, Status: {}", orderId, status);
+        return CaptureOrderResponse.builder().orderId(orderId).status(status).build();
+    }
+/*
     public WebhookResponse handleWebhookEvent(String payload) {
         log.info("Handling valid webhook event: {}", payload);
 
@@ -148,5 +186,5 @@ public class PayPalClient {
     public boolean verifyWebhookSignature(String payload, String signature, String transmissionId, String transmissionTime, String certUrl, String authAlgo) {
         return true; //True for testing purposes
     }
-
+*/
 }

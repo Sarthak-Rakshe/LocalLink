@@ -29,11 +29,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.sarthak.BookingService.model.BookingStatus.*;
@@ -47,6 +47,8 @@ public class BookingService {
     private final AvailabilityServiceClient availabilityServiceClient;
     private final Set<String> ALLOWED_SORT_FIELDS = Set.of("bookingId", "serviceProviderId", "serviceId",
             "customerId", "bookingDate", "bookingStartTime", "bookingEndTime", "bookingStatus", "createdAt");
+    private final Set<BookingStatus> EXCLUDED_STATUSES_FOR_OVERLAP_CHECK = Set.of(CANCELLED, DELETED);
+    private final Set<BookingStatus> INCLUDED_STATUSES_FOR_BOOKED_SLOTS = Set.of(PENDING, CONFIRMED);
 
     public BookingService(BookingRepository bookingRepository, BookingMapper bookingMapper,
             AvailabilityServiceClient availabilityServiceClient) {
@@ -102,12 +104,8 @@ public class BookingService {
 
     public BookedSlotsResponse getBookedSlotsForProviderOnDate(Long serviceProviderId, Long serviceId, LocalDate date) {
         List<Booking> bookings = bookingRepository
-                .findAllByServiceProviderIdAndServiceIdAndBookingDateOrderByBookingStartTime(serviceProviderId,
-                        serviceId, date);
-
-        Set<BookingStatus> allowedStatuses = Set.of(PENDING, CONFIRMED);
-
-        bookings = bookings.stream().filter(b -> allowedStatuses.contains(b.getBookingStatus())).toList();
+                .findBookedSlotsForProviderByDate(serviceProviderId,
+                        serviceId, date, INCLUDED_STATUSES_FOR_BOOKED_SLOTS);
 
         List<Slot> bookedSlots = new ArrayList<>();
 
@@ -145,6 +143,8 @@ public class BookingService {
     }
 
     private List<Slot> mergeBookedSlots(List<Slot> slots) {
+        if (slots.isEmpty()) return List.of();
+
         List<Slot> mergedSlots = new ArrayList<>();
 
         LocalTime start = slots.getFirst().startTime();
@@ -154,7 +154,10 @@ public class BookingService {
             Slot current = slots.get(i);
 
             if (!current.startTime().isAfter(end)) {
-                end = current.endTime().isAfter(end) ? current.endTime() : end;
+                // overlapping or touching
+                if (current.endTime().isAfter(end)) {
+                    end = current.endTime();
+                }
             } else {
                 mergedSlots.add(Slot.builder().startTime(start).endTime(end).build());
                 start = current.startTime();
@@ -162,8 +165,11 @@ public class BookingService {
             }
         }
 
+        // add the final merged slot
+        mergedSlots.add(Slot.builder().startTime(start).endTime(end).build());
         return mergedSlots;
     }
+
 
     @Transactional
     public BookingDto bookService(BookingDto bookingDto, UserPrincipal userPrincipal) {
@@ -171,6 +177,10 @@ public class BookingService {
             throw new IllegalStateException("Service provider cannot book their own service");
         }
         Booking booking = bookingMapper.toEntity(bookingDto);
+        LocalDateTime newStartTimeAndDate = LocalDateTime.of(booking.getBookingDate(), booking.getBookingStartTime());
+        if(newStartTimeAndDate.isBefore(LocalDateTime.now())){
+            throw new IllegalStateException("Booking start time cannot be in the past");
+        }
         log.info("Booking process starting for serviceId: {} with providerId: {} on date: {} from {} to {}",
                 booking.getServiceId(), booking.getServiceProviderId(), booking.getBookingDate(),
                 booking.getBookingStartTime(), booking.getBookingEndTime());
@@ -192,17 +202,15 @@ public class BookingService {
                 response.status().equals(AvailabilityStatus.OUTSIDE_WORKING_HOURS)) {
             throw new ProviderNotAvailableForGivenTimeSlotException("Time slot not available");
         } else if (response.status().equals(AvailabilityStatus.AVAILABLE)) {
-            Optional<Booking> existingBooking = bookingRepository
-                    .findByServiceProviderIdAndServiceIdAndBookingDateAndBookingStartTimeAndBookingEndTime(
-                            booking.getServiceProviderId(), booking.getServiceId(), booking.getBookingDate(),
-                            booking.getBookingStartTime(), booking.getBookingEndTime());
+            boolean hasOverlappingBooking = bookingRepository
+                    .hasOverlappingBooking(booking.getServiceProviderId(), booking.getServiceId(),
+                            booking.getBookingDate(), booking.getBookingStartTime(), booking.getBookingEndTime(), EXCLUDED_STATUSES_FOR_OVERLAP_CHECK);
 
             log.info("Checking for existing bookings for serviceId: {} with providerId: {} on date: {} from {} to {}",
                     booking.getServiceId(), booking.getServiceProviderId(), booking.getBookingDate(),
                     booking.getBookingStartTime(), booking.getBookingEndTime());
 
-            if (existingBooking.isPresent() && (existingBooking.get().getBookingStatus().equals(PENDING) ||
-                    existingBooking.get().getBookingStatus().equals(CONFIRMED))) {
+            if (hasOverlappingBooking) {
                 log.error("Time slot already booked for serviceId: {} with providerId: {} on date: {} from {} to {}",
                         booking.getServiceId(), booking.getServiceProviderId(), booking.getBookingDate(),
                         booking.getBookingStartTime(), booking.getBookingEndTime());
@@ -254,6 +262,12 @@ public class BookingService {
     private BookingDto completeBooking(Long bookingId) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new BookingNotFoundException("Booking not found"));
+
+        LocalDateTime bookingEndDateTime = LocalDateTime.of(booking.getBookingDate(), booking.getBookingEndTime());
+        if(bookingEndDateTime.isAfter(LocalDateTime.now())){
+            throw new IllegalStateException("Cannot complete booking before end time");
+        }
+
         booking.setBookingStatus(COMPLETED);
         Booking updatedBooking = bookingRepository.save(booking);
         log.info("Booking completed with bookingId: {}", bookingId);
@@ -270,7 +284,7 @@ public class BookingService {
         bookingRepository.save(booking);
     }
 
-    public BookingsSummaryResponse getBookingSummaryForServiceProvider(Authentication authentication) {
+    public BookingsSummaryResponse getBookingSummary(Authentication authentication) {
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         Long userId = userPrincipal.getUserId();
         String userType = userPrincipal.getUserType();
@@ -285,12 +299,13 @@ public class BookingService {
             rows = new ArrayList<>();
         }
 
-        long completed = 0, pending = 0, cancelled = 0, deleted = 0, rescheduled = 0;
+        long completed = 0, confirmed = 0, pending = 0, cancelled = 0, deleted = 0, rescheduled = 0;
         log.info("Processing booking status counts");
         for (BookingStatusCount r : rows) {
             switch (r.status()) {
                 case COMPLETED -> completed = r.count();
                 case PENDING -> pending = r.count();
+                case CONFIRMED -> confirmed = r.count();
                 case CANCELLED -> cancelled = r.count();
                 case DELETED -> deleted = r.count();
                 case RESCHEDULED -> rescheduled = r.count();
@@ -299,15 +314,16 @@ public class BookingService {
             }
         }
         log.info(
-                "Processed booking status counts - Completed: {}, Pending: {}, Cancelled: {}, Deleted: {}, Rescheduled: {}",
-                completed, pending, cancelled, deleted, rescheduled);
+                "Processed booking status counts - Completed: {}, Pending: {}, Confirmed: {}, Cancelled: {}, Deleted:{}, Rescheduled: {}",
+                completed, pending, confirmed, cancelled, deleted, rescheduled);
 
-        long total = completed + pending + cancelled;
+        long total = completed + pending + cancelled + confirmed;
 
         return BookingsSummaryResponse.builder()
                 .totalBookings(total)
                 .completedBookings(completed)
                 .pendingBookings(pending)
+                .confirmedBookings(confirmed)
                 .cancelledBookings(cancelled)
                 .deletedBookings(deleted)
                 .rescheduledBookings(rescheduled)
@@ -330,6 +346,11 @@ public class BookingService {
         LocalTime changedEndTime = request.newBookingEndTime() != null ? request.newBookingEndTime()
                 : existingBooking.getBookingEndTime();
 
+        LocalDateTime newStartTimeAndDate = LocalDateTime.of(changedDate, changedStartTime);
+        if(newStartTimeAndDate.isBefore(LocalDateTime.now())){
+            throw new IllegalStateException("Rescheduled start time cannot be in the past");
+        }
+
         log.info("Changed booking details - Date: {}, StartTime: {}, EndTime: {}", changedDate, changedStartTime,
                 changedEndTime);
 
@@ -351,17 +372,17 @@ public class BookingService {
                 response.status().equals(AvailabilityStatus.OUTSIDE_WORKING_HOURS)) {
             throw new TimeSlotAlreadyBookedException("Time slot not available");
         } else if (response.status().equals(AvailabilityStatus.AVAILABLE)) {
-            Optional<Booking> conflictingBooking = bookingRepository
-                    .findByServiceProviderIdAndServiceIdAndBookingDateAndBookingStartTimeAndBookingEndTime(
+            boolean hasOverlappingBookings = bookingRepository
+                    .hasOverlappingBooking(
                             existingBooking.getServiceProviderId(), existingBooking.getServiceId(),
-                            changedDate, changedStartTime, changedEndTime);
+                            changedDate, changedStartTime, changedEndTime, EXCLUDED_STATUSES_FOR_OVERLAP_CHECK);
 
             log.info(
                     " Checking for conflicting bookings for rescheduling - serviceId: {} with providerId: {} on date: {} from {} to {}",
                     existingBooking.getServiceId(), existingBooking.getServiceProviderId(), changedDate,
                     changedStartTime, changedEndTime);
 
-            if (conflictingBooking.isPresent() && !conflictingBooking.get().getBookingId().equals(bookingId)) {
+            if (hasOverlappingBookings) {
                 log.error(
                         "Time slot already booked for rescheduling - serviceId: {} with providerId: {} on date: {} from {} to {}",
                         existingBooking.getServiceId(), existingBooking.getServiceProviderId(), changedDate,
@@ -377,7 +398,6 @@ public class BookingService {
             throw new UnknownAvailabilityStatusException("Unknown availability status");
         }
 
-        existingBooking.setBookingStatus(RESCHEDULED);
         log.info("Marking existing booking as RESCHEDULED for bookingId: {}", bookingId);
         Booking newBooking = Booking.builder()
                 .serviceProviderId(existingBooking.getServiceProviderId())
@@ -387,9 +407,10 @@ public class BookingService {
                 .bookingDate(changedDate)
                 .bookingStartTime(changedStartTime)
                 .bookingEndTime(changedEndTime)
-                .bookingStatus(PENDING)
+                .bookingStatus(existingBooking.getBookingStatus())
                 .build();
 
+        existingBooking.setBookingStatus(RESCHEDULED);
         Booking savedBooking = bookingRepository.save(newBooking);
         log.info("Created new booking with bookingId: {} as part of rescheduling", savedBooking.getBookingId());
         existingBooking.setRescheduledToId(String.valueOf(savedBooking.getBookingId()));

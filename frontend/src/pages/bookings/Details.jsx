@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Availability, Bookings } from "../../services/api.js";
+import { Availability, Bookings, Reviews } from "../../services/api.js";
 import { useAvailableSlots } from "../../hooks/useAvailability.js";
 import Card from "../../components/ui/Card.jsx";
 import Button from "../../components/ui/Button.jsx";
 import { Input, Label } from "../../components/ui/Input.jsx";
 import toast from "react-hot-toast";
+import { useAuth } from "../../context/AuthContext.jsx";
 
 function formatDateTime(d) {
   try {
@@ -17,7 +18,9 @@ function formatDateTime(d) {
 }
 
 export default function BookingDetails() {
+  const { user } = useAuth();
   const { id } = useParams();
+  const [search] = useSearchParams();
   const q = useQuery({
     queryKey: ["booking", id],
     queryFn: () => Bookings.getById(id),
@@ -55,6 +58,21 @@ export default function BookingDetails() {
     [b]
   );
   const serviceId = useMemo(() => b?.serviceId ?? b?.service?.id, [b]);
+  const isCompleted = useMemo(
+    () =>
+      String(b?.bookingStatus ?? b?.status ?? "")
+        .toUpperCase()
+        .includes("COMPLETED"),
+    [b]
+  );
+  const isCancelled = useMemo(
+    () =>
+      String(b?.bookingStatus ?? b?.status ?? "")
+        .toUpperCase()
+        .includes("CANCELLED"),
+    [b]
+  );
+  const isTerminal = isCompleted || isCancelled;
 
   // Cancel booking
   const cancelMutation = useMutation({
@@ -86,6 +104,37 @@ export default function BookingDetails() {
     newDate
   );
   const slots = slotsQ.data ?? [];
+
+  // --- Add Review state ---
+  const [reviewOpen, setReviewOpen] = useState(
+    search.get("review") === "1" || false
+  );
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+
+  const addReviewMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.userType || user.userType !== "CUSTOMER") {
+        throw new Error("Only customers can add reviews");
+      }
+      const payload = {
+        serviceProviderId: Number(providerId),
+        serviceId: Number(serviceId),
+        rating: Number(rating),
+        comment: comment?.trim() || null,
+      };
+      return Reviews.add(payload);
+    },
+    onSuccess: () => {
+      toast.success("Review submitted");
+      setReviewOpen(false);
+      setComment("");
+    },
+    onError: (e) =>
+      toast.error(
+        e?.response?.data?.message || e?.message || "Failed to submit review"
+      ),
+  });
 
   function computeEndTime(start, slotEnd) {
     if (!start) return slotEnd || "";
@@ -256,20 +305,35 @@ export default function BookingDetails() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setRescheduleOpen((s) => !s)}
-                disabled={!providerId || !serviceId}
-              >
-                {rescheduleOpen ? "Close reschedule" : "Reschedule"}
-              </Button>
-              <Button
-                variant="danger"
-                onClick={() => cancelMutation.mutate()}
-                disabled={cancelMutation.isPending}
-              >
-                {cancelMutation.isPending ? "Cancelling…" : "Cancel booking"}
-              </Button>
+              {!isTerminal && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => setRescheduleOpen((s) => !s)}
+                    disabled={!providerId || !serviceId}
+                  >
+                    {rescheduleOpen ? "Close reschedule" : "Reschedule"}
+                  </Button>
+                  <Button
+                    variant="danger"
+                    onClick={() => cancelMutation.mutate()}
+                    disabled={cancelMutation.isPending}
+                  >
+                    {cancelMutation.isPending
+                      ? "Cancelling…"
+                      : "Cancel booking"}
+                  </Button>
+                </>
+              )}
+              {isCompleted && user?.userType === "CUSTOMER" && (
+                <Button
+                  variant="outline"
+                  onClick={() => setReviewOpen((s) => !s)}
+                  disabled={!providerId || !serviceId}
+                >
+                  {reviewOpen ? "Close review" : "Add review"}
+                </Button>
+              )}
             </div>
 
             {isRescheduled && rescheduledToId && (
@@ -366,7 +430,7 @@ export default function BookingDetails() {
               </div>
             )}
 
-            {rescheduleOpen && (
+            {rescheduleOpen && !isTerminal && (
               <div className="rounded-md border p-3">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                   <div>
@@ -505,6 +569,57 @@ export default function BookingDetails() {
                         ? "Rescheduling…"
                         : "Confirm reschedule"}
                     </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {reviewOpen && isCompleted && user?.userType === "CUSTOMER" && (
+              <div className="rounded-md border p-3">
+                <h2 className="mb-2 text-lg font-medium">Add your review</h2>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <Label>Rating</Label>
+                    <select
+                      className="w-full rounded-md border px-3 py-2"
+                      value={rating}
+                      onChange={(e) => setRating(parseInt(e.target.value, 10))}
+                    >
+                      {[5, 4, 3, 2, 1].map((r) => (
+                        <option key={r} value={r}>
+                          {r} star{r > 1 ? "s" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label>Comment (optional)</Label>
+                    <textarea
+                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/50"
+                      rows={3}
+                      placeholder="Share your experience"
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                    />
+                  </div>
+                  <div className="md:col-span-2 flex items-center gap-2">
+                    <Button
+                      onClick={() => addReviewMutation.mutate()}
+                      disabled={
+                        addReviewMutation.isPending ||
+                        !providerId ||
+                        !serviceId ||
+                        (!user?.id && !user?.userId) ||
+                        !(rating >= 1 && rating <= 5)
+                      }
+                    >
+                      {addReviewMutation.isPending
+                        ? "Submitting…"
+                        : "Submit review"}
+                    </Button>
+                    <span className="text-xs text-zinc-500">
+                      Reviews are allowed only after a booking is completed.
+                    </span>
                   </div>
                 </div>
               </div>

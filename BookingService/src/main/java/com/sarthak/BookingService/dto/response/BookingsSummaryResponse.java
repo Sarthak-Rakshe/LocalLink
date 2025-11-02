@@ -7,6 +7,7 @@ public record BookingsSummaryResponse(
     Long requesterId,
     Long totalBookings,
     Long completedBookings,
+    Long confirmedBookings,
     Long cancelledBookings,
     Long pendingBookings,
     Long rescheduledBookings,

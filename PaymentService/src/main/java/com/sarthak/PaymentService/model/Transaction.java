@@ -41,6 +41,10 @@ public class Transaction {
     private Long bookingId;
 
     @NotNull
+    @Column(name = "service_provider_id", nullable = false)
+    private Long serviceProviderId;
+
+    @NotNull
     @Column(name = "customer_id", nullable = false)
     private Long customerId;
 

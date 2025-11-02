@@ -12,8 +12,8 @@ export default function NavBar({ onMenuToggle }) {
   };
 
   return (
-    <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b">
-      <div className="h-14 px-4 flex items-center justify-between">
+    <header className="sticky top-0 z-20 border-b bg-white/80 backdrop-blur">
+      <div className="container-page flex h-14 items-center justify-between">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -23,22 +23,24 @@ export default function NavBar({ onMenuToggle }) {
           >
             <Bars3Icon className="size-6" />
           </button>
-          <span className="font-semibold">LocalLink</span>
+          <span className="bg-linear-to-r from-indigo-600 to-violet-600 bg-clip-text text-base font-semibold text-transparent">
+            LocalLink
+          </span>
         </div>
         <div className="flex items-center gap-3">
           {user && (
-            <div className="text-sm text-zinc-600">
+            <div className="hidden text-sm text-zinc-600 sm:block">
               <span className="font-medium text-zinc-900">
                 {user?.username || user?.name || "User"}
               </span>
-              <span className="ml-2 inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] uppercase tracking-wide text-zinc-700">
+              <span className="ml-2 inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] uppercase tracking-wide text-indigo-700">
                 {user?.userType || ""}
               </span>
             </div>
           )}
           <button
             onClick={handleLogout}
-            className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-zinc-50"
+            className="btn btn-outline px-3 py-1.5"
           >
             Logout
           </button>

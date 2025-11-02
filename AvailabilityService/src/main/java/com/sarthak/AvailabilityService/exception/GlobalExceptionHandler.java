@@ -51,8 +51,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(ConflictingRulesException.class)
-    public ExceptionResponse handleConflictingRules(ConflictingRulesException ex){
-        return new ExceptionResponse("Conflicting Rules", ex.getMessage(),  HttpStatus.BAD_REQUEST.value());
+    public ResponseEntity<ExceptionResponse> handleConflictingRules(ConflictingRulesException ex){
+        ExceptionResponse body = new ExceptionResponse("Conflicting Rules", ex.getMessage(), 409);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)

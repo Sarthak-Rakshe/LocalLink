@@ -72,6 +72,8 @@ public class PaymentController {
         return ResponseEntity.ok(transactionDto);
     }
 
+/*
+     For now, webhook handling is disabled
     @PostMapping("/handleWebhook")
     public ResponseEntity<String> handleWebhook(
             @RequestBody String payload,
@@ -94,5 +96,5 @@ public class PaymentController {
             return ResponseEntity.status(400).body("Invalid signature");
         }
     }
-
+*/
 }

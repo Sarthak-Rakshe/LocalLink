@@ -6,6 +6,7 @@ import lombok.Builder;
 public record TransactionDto(
         Long transactionId,
         Long bookingId,
+        Long serviceProviderId,
         Long customerId,
         Double amount,
         String paymentMethod,

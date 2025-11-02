@@ -48,7 +48,10 @@ function InvalidateSizeOnLoad({ deps = [] }) {
     const id = setTimeout(() => {
       try {
         map.invalidateSize();
-      } catch {}
+      } catch {
+        // ignore map readiness race conditions
+        void 0;
+      }
     }, 0);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps

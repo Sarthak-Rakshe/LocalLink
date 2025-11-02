@@ -59,13 +59,11 @@ public interface AvailabilityRulesRepository extends JpaRepository<AvailabilityR
     @Query(value = """
             SELECT * FROM availability_rules ar
             WHERE ar.service_provider_id = :serviceProviderId
-              AND ar.service_id = :serviceId
               AND (ar.days_of_week & :daysOfWeek) != 0
               AND NOT (ar.end_time <= :startTime OR ar.start_time >= :endTime)
-            """)
+            """, nativeQuery = true)
     List<AvailabilityRules> findConflictingRules(
             @NotNull Long serviceProviderId,
-            @NotNull Long serviceId,
             @NotNull LocalTime startTime,
             @NotNull LocalTime endTime,
             byte daysOfWeek

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Availability, Bookings, Services, Users } from "../../services/api.js";
 import Button from "../../components/ui/Button.jsx";
 import Card from "../../components/ui/Card.jsx";
@@ -51,26 +51,8 @@ export default function ServiceDetails() {
     date
   );
 
-  // Booking action (simple: create booking, then navigate to bookings page)
-  const createBookingMutation = useMutation({
-    mutationFn: async () => {
-      const dto = {
-        serviceProviderId: Number(providerQ.data?.providerId),
-        serviceId: serviceId,
-        startTime: slot || date,
-      };
-      return Bookings.create(dto);
-    },
-    onSuccess: (resp) => {
-      const bid = resp?.id ?? resp?.bookingId;
-      toast.success("Booking created");
-      if (bid) navigate(`/bookings/${bid}`);
-      else navigate("/bookings");
-    },
-    onError: (e) => {
-      toast.error(e?.response?.data?.message || "Failed to create booking");
-    },
-  });
+  // Note: booking creation is handled by redirecting to /bookings/create with prefilled params.
+  // If you want to create directly from this page later, wire a mutation using selectedSlot.
 
   useEffect(() => {
     setSelectedSlot(null);
@@ -242,9 +224,16 @@ export default function ServiceDetails() {
 
         <div className="mt-4 flex items-center gap-2">
           <Button
+            disabled={
+              !canBook || !selectedSlot || !provider?.providerId || !serviceId
+            }
             onClick={() => {
               if (!canBook) {
                 toast.error("Only customers can create bookings");
+                return;
+              }
+              if (!selectedSlot) {
+                toast.error("Please select a slot first");
                 return;
               }
               if (!provider?.providerId || !serviceId) return;
@@ -266,6 +255,12 @@ export default function ServiceDetails() {
             Back
           </Button>
         </div>
+
+        {canBook && !selectedSlot && (
+          <div className="mt-2 text-xs text-zinc-500">
+            Select a slot to enable the Book now button.
+          </div>
+        )}
 
         {!canBook && (
           <div className="mt-2 text-xs text-zinc-500">

@@ -1,13 +1,17 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { Bookings } from "../../services/api.js";
 import Card from "../../components/ui/Card.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import Alert from "../../components/ui/Alert.jsx";
 import Badge from "../../components/ui/Badge.jsx";
 import Button from "../../components/ui/Button.jsx";
 import Skeleton from "../../components/ui/Skeleton.jsx";
 import { Link } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
+import toast from "react-hot-toast";
+import PageHeader from "../../components/ui/PageHeader.jsx";
 
 function formatDateTime(d) {
   try {
@@ -23,6 +27,7 @@ export default function BookingsList() {
   const pageSize = 10;
   const id = user?.id ?? user?.userId;
   const isProvider = user?.userType === "PROVIDER";
+  const promptedRef = useRef(new Set());
 
   const query = useQuery({
     queryKey: ["bookings-list", id, isProvider, page, pageSize],
@@ -51,16 +56,85 @@ export default function BookingsList() {
     };
   }, [query.data]);
 
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ bookingId, status }) =>
+      Bookings.updateStatus(bookingId, status),
+    onSuccess: (_, variables) => {
+      toast.success(
+        `Booking #${variables.bookingId} marked ${variables.status}`
+      );
+      query.refetch();
+    },
+    onError: (e) => {
+      toast.error(e?.response?.data?.message || "Failed to update status");
+    },
+  });
+
+  function toEndDate(b) {
+    const dateStr = b?.bookingDate || b?.date;
+    const endRaw = b?.bookingEndTime || b?.endTime || b?.slot?.endTime;
+    if (!dateStr || !endRaw) return null;
+    const hhmm = String(endRaw).slice(0, 5);
+    // Construct local datetime: YYYY-MM-DDTHH:mm:00
+    const ts = `${dateStr}T${hhmm}:00`;
+    const d = new Date(ts);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  useEffect(() => {
+    // Prompt once per eligible booking
+    if (!items || items.length === 0) return;
+    (async () => {
+      for (const b of items) {
+        const bookingId = b.id ?? b.bookingId;
+        if (!bookingId) continue;
+        if (promptedRef.current.has(bookingId)) continue;
+        const status = String(b.status ?? b.bookingStatus ?? "").toUpperCase();
+        if (status !== "CONFIRMED") continue;
+        const endDate = toEndDate(b);
+        if (!endDate) continue;
+        const now = new Date();
+        if (now <= endDate) continue;
+
+        // Mark as prompted immediately to avoid re-asks on fast re-renders
+        promptedRef.current.add(bookingId);
+        const occurred = window.confirm(
+          `Booking #${bookingId} ended on ${endDate.toLocaleString()}. Did this booking occur?\nPress OK for Yes (mark Completed). Press Cancel for No (mark Cancelled).`
+        );
+        try {
+          if (occurred) {
+            await updateStatusMutation.mutateAsync({
+              bookingId,
+              status: "COMPLETED",
+            });
+          } else {
+            await updateStatusMutation.mutateAsync({
+              bookingId,
+              status: "CANCELLED",
+            });
+          }
+        } catch {
+          // errors are handled in onError; allow loop to continue
+          void 0;
+        }
+      }
+    })();
+    // We intentionally do not include mutation/query in deps to avoid loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Bookings</h1>
-        {user?.userType === "CUSTOMER" && (
-          <Button as={Link} to="/bookings/create">
-            New booking
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="Bookings"
+        actions={
+          user?.userType === "CUSTOMER" ? (
+            <Button as={Link} to="/bookings/create">
+              New booking
+            </Button>
+          ) : null
+        }
+      />
 
       <Card>
         {query.isLoading && (
@@ -72,9 +146,9 @@ export default function BookingsList() {
           </div>
         )}
         {query.isError && (
-          <div className="text-sm text-red-600">
+          <Alert variant="error">
             {query.error?.response?.data?.message || "Failed to load bookings."}
-          </div>
+          </Alert>
         )}
         {!query.isLoading && !query.isError && items.length === 0 && (
           <EmptyState
@@ -111,6 +185,25 @@ export default function BookingsList() {
                       ""}
                   </div>
                   {b.status && <Badge className="mt-1">{b.status}</Badge>}
+                  {user?.userType === "CUSTOMER" &&
+                    String(b.status ?? b.bookingStatus ?? "")
+                      .toUpperCase()
+                      .includes("COMPLETED") && (
+                      <div className="mt-2">
+                        <Button
+                          as={Link}
+                          to={`/reviews?serviceId=${
+                            b.serviceId ?? ""
+                          }&providerId=${
+                            b.serviceProviderId ?? b.providerId ?? ""
+                          }`}
+                          size="sm"
+                          variant="outline"
+                        >
+                          Add review
+                        </Button>
+                      </div>
+                    )}
                 </div>
               </div>
             </li>

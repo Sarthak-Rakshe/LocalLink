@@ -8,6 +8,11 @@ import Badge from "../../components/ui/Badge.jsx";
 import Button from "../../components/ui/Button.jsx";
 import Skeleton from "../../components/ui/Skeleton.jsx";
 import { Link } from "react-router-dom";
+import {
+  CalendarDaysIcon,
+  ListBulletIcon,
+  Cog6ToothIcon,
+} from "@heroicons/react/24/outline";
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -96,26 +101,51 @@ export default function ProviderDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card title="Quick actions">
+        <Card
+          title="Quick actions"
+          description="Jump back into the most common tasks"
+        >
           <div className="flex flex-wrap gap-2">
-            <Button as={Link} to="/bookings" variant="primary">
+            <Button
+              as={Link}
+              to="/bookings"
+              variant="primary"
+              leftIcon={<ListBulletIcon className="size-4" />}
+            >
               View bookings
             </Button>
-            <Button as={Link} to="/availability" variant="outline">
+            <Button
+              as={Link}
+              to="/bookings/summary"
+              variant="secondary"
+              leftIcon={<CalendarDaysIcon className="size-4" />}
+            >
+              Booking summary
+            </Button>
+            <Button
+              as={Link}
+              to="/availability"
+              variant="outline"
+              leftIcon={<Cog6ToothIcon className="size-4" />}
+            >
               Manage availability
             </Button>
           </div>
         </Card>
 
-        <Card title="Availability summary">
-          <div className="text-sm text-zinc-700">
-            <div>
-              <span className="text-zinc-500">Rules:</span>{" "}
-              {rulesQ.isLoading ? "…" : rulesCount}
+        <Card title="Availability" description="Rules and one-off exceptions">
+          <div className="grid grid-cols-2 gap-3 text-sm text-zinc-700">
+            <div className="rounded-lg border p-3">
+              <div className="text-xs text-zinc-500">Rules</div>
+              <div className="mt-1 text-xl font-semibold text-zinc-900">
+                {rulesQ.isLoading ? "…" : rulesCount}
+              </div>
             </div>
-            <div>
-              <span className="text-zinc-500">Exceptions:</span>{" "}
-              {exceptionsQ.isLoading ? "…" : exceptionsCount}
+            <div className="rounded-lg border p-3">
+              <div className="text-xs text-zinc-500">Exceptions</div>
+              <div className="mt-1 text-xl font-semibold text-zinc-900">
+                {exceptionsQ.isLoading ? "…" : exceptionsCount}
+              </div>
             </div>
           </div>
         </Card>

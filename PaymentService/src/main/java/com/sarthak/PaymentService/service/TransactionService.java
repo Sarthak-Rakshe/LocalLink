@@ -8,6 +8,7 @@ import com.sarthak.PaymentService.dto.TransactionDto;
 import com.sarthak.PaymentService.dto.request.CreateOrderRequest;
 import com.sarthak.PaymentService.dto.request.TransactionFilter;
 import com.sarthak.PaymentService.dto.request.PaymentRequest;
+import com.sarthak.PaymentService.dto.response.CaptureOrderResponse;
 import com.sarthak.PaymentService.dto.response.CreateOrderResponse;
 import com.sarthak.PaymentService.dto.response.WebhookResponse;
 import com.sarthak.PaymentService.enums.SortField;
@@ -28,12 +29,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalTime;
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.sarthak.PaymentService.enums.PaymentStatus.COMPLETED;
 import static com.sarthak.PaymentService.enums.PaymentStatus.DECLINED;
+import static com.sarthak.PaymentService.enums.PaymentStatus.PENDING;
 
 
 @Service
@@ -64,7 +68,10 @@ public class TransactionService {
 
         LocalTime startTime = createOrderRequest.slot().startTime();
         LocalTime endTime = createOrderRequest.slot().endTime();
-        Double amount = createOrderRequest.pricePerHour() * (endTime.getHour() - startTime.getHour());
+        BigDecimal amount = BigDecimal
+                .valueOf(createOrderRequest.pricePerHour() * (endTime.getHour() - startTime.getHour()) / 88.0)
+                .setScale(2, RoundingMode.HALF_UP);
+
         log.info("Creating PayPal order for amount: {}", amount);
         CreateOrderResponse response =  payPalClient.createOrder(amount.toString());
 
@@ -77,26 +84,46 @@ public class TransactionService {
         return response.orderId();
     }
 
-    @Transactional
     public TransactionDto processPayment(PaymentRequest paymentRequest){
         String orderId = paymentRequest.orderId();
 
-        PaymentStatus paymentStatus = PaymentStatus.PENDING;
+        if(orderId == null || orderId.isEmpty()){
+            log.info("Order ID is null or empty in payment request");
+            throw new IllegalArgumentException("Order ID cannot be null or empty");
+        }
+
+        PaymentStatus paymentStatus = PENDING;
+        try {
+            CaptureOrderResponse captureOrderResponse = payPalClient.captureOrder(orderId);
+            log.info("Capture order response received for orderId: {} with status: {}", orderId, captureOrderResponse.status());
+            paymentStatus = PaymentStatus.fromString(captureOrderResponse.status());
+        } catch (Exception e) {
+            log.info("Exception occurred while capturing order for orderId: {}. Marking payment as DECLINED. Error: {}",
+                    orderId, e.getMessage());
+            paymentStatus = DECLINED;
+        }
 
         Optional<Transaction> existingTransaction = transactionRepository.findByTransactionReference(orderId);
-
         if(existingTransaction.isPresent()){
             Long transactionId = existingTransaction.get().getTransactionId();
             log.info("Transaction is already present for orderId: {}, updating status to {} if it is not completed", orderId, paymentStatus);
             return updateTransactionStatus(transactionId, paymentStatus);
         }
+        bookingClient.updateBookingStatus(paymentRequest.bookingId(), mapPaymentToBookingStatus(paymentStatus));
+        return createTransaction(paymentRequest, paymentStatus);
+    }
+
+    @Transactional
+    public TransactionDto createTransaction(PaymentRequest paymentRequest, PaymentStatus paymentStatus){
+        String orderId = paymentRequest.orderId();
 
         log.info("Creating transaction for orderId: {}", orderId);
-        PaymentMethod paymentMethod = PaymentMethod.valueOf(paymentRequest.paymentMethod().toUpperCase());
+        PaymentMethod paymentMethod = PaymentMethod.fromString(paymentRequest.paymentMethod());
 
         Transaction newTransaction = Transaction.builder()
                 .bookingId(paymentRequest.bookingId())
                 .customerId(paymentRequest.customerId())
+                .serviceProviderId(paymentRequest.serviceProviderId())
                 .amount(paymentRequest.amount())
                 .paymentMethod(paymentMethod)
                 .paymentStatus(paymentStatus)
@@ -135,6 +162,7 @@ public class TransactionService {
         return transactions.map(mapper::toDto);
     }
 
+    @Transactional
     public TransactionDto updateTransactionStatus(Long transactionId, PaymentStatus updatedStatus){
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(()-> new TransactionNotFoundException("Transaction not found with id: " + transactionId));
@@ -143,19 +171,14 @@ public class TransactionService {
             log.info("No status update needed for transaction with id: {}. Current status: {}", transactionId, transaction.getPaymentStatus());
             return mapper.toDto(transaction);
         }
+        String bookingStatus = mapPaymentToBookingStatus(updatedStatus);
 
-        Transaction updatedTransaction = Transaction.builder()
-                .bookingId(transaction.getBookingId())
-                .customerId(transaction.getCustomerId())
-                .amount(transaction.getAmount())
-                .paymentMethod(transaction.getPaymentMethod())
-                .paymentStatus(updatedStatus)
-                .transactionReference(transaction.getTransactionReference())
-                .build();
+        bookingClient.updateBookingStatus(transaction.getBookingId(), bookingStatus);
 
-        transactionRepository.save(updatedTransaction);
+        transaction.setPaymentStatus(updatedStatus);
+        transactionRepository.save(transaction);
 
-        return mapper.toDto(updatedTransaction);
+        return mapper.toDto(transaction);
     }
 
     private SortField validateSortField(String field) {
@@ -178,6 +201,14 @@ public class TransactionService {
         return PageRequest.of(page, size, sort);
     }
 
+    private String mapPaymentToBookingStatus(PaymentStatus paymentStatus) {
+        return switch (paymentStatus) {
+            case PENDING, DECLINED -> "PENDING";
+            case FAILED -> "CANCELLED";
+            case COMPLETED -> "CONFIRMED";
+        };
+    }
+/*
     public void handlePaypalWebhookEvent(String payload){
         WebhookResponse response = payPalClient.handleWebhookEvent(payload);
         Transaction transaction = transactionRepository.findByTransactionReference(response.orderId())
@@ -202,4 +233,6 @@ public class TransactionService {
     public boolean verifyWebhookSignature(String payload, String signature, String transmissionId, String transmissionTime, String certUrl, String authAlgo){
         return payPalClient.verifyWebhookSignature(payload, signature, transmissionId, transmissionTime, certUrl, authAlgo);
     }
+
+ */
 }

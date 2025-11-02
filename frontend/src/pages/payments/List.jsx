@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Payments } from "../../services/api.js";
 import Card from "../../components/ui/Card.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
 import Button from "../../components/ui/Button.jsx";
 import { Input, Label } from "../../components/ui/Input.jsx";
 import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
+import {
+  isInCooldown,
+  getRemainingMs,
+  formatDuration,
+  markRetryAttempt,
+} from "../../services/retryCooldown.js";
 
 const METHODS = ["CREDIT_CARD", "NET_BANKING", "UPI", "WALLET", "CASH"];
 const STATUSES = ["PENDING", "COMPLETED", "FAILED", "DECLINED"];
@@ -18,6 +25,7 @@ const SORT_FIELDS = [
 ];
 
 export default function PaymentsList() {
+  const qc = useQueryClient();
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(10);
   const [sortBy, setSortBy] = useState("createdAt");
@@ -59,6 +67,24 @@ export default function PaymentsList() {
       ? raw
       : [];
   }, [q.data]);
+
+  const retryMutation = useMutation({
+    mutationFn: async (txId) => Payments.retry(txId),
+    onSuccess: (_data, txId) => {
+      markRetryAttempt(txId);
+      toast.success("Retry requested");
+      qc.invalidateQueries({ queryKey: ["payments"] });
+    },
+    onError: (err) => {
+      const msg =
+        err?.response?.data?.message ||
+        (err?.response?.status === 404
+          ? "Retry endpoint not available on the server. Please ensure the backend exposes POST /api/payments/{id}/retry (or share the exact path)."
+          : err?.message) ||
+        "Failed to retry payment";
+      toast.error(msg);
+    },
+  });
 
   return (
     <div className="space-y-4">
@@ -159,6 +185,9 @@ export default function PaymentsList() {
                   ID
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">
+                  Provider ID
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">
                   Reference
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">
@@ -181,6 +210,9 @@ export default function PaymentsList() {
                 <tr key={t.transactionId}>
                   <td className="px-3 py-2 text-sm">{t.transactionId}</td>
                   <td className="px-3 py-2 text-sm">
+                    {t.serviceProviderId ?? "-"}
+                  </td>
+                  <td className="px-3 py-2 text-sm">
                     {t.transactionReference || "-"}
                   </td>
                   <td className="px-3 py-2 text-sm">
@@ -190,12 +222,40 @@ export default function PaymentsList() {
                   <td className="px-3 py-2 text-sm">{t.paymentStatus}</td>
                   <td className="px-3 py-2 text-sm">{t.createdAt}</td>
                   <td className="px-3 py-2 text-right text-sm">
-                    <Link
-                      to={`/payments/${t.transactionId}`}
-                      className="text-indigo-600 hover:underline"
-                    >
-                      View
-                    </Link>
+                    <div className="flex items-center justify-end gap-3">
+                      {(t.paymentStatus === "PENDING" ||
+                        t.paymentStatus === "DECLINED") && (
+                        <Button
+                          size="sm"
+                          onClick={() => retryMutation.mutate(t.transactionId)}
+                          disabled={
+                            isInCooldown(t.transactionId) ||
+                            retryMutation.isPending
+                          }
+                          title={
+                            isInCooldown(t.transactionId)
+                              ? `Retry in ${formatDuration(
+                                  getRemainingMs(t.transactionId)
+                                )}`
+                              : undefined
+                          }
+                        >
+                          {isInCooldown(t.transactionId)
+                            ? `Retry in ${formatDuration(
+                                getRemainingMs(t.transactionId)
+                              )}`
+                            : retryMutation.isPending
+                            ? "Retrying…"
+                            : "Retry"}
+                        </Button>
+                      )}
+                      <Link
+                        to={`/payments/${t.transactionId}`}
+                        className="text-indigo-600 hover:underline"
+                      >
+                        View
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

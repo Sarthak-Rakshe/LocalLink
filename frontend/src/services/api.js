@@ -89,8 +89,8 @@ export const Bookings = {
   /** customer paginated */
   listByCustomer: (customerId, params) =>
     api.get(`/bookings/customer/${customerId}`, { params }).then((r) => r.data),
-  summaryForProvider: (serviceProviderId) =>
-    api.get(`/bookings/summary/${serviceProviderId}`).then((r) => r.data),
+  /** booking summary for the authenticated user (provider or customer) */
+  mySummary: () => api.get(`/bookings/my-summary`).then((r) => r.data),
   bookedSlots: (serviceProviderId, serviceId, date) =>
     api
       .get(`/bookings/bookedSlots/${serviceProviderId}/${serviceId}`, {
@@ -175,6 +175,12 @@ export const Payments = {
     api.post(`/payments/createOrder`, payload).then((r) => r.data),
   processPayment: (request) =>
     api.post(`/payments/processPayment`, request).then((r) => r.data),
+  /** Retry a payment transaction by its transaction id. Backend must expose this endpoint.
+   * Default path: POST /payments/{transactionId}/retry -> TransactionDto
+   * If your backend uses a different path, update here accordingly.
+   */
+  retry: (transactionId) =>
+    api.post(`/payments/${transactionId}/retry`).then((r) => r.data),
 };
 
 // --- REVIEWS (/api/reviews) ---
