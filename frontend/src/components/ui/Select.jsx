@@ -4,7 +4,10 @@ export default function Select({ className, children, ...props }) {
   return (
     <select
       className={clsx(
-        "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/50",
+        // Reuse input base so two stay visually in sync
+        "input-base appearance-none bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100",
+        // Help some browsers pick dark popover styling
+        "[color-scheme:light] dark:[color-scheme:dark]",
         className
       )}
       {...props}

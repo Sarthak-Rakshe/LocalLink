@@ -1,6 +1,5 @@
 package com.sarthak.UserService.dto.response;
 
-import com.sarthak.UserService.dto.ProviderReviewAggregateResponse;
 import lombok.Builder;
 
 

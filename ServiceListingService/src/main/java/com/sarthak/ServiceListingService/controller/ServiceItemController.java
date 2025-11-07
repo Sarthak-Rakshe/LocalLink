@@ -36,13 +36,14 @@ public class ServiceItemController {
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDir
     ){
-        var servicesPage = serviceItemsService.getAllServices(page, size, sortBy, sortDir, queryFilter);
+        Page<ServiceItemDto> servicesPage = serviceItemsService.getAllServices(page, size, sortBy, sortDir, queryFilter);
+        Page<ServiceItemDto> servicesResponseList =serviceItemsService.addReviewAggregatesToServices(servicesPage);
         return new PagedResponse<>(
-                servicesPage.getContent(),
-                servicesPage.getNumber(),
-                servicesPage.getSize(),
-                servicesPage.getTotalElements(),
-                servicesPage.getTotalPages()
+                servicesResponseList.getContent(),
+                servicesResponseList.getNumber(),
+                servicesResponseList.getSize(),
+                servicesResponseList.getTotalElements(),
+                servicesResponseList.getTotalPages()
         );
     }
 

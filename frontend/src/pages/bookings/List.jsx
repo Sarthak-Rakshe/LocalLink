@@ -12,6 +12,12 @@ import { Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import PageHeader from "../../components/ui/PageHeader.jsx";
+import { Input } from "../../components/ui/Input.jsx";
+import {
+  CalendarDaysIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
 
 function formatDateTime(d) {
   try {
@@ -84,10 +90,11 @@ function joinName(obj) {
 }
 
 function serviceLabel(b) {
-  const id = b?.serviceId ?? b?.service?.id;
+  const id = b?.serviceId ?? b?.service?.serviceId ?? b?.service?.id;
   return (
     b?.serviceName ||
     b?.serviceTitle ||
+    b?.service?.serviceName ||
     b?.service?.name ||
     b?.service?.title ||
     (id != null ? `Service #${id}` : "Service")
@@ -99,10 +106,12 @@ function providerLabel(b) {
     b?.serviceProviderId ??
     b?.providerId ??
     b?.provider?.id ??
+    b?.serviceProvider?.serviceProviderId ??
     b?.serviceProvider?.id;
   return (
     b?.providerName ||
     b?.serviceProviderName ||
+    b?.serviceProvider?.serviceProviderName ||
     b?.providerFullName ||
     b?.serviceProviderFullName ||
     joinName(b?.provider) ||
@@ -114,9 +123,10 @@ function providerLabel(b) {
 }
 
 function customerLabel(b) {
-  const id = b?.customerId ?? b?.customer?.id;
+  const id = b?.customerId ?? b?.customer?.customerId ?? b?.customer?.id;
   return (
     b?.customerName ||
+    b?.customer?.customerName ||
     b?.customerFullName ||
     joinName(b?.customer) ||
     b?.customer?.name ||
@@ -127,6 +137,9 @@ function customerLabel(b) {
 export default function BookingsList() {
   const { user } = useAuth();
   const [page, setPage] = useState(0);
+  // lightweight, client-side view controls (do not change server logic)
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const pageSize = 10;
   const id = user?.id ?? user?.userId;
   const isProvider = user?.userType === "PROVIDER";
@@ -138,12 +151,13 @@ export default function BookingsList() {
       const params = {
         page,
         size: pageSize,
-        "sort-by": "date",
+        "sort-by": "createdAt",
         "sort-dir": "desc",
       };
-      return isProvider
-        ? Bookings.listByProvider(id, params)
-        : Bookings.listByCustomer(id, params);
+      const filter = isProvider
+        ? { serviceProviderId: id }
+        : { customerId: id };
+      return Bookings.getList(filter, params);
     },
     enabled: !!id,
   });
@@ -170,6 +184,59 @@ export default function BookingsList() {
     }
     return { upcoming, past };
   }, [items]);
+
+  const statusCounts = useMemo(() => {
+    const counts = { ALL: items.length };
+    for (const b of items) {
+      const s = String(b.status ?? b.bookingStatus ?? "").toUpperCase();
+      counts[s] = (counts[s] || 0) + 1;
+    }
+    return counts;
+  }, [items]);
+
+  const completionRate = useMemo(() => {
+    const completed = items.filter((b) =>
+      String(b.status ?? b.bookingStatus ?? "")
+        .toUpperCase()
+        .includes("COMPLETED")
+    ).length;
+    return items.length ? Math.round((completed / items.length) * 100) : 0;
+  }, [items]);
+
+  // Derived, view-only filtering for search/status pills
+  const filtered = useMemo(() => {
+    const f = items.filter((b) => {
+      // query match
+      const okQuery = (() => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        const hay = [serviceLabel(b), providerLabel(b), customerLabel(b)]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return hay.includes(q);
+      })();
+      // status pill match
+      const okStatus = (() => {
+        if (statusFilter === "ALL") return true;
+        return String(b.status ?? b.bookingStatus ?? "")
+          .toUpperCase()
+          .includes(statusFilter);
+      })();
+      return okQuery && okStatus;
+    });
+    const now = new Date();
+    return {
+      upcoming: f.filter((b) => {
+        const { end } = toStartEndDates(b);
+        return !(end && end < now);
+      }),
+      past: f.filter((b) => {
+        const { end } = toStartEndDates(b);
+        return end && end < now;
+      }),
+    };
+  }, [items, search, statusFilter]);
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ bookingId, status }) =>
@@ -244,7 +311,95 @@ export default function BookingsList() {
         }
       />
 
+      {/* Top summaries inspired by the referenced dashboard */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card className="p-0">
+          <div className="flex items-center gap-3 p-5">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+              <CalendarDaysIcon className="size-5" />
+            </div>
+            <div>
+              <p className="text-xs text-zinc-500">Upcoming</p>
+              <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                {grouped.upcoming.length}
+              </p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-0">
+          <div className="flex items-center gap-3 p-5">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <CheckCircleIcon className="size-5" />
+            </div>
+            <div>
+              <p className="text-xs text-zinc-500">Completion rate</p>
+              <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                {completionRate}%
+              </p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-0">
+          <div className="flex items-center gap-3 p-5">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+              <ExclamationTriangleIcon className="size-5" />
+            </div>
+            <div>
+              <p className="text-xs text-zinc-500">Pending</p>
+              <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                {statusCounts.PENDING || statusCounts["PEND"] || 0}
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
       <Card>
+        {/* Search and status chips */}
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="sm:w-80">
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by service, provider or customer"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { key: "ALL", label: `All (${statusCounts.ALL || 0})` },
+              {
+                key: "CONFIRMED",
+                label: `Confirmed (${statusCounts.CONFIRMED || 0})`,
+              },
+              {
+                key: "COMPLETED",
+                label: `Completed (${statusCounts.COMPLETED || 0})`,
+              },
+              {
+                key: "PENDING",
+                label: `Pending (${statusCounts.PENDING || 0})`,
+              },
+              {
+                key: "CANCELLED",
+                label: `Cancelled (${statusCounts.CANCELLED || 0})`,
+              },
+            ].map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setStatusFilter(t.key)}
+                className={
+                  "rounded-full border px-3 py-1 text-xs transition " +
+                  (statusFilter === t.key
+                    ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-500/10 dark:text-indigo-300"
+                    : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-transparent dark:text-zinc-300 dark:hover:bg-white/5")
+                }
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {query.isLoading && (
           <div className="space-y-2">
             <Skeleton className="h-4 w-24" />
@@ -271,35 +426,32 @@ export default function BookingsList() {
 
         {!query.isLoading && !query.isError && items.length > 0 && (
           <div className="space-y-6">
-            {grouped.upcoming.length > 0 && (
+            {filtered.upcoming.length > 0 && (
               <section>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
                   Upcoming
                 </h3>
-                <ul className="divide-y">
-                  {grouped.upcoming.map((b) => {
+                <ul className="divide-y divide-zinc-200 rounded-lg bg-white dark:divide-zinc-800 dark:bg-zinc-900">
+                  {filtered.upcoming.map((b) => {
                     const id = b.id ?? b.bookingId;
                     const status = b.status ?? b.bookingStatus;
-                    const counterparty = isProvider
-                      ? b.customerName
-                      : b.providerName ?? b.serviceProviderName;
                     return (
-                      <li key={id} className="py-3">
-                        <div className="flex items-start justify-between gap-4">
+                      <li key={id} className="px-4 py-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0">
                             <Link
                               to={`/bookings/${id}`}
-                              className="block truncate font-medium text-zinc-900 hover:underline"
+                              className="block truncate font-medium text-zinc-900 hover:underline dark:text-zinc-100"
                             >
                               {serviceLabel(b)}
                             </Link>
-                            <div className="mt-0.5 text-sm text-zinc-600">
+                            <div className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
                               {formatDateRangeLabel(b)}
                             </div>
-                            <div className="mt-0.5 text-sm text-zinc-500">
+                            <div className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
                               Provider: {providerLabel(b)}
                             </div>
-                            <div className="mt-0.5 text-sm text-zinc-500">
+                            <div className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
                               Customer: {customerLabel(b)}
                             </div>
                           </div>
@@ -331,38 +483,35 @@ export default function BookingsList() {
               </section>
             )}
 
-            {grouped.past.length > 0 && (
+            {filtered.past.length > 0 && (
               <section>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
                   Past
                 </h3>
-                <ul className="divide-y">
-                  {grouped.past.map((b) => {
+                <ul className="divide-y divide-zinc-200 rounded-lg bg-white dark:divide-zinc-800 dark:bg-zinc-900">
+                  {filtered.past.map((b) => {
                     const id = b.id ?? b.bookingId;
                     const status = b.status ?? b.bookingStatus;
-                    const counterparty = isProvider
-                      ? b.customerName
-                      : b.providerName ?? b.serviceProviderName;
                     const isCompleted = String(status || "")
                       .toUpperCase()
                       .includes("COMPLETED");
                     return (
-                      <li key={id} className="py-3">
-                        <div className="flex items-start justify-between gap-4">
+                      <li key={id} className="px-4 py-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0">
                             <Link
                               to={`/bookings/${id}`}
-                              className="block truncate font-medium text-zinc-900 hover:underline"
+                              className="block truncate font-medium text-zinc-900 hover:underline dark:text-zinc-100"
                             >
                               {serviceLabel(b)}
                             </Link>
-                            <div className="mt-0.5 text-sm text-zinc-600">
+                            <div className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
                               {formatDateRangeLabel(b)}
                             </div>
-                            <div className="mt-0.5 text-sm text-zinc-500">
+                            <div className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
                               Provider: {providerLabel(b)}
                             </div>
-                            <div className="mt-0.5 text-sm text-zinc-500">
+                            <div className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
                               Customer: {customerLabel(b)}
                             </div>
                           </div>

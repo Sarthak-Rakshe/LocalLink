@@ -2,25 +2,36 @@ package com.sarthak.ServiceListingService.dto;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
 
-
+@Getter
 @Builder
-public record ServiceItemDto (
-        Long serviceId,
+@Setter
+public class ServiceItemDto {
 
-        @NotNull String serviceName,
+    private Long serviceId;
 
-        @NotNull String serviceDescription,
+    @NotNull
+    private String serviceName;
 
-        @NotNull String serviceCategory,
+    @NotNull
+    private String serviceDescription;
 
-        @NotNull double servicePricePerHour,
+    @NotNull
+    private String serviceCategory;
 
-        @NotNull Long serviceProviderId,
+    @NotNull
+    private double servicePricePerHour;
 
-        @NotNull Double latitude,
+    @NotNull
+    private Long serviceProviderId;
 
-        @NotNull Double longitude,
+    @NotNull
+    private Double latitude;
 
-        ReviewAggregateResponse reviewAggregate
-){}
+    @NotNull
+    private Double longitude;
+
+    private ReviewAggregateResponse reviewAggregate;
+}

@@ -2,8 +2,10 @@ package com.sarthak.BookingService.controller;
 
 import com.sarthak.BookingService.config.shared.UserPrincipal;
 import com.sarthak.BookingService.dto.BookingDto;
+import com.sarthak.BookingService.dto.QueryFilter;
 import com.sarthak.BookingService.dto.request.BookingRescheduleRequest;
 import com.sarthak.BookingService.dto.response.BookedSlotsResponse;
+import com.sarthak.BookingService.dto.response.BookingResponse;
 import com.sarthak.BookingService.dto.response.BookingsSummaryResponse;
 import com.sarthak.BookingService.dto.response.PageResponse;
 import com.sarthak.BookingService.service.BookingService;
@@ -87,6 +89,25 @@ public class BookingController {
                 booking.getTotalElements(),
                 booking.getTotalPages(),
                 booking.getSize()
+        );
+    }
+
+    @PostMapping("/getList")
+    public PageResponse<BookingResponse> getBookingList(
+            @RequestBody QueryFilter queryFilter,
+            @NotNull @RequestParam(name ="sort-by") String sortBy,
+            @NotNull @RequestParam(name ="sort-dir") String sortDir,
+            @NotNull @RequestParam(name ="page") int page,
+            @NotNull @RequestParam(name ="size") int size
+            ){
+        Page<BookingDto> bookings = bookingService.getBookingList(queryFilter, page, size, sortBy, sortDir);
+        Page<BookingResponse> bookingResponses = bookingService.getBookingResponse(bookings);
+        return new PageResponse<>(
+                bookingResponses.getContent(),
+                bookingResponses.getNumber(),
+                bookingResponses.getTotalElements(),
+                bookingResponses.getTotalPages(),
+                bookingResponses.getSize()
         );
     }
 

@@ -34,6 +34,7 @@ const ServiceCreate = lazy(() => import("../pages/services/Create.jsx"));
 const ServiceEdit = lazy(() => import("../pages/services/Edit.jsx"));
 const ServiceDetails = lazy(() => import("../pages/services/Details.jsx"));
 const ReviewsHome = lazy(() => import("../pages/reviews/Index.jsx"));
+const ProfilePage = lazy(() => import("../pages/account/Profile.jsx"));
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -161,6 +162,8 @@ export const router = createBrowserRouter([
       { path: "/payments/:id", element: <PaymentDetails /> },
       // Reviews
       { path: "/reviews", element: <ReviewsHome /> },
+      // Profile
+      { path: "/profile", element: <ProfilePage /> },
       // Services explore (customers and providers can view)
       { path: "/services", element: <ServicesExplore /> },
       { path: "/services/:id", element: <ServiceDetails /> },

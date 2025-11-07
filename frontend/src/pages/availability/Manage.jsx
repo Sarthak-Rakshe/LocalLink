@@ -27,18 +27,12 @@ export default function AvailabilityManage() {
     enabled: !!providerId,
   });
 
-  // Provider services for dropdown selection
   const servicesQ = useQuery({
     queryKey: ["provider-services", providerId],
     queryFn: async () =>
       Services.getAll(
         { serviceProviderId: Number(providerId) },
-        {
-          page: 0,
-          size: 50, // keep light to avoid heavy initial loads
-          sortBy: "serviceName",
-          sortDir: "asc",
-        }
+        { page: 0, size: 50, sortBy: "serviceName", sortDir: "asc" }
       ),
     enabled: !!providerId,
     staleTime: 300000,
@@ -59,7 +53,6 @@ export default function AvailabilityManage() {
     exceptionReason: "",
   });
 
-  // Assumptions: backend rule/exception DTO includes providerId and fields below.
   const createRule = useMutation({
     mutationFn: async () => {
       const body = {
@@ -190,9 +183,9 @@ export default function AvailabilityManage() {
               placeholder="Search services by name or id"
               onChange={(e) => setQuery(e.target.value)}
             />
-            <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-white p-1 shadow-lg">
+            <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
               {filtered.length === 0 && (
-                <div className="px-2 py-1 text-sm text-zinc-500">
+                <div className="px-2 py-1 text-sm text-zinc-500 dark:text-zinc-400">
                   No services found
                 </div>
               )}
@@ -202,12 +195,14 @@ export default function AvailabilityManage() {
                   value={s}
                   className={({ active }) =>
                     `cursor-pointer rounded-md px-2 py-1 text-sm ${
-                      active ? "bg-zinc-100" : ""
+                      active ? "bg-zinc-100 dark:bg-white/5" : ""
                     }`
                   }
                 >
                   {s.serviceName}{" "}
-                  <span className="text-zinc-500">#{s.serviceId}</span>
+                  <span className="text-zinc-500 dark:text-zinc-400">
+                    #{s.serviceId}
+                  </span>
                 </Combobox.Option>
               ))}
             </Combobox.Options>
@@ -222,94 +217,102 @@ export default function AvailabilityManage() {
       <h1 className="text-2xl font-semibold">Manage availability</h1>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Card title="Rules (recurring)">
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <SelectService
-                selectedId={ruleForm.serviceId}
-                onChangeId={(sid) =>
-                  setRuleForm((f) => ({ ...f, serviceId: String(sid || "") }))
-                }
-                label="Service"
-              />
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium">
-                  Days of week
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {"MONDAY TUESDAY WEDNESDAY THURSDAY FRIDAY SATURDAY SUNDAY"
-                    .split(" ")
-                    .map((d) => {
-                      const checked = ruleForm.daysOfWeek.includes(d);
-                      return (
-                        <label
-                          key={d}
-                          className="inline-flex items-center gap-2 rounded-md border px-2 py-1 text-sm"
-                        >
-                          <input
-                            type="checkbox"
-                            className="size-4"
-                            checked={checked}
-                            onChange={(e) =>
-                              setRuleForm((f) => ({
-                                ...f,
-                                daysOfWeek: e.target.checked
-                                  ? [...f.daysOfWeek, d]
-                                  : f.daysOfWeek.filter((x) => x !== d),
-                              }))
-                            }
-                          />
-                          {d}
-                        </label>
-                      );
-                    })}
+        {/* Left column: Rules form + list */}
+        <div className="space-y-4">
+          <Card title="Rules (recurring)" collapsible defaultOpen={false}>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <SelectService
+                    selectedId={ruleForm.serviceId}
+                    onChangeId={(sid) =>
+                      setRuleForm((f) => ({
+                        ...f,
+                        serviceId: String(sid || ""),
+                      }))
+                    }
+                    label="Service"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="mb-1 block text-sm font-medium">
+                    Days of week
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {"MONDAY TUESDAY WEDNESDAY THURSDAY FRIDAY SATURDAY SUNDAY"
+                      .split(" ")
+                      .map((d) => {
+                        const checked = ruleForm.daysOfWeek.includes(d);
+                        return (
+                          <label
+                            key={d}
+                            className="inline-flex items-center gap-2 rounded-md border border-zinc-300 px-2 py-1 text-sm focus-within:ring-2 focus-within:ring-indigo-500/40"
+                          >
+                            <input
+                              type="checkbox"
+                              className="size-4 rounded-sm accent-indigo-600"
+                              checked={checked}
+                              onChange={(e) =>
+                                setRuleForm((f) => ({
+                                  ...f,
+                                  daysOfWeek: e.target.checked
+                                    ? [...f.daysOfWeek, d]
+                                    : f.daysOfWeek.filter((x) => x !== d),
+                                }))
+                              }
+                            />
+                            {d}
+                          </label>
+                        );
+                      })}
+                  </div>
+                </div>
+                <div>
+                  <Label>Start</Label>
+                  <Input
+                    type="time"
+                    value={ruleForm.startTime}
+                    onChange={(e) =>
+                      setRuleForm((f) => ({ ...f, startTime: e.target.value }))
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>End</Label>
+                  <Input
+                    type="time"
+                    value={ruleForm.endTime}
+                    onChange={(e) =>
+                      setRuleForm((f) => ({ ...f, endTime: e.target.value }))
+                    }
+                  />
                 </div>
               </div>
-              <div>
-                <Label>Start</Label>
-                <Input
-                  type="time"
-                  value={ruleForm.startTime}
-                  onChange={(e) =>
-                    setRuleForm((f) => ({ ...f, startTime: e.target.value }))
-                  }
-                />
-              </div>
-              <div>
-                <Label>End</Label>
-                <Input
-                  type="time"
-                  value={ruleForm.endTime}
-                  onChange={(e) =>
-                    setRuleForm((f) => ({ ...f, endTime: e.target.value }))
-                  }
-                />
-              </div>
+              <Button
+                onClick={() => {
+                  const sid = Number(ruleForm.serviceId);
+                  const hasDays =
+                    Array.isArray(ruleForm.daysOfWeek) &&
+                    ruleForm.daysOfWeek.length > 0;
+                  const validTimes =
+                    ruleForm.startTime &&
+                    ruleForm.endTime &&
+                    ruleForm.startTime < ruleForm.endTime;
+                  if (!sid || sid <= 0)
+                    return toast.error("Service ID is required");
+                  if (!hasDays) return toast.error("Select at least one day");
+                  if (!validTimes)
+                    return toast.error("End time must be after start time");
+                  createRule.mutate();
+                }}
+                disabled={createRule.isPending}
+              >
+                {createRule.isPending ? "Adding…" : "Add rule"}
+              </Button>
             </div>
-            <Button
-              onClick={() => {
-                const sid = Number(ruleForm.serviceId);
-                const hasDays =
-                  Array.isArray(ruleForm.daysOfWeek) &&
-                  ruleForm.daysOfWeek.length > 0;
-                const validTimes =
-                  ruleForm.startTime &&
-                  ruleForm.endTime &&
-                  ruleForm.startTime < ruleForm.endTime;
-                if (!sid || sid <= 0)
-                  return toast.error("Service ID is required");
-                if (!hasDays) return toast.error("Select at least one day");
-                if (!validTimes)
-                  return toast.error("End time must be after start time");
-                createRule.mutate();
-              }}
-              disabled={createRule.isPending}
-            >
-              {createRule.isPending ? "Adding…" : "Add rule"}
-            </Button>
-          </div>
+          </Card>
 
-          <div className="mt-4">
+          <Card title="Current rules">
             {rulesQ.isLoading && (
               <div className="space-y-2">
                 <Skeleton className="h-4 w-28" />
@@ -326,7 +329,6 @@ export default function AvailabilityManage() {
                 message="Add weekly recurring availability."
               />
             )}
-            {/* Group rules by service */}
             <div className="space-y-3">
               {Object.entries(
                 rules.reduce((acc, r) => {
@@ -335,28 +337,31 @@ export default function AvailabilityManage() {
                   return acc;
                 }, {})
               ).map(([sid, items]) => (
-                <div key={sid} className="rounded-lg border">
-                  <div className="flex items-center justify-between border-b px-3 py-2">
-                    <div className="text-sm font-semibold">
+                <div
+                  key={sid}
+                  className="rounded-lg border border-zinc-200 dark:border-zinc-800"
+                >
+                  <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
+                    <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                       {getServiceLabel(sid === "__none" ? null : sid)}
                     </div>
-                    <Badge className="bg-zinc-100 text-zinc-700">
+                    <Badge className="bg-zinc-100 text-zinc-700 dark:bg-white/5 dark:text-zinc-300">
                       {items.length} rule{items.length !== 1 ? "s" : ""}
                     </Badge>
                   </div>
-                  <ul className="divide-y">
+                  <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
                     {items.map((r) => (
                       <li
                         key={r.id ?? r.ruleId}
                         className="flex items-center justify-between px-3 py-2 text-sm"
                       >
-                        <div className="text-zinc-700">
+                        <div className="text-zinc-700 dark:text-zinc-300">
                           <span className="font-medium">
                             {Array.isArray(r.daysOfWeek)
                               ? r.daysOfWeek.join(", ")
                               : r.dayOfWeek || r.day || "DAY"}
                           </span>
-                          <span className="ml-2 text-zinc-500">
+                          <span className="ml-2 text-zinc-500 dark:text-zinc-400">
                             {r.startTime} - {r.endTime}
                           </span>
                         </div>
@@ -372,106 +377,123 @@ export default function AvailabilityManage() {
                 </div>
               ))}
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
 
-        <Card title="Exceptions (one-off)">
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <SelectService
-                selectedId={excForm.serviceId}
-                onChangeId={(sid) =>
-                  setExcForm((f) => ({ ...f, serviceId: String(sid || "") }))
-                }
-                label="Service"
-              />
-              <div>
-                <Label>
-                  Date <span className="text-rose-600">*</span>
-                </Label>
-                <Input
-                  type="date"
-                  value={excForm.exceptionDate}
-                  onChange={(e) =>
-                    setExcForm((f) => ({ ...f, exceptionDate: e.target.value }))
-                  }
-                  required
-                />
+        {/* Right column: Exceptions form + list */}
+        <div className="space-y-4">
+          <Card title="Exceptions (one-off)" collapsible defaultOpen={false}>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <SelectService
+                    selectedId={excForm.serviceId}
+                    onChangeId={(sid) =>
+                      setExcForm((f) => ({
+                        ...f,
+                        serviceId: String(sid || ""),
+                      }))
+                    }
+                    label="Service"
+                  />
+                </div>
+                <div>
+                  <Label>
+                    Date <span className="text-rose-600">*</span>
+                  </Label>
+                  <Input
+                    type="date"
+                    value={excForm.exceptionDate}
+                    onChange={(e) =>
+                      setExcForm((f) => ({
+                        ...f,
+                        exceptionDate: e.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </div>
+                <div>
+                  <Label>Start</Label>
+                  <Input
+                    type="time"
+                    value={excForm.newStartTime}
+                    onChange={(e) =>
+                      setExcForm((f) => ({
+                        ...f,
+                        newStartTime: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>End</Label>
+                  <Input
+                    type="time"
+                    value={excForm.newEndTime}
+                    onChange={(e) =>
+                      setExcForm((f) => ({ ...f, newEndTime: e.target.value }))
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>
+                    Type <span className="text-rose-600">*</span>
+                  </Label>
+                  <select
+                    className="w-full rounded-md border border-zinc-300 px-3 py-2"
+                    value={excForm.exceptionType}
+                    onChange={(e) =>
+                      setExcForm((f) => ({
+                        ...f,
+                        exceptionType: e.target.value,
+                      }))
+                    }
+                    required
+                  >
+                    <option value="BLOCKED">BLOCKED</option>
+                    <option value="OVERRIDE">OVERRIDE</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Reason</Label>
+                  <Input
+                    placeholder="e.g., personal leave, maintenance"
+                    value={excForm.exceptionReason}
+                    onChange={(e) =>
+                      setExcForm((f) => ({
+                        ...f,
+                        exceptionReason: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
               </div>
-              <div>
-                <Label>Start</Label>
-                <Input
-                  type="time"
-                  value={excForm.newStartTime}
-                  onChange={(e) =>
-                    setExcForm((f) => ({ ...f, newStartTime: e.target.value }))
+              <Button
+                onClick={() => {
+                  const sid = Number(excForm.serviceId);
+                  if (!sid || sid <= 0)
+                    return toast.error("Service ID is required");
+                  if (!excForm.exceptionDate)
+                    return toast.error("Date is required");
+                  if (excForm.exceptionType === "OVERRIDE") {
+                    if (!excForm.newStartTime || !excForm.newEndTime)
+                      return toast.error(
+                        "Start and end time are required for OVERRIDE"
+                      );
+                    if (!(excForm.newStartTime < excForm.newEndTime))
+                      return toast.error("End time must be after start time");
                   }
-                />
-              </div>
-              <div>
-                <Label>End</Label>
-                <Input
-                  type="time"
-                  value={excForm.newEndTime}
-                  onChange={(e) =>
-                    setExcForm((f) => ({ ...f, newEndTime: e.target.value }))
-                  }
-                />
-              </div>
-              <div>
-                <Label>
-                  Type <span className="text-rose-600">*</span>
-                </Label>
-                <select
-                  className="w-full rounded-md border px-3 py-2"
-                  value={excForm.exceptionType}
-                  onChange={(e) =>
-                    setExcForm((f) => ({ ...f, exceptionType: e.target.value }))
-                  }
-                  required
-                >
-                  <option value="BLOCKED">BLOCKED</option>
-                  <option value="OVERRIDE">OVERRIDE</option>
-                </select>
-              </div>
-              <div className="md:col-span-2">
-                <Label>Reason</Label>
-                <Input
-                  placeholder="e.g., personal leave, maintenance"
-                  value={excForm.exceptionReason}
-                  onChange={(e) =>
-                    setExcForm((f) => ({
-                      ...f,
-                      exceptionReason: e.target.value,
-                    }))
-                  }
-                />
-              </div>
+                  createException.mutate();
+                }}
+                disabled={createException.isPending}
+              >
+                {createException.isPending ? "Adding…" : "Add exception"}
+              </Button>
             </div>
-            <Button
-              onClick={() => {
-                const sid = Number(excForm.serviceId);
-                if (!sid || sid <= 0)
-                  return toast.error("Service ID is required");
-                if (!excForm.exceptionDate)
-                  return toast.error("Date is required");
-                if (excForm.exceptionType === "OVERRIDE") {
-                  if (!excForm.newStartTime || !excForm.newEndTime)
-                    return toast.error(
-                      "Start and end time are required for OVERRIDE"
-                    );
-                  if (!(excForm.newStartTime < excForm.newEndTime))
-                    return toast.error("End time must be after start time");
-                }
-                createException.mutate();
-              }}
-              disabled={createException.isPending}
-            >
-              {createException.isPending ? "Adding…" : "Add exception"}
-            </Button>
-          </div>
+          </Card>
 
-          <div className="mt-4">
+          <Card title="Existing exceptions">
             {exceptionsQ.isLoading && (
               <div className="space-y-2">
                 <Skeleton className="h-4 w-36" />
@@ -492,19 +514,19 @@ export default function AvailabilityManage() {
                   message="Add one-off blocks or overrides."
                 />
               )}
-            <ul className="divide-y">
+            <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
               {exceptions.map((x) => (
                 <li
                   key={x.id ?? x.exceptionId}
                   className="flex items-center justify-between py-2 text-sm"
                 >
-                  <div className="text-zinc-700">
+                  <div className="text-zinc-700 dark:text-zinc-300">
                     <span className="font-medium">
                       {x.exceptionDate || x.date}
                     </span>
                     {(x.newStartTime || x.startTime) &&
                       (x.newEndTime || x.endTime) && (
-                        <span className="ml-2 text-zinc-500">
+                        <span className="ml-2 text-zinc-500 dark:text-zinc-400">
                           {x.newStartTime || x.startTime} -{" "}
                           {x.newEndTime || x.endTime}
                         </span>
@@ -522,7 +544,7 @@ export default function AvailabilityManage() {
                       </Badge>
                     )}
                     {x.exceptionReason && (
-                      <span className="ml-2 text-zinc-500">
+                      <span className="ml-2 text-zinc-500 dark:text-zinc-400">
                         — {x.exceptionReason}
                       </span>
                     )}
@@ -538,8 +560,8 @@ export default function AvailabilityManage() {
                 </li>
               ))}
             </ul>
-          </div>
-        </Card>
+          </Card>
+        </div>
       </div>
     </div>
   );

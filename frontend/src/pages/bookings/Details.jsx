@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Availability, Bookings, Reviews } from "../../services/api.js";
 import { useAvailableSlots } from "../../hooks/useAvailability.js";
 import Card from "../../components/ui/Card.jsx";
@@ -29,10 +29,11 @@ function joinName(obj) {
 }
 
 function serviceLabel(b) {
-  const id = b?.serviceId ?? b?.service?.id;
+  const id = b?.serviceId ?? b?.service?.serviceId ?? b?.service?.id;
   return (
     b?.serviceName ||
     b?.serviceTitle ||
+    b?.service?.serviceName ||
     b?.service?.name ||
     b?.service?.title ||
     (id != null ? `Service #${id}` : "Service")
@@ -44,10 +45,12 @@ function providerLabel(b) {
     b?.serviceProviderId ??
     b?.providerId ??
     b?.provider?.id ??
+    b?.serviceProvider?.serviceProviderId ??
     b?.serviceProvider?.id;
   return (
     b?.providerName ||
     b?.serviceProviderName ||
+    b?.serviceProvider?.serviceProviderName ||
     b?.providerFullName ||
     b?.serviceProviderFullName ||
     joinName(b?.provider) ||
@@ -59,9 +62,10 @@ function providerLabel(b) {
 }
 
 function customerLabel(b) {
-  const id = b?.customerId ?? b?.customer?.id;
+  const id = b?.customerId ?? b?.customer?.customerId ?? b?.customer?.id;
   return (
     b?.customerName ||
+    b?.customer?.customerName ||
     b?.customerFullName ||
     joinName(b?.customer) ||
     b?.customer?.name ||
@@ -72,6 +76,7 @@ function customerLabel(b) {
 export default function BookingDetails() {
   const { user } = useAuth();
   const { id } = useParams();
+  const queryClient = useQueryClient();
   const [search] = useSearchParams();
   const q = useQuery({
     queryKey: ["booking", id],
@@ -79,7 +84,31 @@ export default function BookingDetails() {
     enabled: !!id,
   });
 
-  const b = q.data;
+  // Try to enrich details from cached aggregated list response (Bookings.getList)
+  const enrichedFromList = useMemo(() => {
+    const entries =
+      queryClient.getQueriesData({ queryKey: ["bookings-list"] }) || [];
+    const targetId = Number(id);
+    for (const [, data] of entries) {
+      if (!data) continue;
+      const items = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.content)
+        ? data.content
+        : [];
+      const found = items.find(
+        (x) => Number(x?.bookingId ?? x?.id) === targetId
+      );
+      if (found) return found;
+    }
+    return null;
+  }, [queryClient, id]);
+
+  const b = useMemo(() => {
+    return q.data
+      ? { ...q.data, ...(enrichedFromList || {}) }
+      : enrichedFromList;
+  }, [q.data, enrichedFromList]);
 
   // If the current booking is RESCHEDULED and has a rescheduledToId, fetch the new booking details
   const isRescheduled = useMemo(
@@ -100,16 +129,47 @@ export default function BookingDetails() {
     enabled: !!rescheduledToId && isRescheduled,
   });
 
+  // Try to enrich rescheduled booking from cached aggregated list as well
+  const enrichedRescheduledFromList = useMemo(() => {
+    if (!rescheduledToId) return null;
+    const entries =
+      queryClient.getQueriesData({ queryKey: ["bookings-list"] }) || [];
+    const targetId = Number(rescheduledToId);
+    for (const [, data] of entries) {
+      if (!data) continue;
+      const items = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.content)
+        ? data.content
+        : [];
+      const found = items.find(
+        (x) => Number(x?.bookingId ?? x?.id) === targetId
+      );
+      if (found) return found;
+    }
+    return null;
+  }, [queryClient, rescheduledToId]);
+
+  const bRescheduled = useMemo(() => {
+    return qRescheduled.data
+      ? { ...qRescheduled.data, ...(enrichedRescheduledFromList || {}) }
+      : enrichedRescheduledFromList;
+  }, [qRescheduled.data, enrichedRescheduledFromList]);
+
   // Derive provider/service ids with fallbacks
   const providerId = useMemo(
     () =>
       b?.serviceProviderId ??
       b?.providerId ??
+      b?.serviceProvider?.serviceProviderId ??
       b?.serviceProvider?.id ??
       b?.provider?.id,
     [b]
   );
-  const serviceId = useMemo(() => b?.serviceId ?? b?.service?.id, [b]);
+  const serviceId = useMemo(
+    () => b?.serviceId ?? b?.service?.serviceId ?? b?.service?.id,
+    [b]
+  );
   const isCompleted = useMemo(
     () =>
       String(b?.bookingStatus ?? b?.status ?? "")
@@ -169,11 +229,20 @@ export default function BookingDetails() {
       if (!user?.userType || user.userType !== "CUSTOMER") {
         throw new Error("Only customers can add reviews");
       }
+      const customerId = user?.id ?? user?.userId;
+      if (!customerId) {
+        throw new Error("Missing customer id");
+      }
+      const trimmed = (comment ?? "").trim();
+      if (!trimmed) {
+        throw new Error("Please add a comment to your review");
+      }
       const payload = {
         serviceProviderId: Number(providerId),
         serviceId: Number(serviceId),
+        customerId: Number(customerId),
         rating: Number(rating),
-        comment: comment?.trim() || null,
+        comment: trimmed,
       };
       return Reviews.add(payload);
     },
@@ -302,22 +371,32 @@ export default function BookingDetails() {
         {b && (
           <div className="space-y-6">
             {/* Summary header with names */}
-            <div className="rounded-md bg-white/60 p-3 ring-1 ring-zinc-200">
+            <div className="rounded-md bg-white/60 p-3 ring-1 ring-zinc-200 dark:bg-white/5 dark:ring-zinc-800">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
                 <div className="min-w-0">
-                  <div className="text-sm text-zinc-500">Service</div>
-                  <div className="truncate text-lg font-medium">
+                  <div className="text-sm text-zinc-500 dark:text-zinc-400">
+                    Service
+                  </div>
+                  <div className="truncate text-lg font-medium dark:text-zinc-100">
                     {serviceLabel(b)}
                   </div>
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div>
-                    <div className="text-sm text-zinc-500">Provider</div>
-                    <div className="font-medium">{providerLabel(b)}</div>
+                    <div className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Provider
+                    </div>
+                    <div className="font-medium dark:text-zinc-100">
+                      {providerLabel(b)}
+                    </div>
                   </div>
                   <div>
-                    <div className="text-sm text-zinc-500">Customer</div>
-                    <div className="font-medium">{customerLabel(b)}</div>
+                    <div className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Customer
+                    </div>
+                    <div className="font-medium dark:text-zinc-100">
+                      {customerLabel(b)}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -356,15 +435,27 @@ export default function BookingDetails() {
               </div>
               <div>
                 <div className="text-sm text-zinc-500">Service category</div>
-                <div className="font-medium">{b.serviceCategory ?? "-"}</div>
+                <div className="font-medium">
+                  {b?.service?.serviceCategory ?? b?.serviceCategory ?? "-"}
+                </div>
               </div>
               <div>
                 <div className="text-sm text-zinc-500">Provider</div>
                 <div className="font-medium">{providerLabel(b)}</div>
+                {b?.serviceProvider?.serviceProviderContact && (
+                  <div className="text-xs text-zinc-500">
+                    {b.serviceProvider.serviceProviderContact}
+                  </div>
+                )}
               </div>
               <div>
                 <div className="text-sm text-zinc-500">Customer</div>
                 <div className="font-medium">{customerLabel(b)}</div>
+                {b?.customer?.customerContact && (
+                  <div className="text-xs text-zinc-500">
+                    {b.customer.customerContact}
+                  </div>
+                )}
               </div>
               <div>
                 <div className="text-sm text-zinc-500">Created at</div>
@@ -430,47 +521,47 @@ export default function BookingDetails() {
                       "Failed to load rescheduled booking."}
                   </div>
                 )}
-                {qRescheduled.data && (
+                {bRescheduled && (
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
                       <div className="text-sm text-zinc-500">Booking ID</div>
                       <div className="font-medium">
-                        {qRescheduled.data.bookingId ?? qRescheduled.data.id}
+                        {bRescheduled.bookingId ?? bRescheduled.id}
                       </div>
                     </div>
                     <div>
                       <div className="text-sm text-zinc-500">Status</div>
                       <div className="font-medium">
-                        {qRescheduled.data.bookingStatus ??
-                          qRescheduled.data.status ??
+                        {bRescheduled.bookingStatus ??
+                          bRescheduled.status ??
                           ""}
                       </div>
                     </div>
                     <div>
                       <div className="text-sm text-zinc-500">When</div>
                       <div className="font-medium">
-                        {qRescheduled.data.bookingDate ? (
+                        {bRescheduled.bookingDate ? (
                           <>
-                            <span>{qRescheduled.data.bookingDate}</span>{" "}
+                            <span>{bRescheduled.bookingDate}</span>{" "}
                             <span>
-                              {(qRescheduled.data.bookingStartTime || "")
+                              {(bRescheduled.bookingStartTime || "")
                                 .toString()
                                 .slice(0, 5)}{" "}
                               -{" "}
-                              {(qRescheduled.data.bookingEndTime || "")
+                              {(bRescheduled.bookingEndTime || "")
                                 .toString()
                                 .slice(0, 5)}
                             </span>
                           </>
                         ) : (
-                          formatDateTime(qRescheduled.data.createdAt)
+                          formatDateTime(bRescheduled.createdAt)
                         )}
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm text-zinc-500">Service ID</div>
+                      <div className="text-sm text-zinc-500">Service</div>
                       <div className="font-medium">
-                        {qRescheduled.data.serviceId ?? "-"}
+                        {serviceLabel(bRescheduled)}
                       </div>
                     </div>
                     <div>
@@ -478,25 +569,38 @@ export default function BookingDetails() {
                         Service category
                       </div>
                       <div className="font-medium">
-                        {qRescheduled.data.serviceCategory ?? "-"}
+                        {bRescheduled?.service?.serviceCategory ??
+                          bRescheduled?.serviceCategory ??
+                          "-"}
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm text-zinc-500">Provider ID</div>
+                      <div className="text-sm text-zinc-500">Provider</div>
                       <div className="font-medium">
-                        {qRescheduled.data.serviceProviderId ?? "-"}
+                        {providerLabel(bRescheduled)}
                       </div>
+                      {bRescheduled?.serviceProvider
+                        ?.serviceProviderContact && (
+                        <div className="text-xs text-zinc-500">
+                          {bRescheduled.serviceProvider.serviceProviderContact}
+                        </div>
+                      )}
                     </div>
                     <div>
-                      <div className="text-sm text-zinc-500">Customer ID</div>
+                      <div className="text-sm text-zinc-500">Customer</div>
                       <div className="font-medium">
-                        {qRescheduled.data.customerId ?? "-"}
+                        {customerLabel(bRescheduled)}
                       </div>
+                      {bRescheduled?.customer?.customerContact && (
+                        <div className="text-xs text-zinc-500">
+                          {bRescheduled.customer.customerContact}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <div className="text-sm text-zinc-500">Created at</div>
                       <div className="font-medium">
-                        {formatDateTime(qRescheduled.data.createdAt)}
+                        {formatDateTime(bRescheduled.createdAt)}
                       </div>
                     </div>
                   </div>
@@ -667,7 +771,7 @@ export default function BookingDetails() {
                     </select>
                   </div>
                   <div className="md:col-span-2">
-                    <Label>Comment (optional)</Label>
+                    <Label>Comment</Label>
                     <textarea
                       className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/50"
                       rows={3}
@@ -684,7 +788,8 @@ export default function BookingDetails() {
                         !providerId ||
                         !serviceId ||
                         (!user?.id && !user?.userId) ||
-                        !(rating >= 1 && rating <= 5)
+                        !(rating >= 1 && rating <= 5) ||
+                        !(comment && comment.trim().length > 0)
                       }
                     >
                       {addReviewMutation.isPending

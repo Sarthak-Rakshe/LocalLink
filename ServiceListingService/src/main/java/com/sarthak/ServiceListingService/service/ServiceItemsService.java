@@ -1,7 +1,6 @@
 package com.sarthak.ServiceListingService.service;
 
 import com.sarthak.ServiceListingService.client.ReviewServiceClient;
-import com.sarthak.ServiceListingService.config.shared.UserPrincipal;
 import com.sarthak.ServiceListingService.dto.QueryFilter;
 import com.sarthak.ServiceListingService.dto.ReviewAggregateResponse;
 import com.sarthak.ServiceListingService.dto.ServiceItemDto;
@@ -19,7 +18,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.AccessDeniedException;
@@ -55,6 +53,7 @@ public class ServiceItemsService {
         return serviceItemsMapper.entityToDto(serviceItem, reviewAggregate);
     }
 
+    @Transactional(readOnly = true)
     public Page<ServiceItemDto> getAllServices(int page, int size, String sortBy, String sortDir, QueryFilter queryFilter){
         log.info("Fetching all services - page: {}, size: {}", page, size);
 
@@ -65,19 +64,21 @@ public class ServiceItemsService {
         }
 
         Page<ServiceItem> services = serviceItemRepository.findAll(spec, pageable);
-
-        List<Long> serviceIds = services.map(ServiceItem::getServiceId).toList();
-        Map<Long, ReviewAggregateResponse> reviewAggregateMap =
-                    reviewServiceClient.getAggregatesByServiceIds(serviceIds);
-
         log.debug("Fetched {} services", services.getNumberOfElements());
-        List<ServiceItemDto> resultList = new ArrayList<>();
 
-        for(ServiceItem service : services){
-            ReviewAggregateResponse reviewAggregate = reviewAggregateMap.get(service.getServiceId());
-            resultList.add(serviceItemsMapper.entityToDto(service, reviewAggregate));
+        return services.map(s-> serviceItemsMapper.entityToDto(s, null));
+    }
+
+    public Page<ServiceItemDto> addReviewAggregatesToServices(Page<ServiceItemDto> services){
+        List<Long> serviceIds = services.map(ServiceItemDto::getServiceId).toList();
+        Map<Long, ReviewAggregateResponse> reviewAggregates = reviewServiceClient.getAggregatesByServiceIds(serviceIds);
+        List<ServiceItemDto> resultList = new ArrayList<>();
+        for (ServiceItemDto service : services) {
+            ReviewAggregateResponse reviewAggregate = reviewAggregates.get(service.getServiceId());
+            service.setReviewAggregate(reviewAggregate);
+            resultList.add(service);
         }
-        return new PageImpl<>(resultList, pageable, services.getTotalElements());
+        return new PageImpl<>(resultList, services.getPageable(), services.getTotalElements());
     }
 
     public Page<ServiceItemDto> getNearbyService(Double userLatitude, Double userLongitude, int page, int size, String sortBy, String sortDir){
@@ -134,29 +135,29 @@ public class ServiceItemsService {
         }
 
         boolean existsWithSameName = serviceItemRepository
-                        .findByServiceNameAndServiceProviderId(serviceItemDto.serviceName(),
-                                serviceItemDto.serviceProviderId())
+                        .findByServiceNameAndServiceProviderId(serviceItemDto.getServiceName(),
+                                serviceItemDto.getServiceProviderId())
                         .filter(s -> !s.getServiceId().equals(id))
                         .isPresent();
 
         if (existsWithSameName){
             log.error("Duplicate service name '{}' found for provider id {} during update",
-                      serviceItemDto.serviceName(), existingService.getServiceProviderId());
+                      serviceItemDto.getServiceName(), existingService.getServiceProviderId());
             throw new DuplicateServiceException("Another service with the same name exists for this provider");
         }else {
-            existingService.setServiceName(serviceItemDto.serviceName() != null
-                    ? serviceItemDto.serviceName() : existingService.getServiceName());
+            existingService.setServiceName(serviceItemDto.getServiceName() != null
+                    ? serviceItemDto.getServiceName() : existingService.getServiceName());
         }
-        existingService.setServiceDescription(serviceItemDto.serviceDescription() != null
-                ? serviceItemDto.serviceDescription() : existingService.getServiceDescription());
-        existingService.setServiceCategory(serviceItemDto.serviceCategory() != null
-                ? serviceItemDto.serviceCategory() : existingService.getServiceCategory());
-        existingService.setServicePricePerHour(serviceItemDto.servicePricePerHour() != 0.0
-                ? serviceItemDto.servicePricePerHour() : existingService.getServicePricePerHour());
-        existingService.setLatitude(serviceItemDto.latitude() != null
-                ? serviceItemDto.latitude() : existingService.getLatitude());
-        existingService.setLongitude(serviceItemDto.longitude() != null
-                ? serviceItemDto.longitude() : existingService.getLongitude());
+        existingService.setServiceDescription(serviceItemDto.getServiceDescription() != null
+                ? serviceItemDto.getServiceDescription() : existingService.getServiceDescription());
+        existingService.setServiceCategory(serviceItemDto.getServiceCategory() != null
+                ? serviceItemDto.getServiceCategory() : existingService.getServiceCategory());
+        existingService.setServicePricePerHour(serviceItemDto.getServicePricePerHour() != 0.0
+                ? serviceItemDto.getServicePricePerHour() : existingService.getServicePricePerHour());
+        existingService.setLatitude(serviceItemDto.getLatitude() != null
+                ? serviceItemDto.getLatitude() : existingService.getLatitude());
+        existingService.setLongitude(serviceItemDto.getLongitude() != null
+                ? serviceItemDto.getLongitude() : existingService.getLongitude());
 
         ServiceItem updatedService = serviceItemRepository.save(existingService);
         log.info("Service with id {} updated successfully", id);

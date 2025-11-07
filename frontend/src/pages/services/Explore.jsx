@@ -3,7 +3,9 @@ import { useSearchParams } from "react-router-dom";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import Switch from "../../components/ui/Switch.jsx";
 import { Services } from "../../services/api.js";
-import ServiceCard from "../../components/services/ServiceCard.jsx";
+import ServiceCard, {
+  ServiceCardSkeleton,
+} from "../../components/services/ServiceCard.jsx";
 import { Input, Label } from "../../components/ui/Input.jsx";
 import Select from "../../components/ui/Select.jsx";
 import Button from "../../components/ui/Button.jsx";
@@ -21,6 +23,8 @@ export default function ServicesExplore() {
     maxPrice: "",
     providerId: "",
   });
+  // UI state: show/hide filters sidebar (default hidden to prioritize results)
+  const [showFilters, setShowFilters] = useState(false);
   const [useNearby, setUseNearby] = useState(false);
   const [coords, setCoords] = useState({ lat: null, lng: null, error: null });
   const [sortBy, setSortBy] = useState("name");
@@ -188,7 +192,7 @@ export default function ServicesExplore() {
   ]);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-12">
+    <div className="grid gap-4 lg:grid-cols-12">
       <div className="lg:col-span-12">
         <PageHeader
           title="Explore services"
@@ -202,7 +206,7 @@ export default function ServicesExplore() {
             e.preventDefault();
             setPage(0);
           }}
-          className="rounded-2xl border bg-white p-3 md:p-4 shadow-sm"
+          className="rounded-xl border border-zinc-200 bg-white p-2 md:p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
           role="search"
           aria-label="Search services"
         >
@@ -212,92 +216,111 @@ export default function ServicesExplore() {
           <div className="relative">
             <input
               id="top-search"
-              className="w-full rounded-full border border-zinc-300 bg-white pl-12 pr-32 py-3 text-base md:text-lg shadow-sm placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/50"
+              className="input-base pl-10 pr-28 py-2 text-sm md:text-base"
               placeholder="Search services, categories, providers…"
               value={filters.serviceName}
               onChange={(e) =>
                 setFilters((f) => ({ ...f, serviceName: e.target.value }))
               }
             />
-            <MagnifyingGlassIcon className="pointer-events-none absolute left-4 top-1/2 size-6 -translate-y-1/2 text-zinc-400" />
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+            <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-zinc-400" />
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
               {filters.serviceName && (
                 <button
                   type="button"
                   onClick={() => setFilters((f) => ({ ...f, serviceName: "" }))}
-                  className="btn btn-ghost px-3 py-1 text-sm"
+                  className="btn btn-ghost px-2 py-1 text-xs"
                 >
                   Clear
                 </button>
               )}
-              <Button type="submit" className="px-4 py-2">
+              <Button type="submit" size="sm" className="px-3">
                 Search
               </Button>
             </div>
           </div>
+
+          {/* Compact toolbar: filters toggle + sorting + page size */}
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="inline-flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters((v) => !v)}
+                aria-expanded={showFilters}
+                aria-controls="filters-panel"
+              >
+                {showFilters ? "Hide filters" : "Show filters"}
+              </Button>
+              {/* Quick access nearby toggle */}
+              <Switch
+                label="Nearby"
+                checked={useNearby}
+                onChange={setUseNearby}
+                className="-my-1"
+              />
+              {useNearby && (
+                <span
+                  className="hidden sm:inline text-xs text-zinc-500"
+                  aria-live="polite"
+                >
+                  {coords.error
+                    ? "Location error"
+                    : coords.lat
+                    ? "Using location"
+                    : "Locating…"}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <select
+                className="input-base px-2 py-1.5 bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                aria-label="Sort by"
+              >
+                <option value="name">Sort: Name</option>
+                <option value="price">Sort: Price</option>
+                <option value="category">Sort: Category</option>
+                <option value="id">Sort: Newest</option>
+              </select>
+              <select
+                className="input-base px-2 py-1.5 bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100"
+                value={sortDir}
+                onChange={(e) => setSortDir(e.target.value)}
+                aria-label="Sort direction"
+              >
+                <option value="asc">Asc</option>
+                <option value="desc">Desc</option>
+              </select>
+              <select
+                className="input-base px-2 py-1.5 bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100"
+                value={size}
+                onChange={(e) => setSize(Number(e.target.value))}
+                aria-label="Page size"
+              >
+                {[6, 12, 24, 48].map((n) => (
+                  <option key={n} value={n}>
+                    {n} / page
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </form>
       </div>
-      {/* Filters */}
-      <aside className="lg:col-span-3 space-y-4 lg:sticky lg:top-20 self-start h-fit">
-        <div
-          className={`rounded-xl border bg-white p-4 shadow-sm ${
-            useNearby ? "ring-1 ring-indigo-500" : ""
-          }`}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold">Nearby services</h2>
-            <Switch checked={useNearby} onChange={setUseNearby} />
-          </div>
-          <p className="mt-1 text-xs text-zinc-600">
-            Use your location to find providers close to you.
-          </p>
-          {useNearby && (
-            <div className="mt-2 text-xs text-zinc-500">
-              {coords.error
-                ? coords.error
-                : coords.lat
-                ? "Using your location"
-                : "Getting location..."}
-            </div>
-          )}
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <select
-              className="w-full rounded-md border border-zinc-300 px-2 py-2 text-sm"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-            >
-              <option value="name">Sort: Name</option>
-              <option value="price">Sort: Price</option>
-              <option value="category">Sort: Category</option>
-              <option value="id">Sort: Newest</option>
-            </select>
-            <select
-              className="w-full rounded-md border border-zinc-300 px-2 py-2 text-sm"
-              value={sortDir}
-              onChange={(e) => setSortDir(e.target.value)}
-            >
-              <option value="asc">Asc</option>
-              <option value="desc">Desc</option>
-            </select>
-          </div>
-          <div className="mt-3">
-            <Label htmlFor="pageSize">Page size</Label>
-            <select
-              id="pageSize"
-              className="w-full rounded-md border border-zinc-300 px-2 py-2 text-sm"
-              value={size}
-              onChange={(e) => setSize(Number(e.target.value))}
-            >
-              {[6, 12, 24, 48].map((n) => (
-                <option key={n} value={n}>
-                  {n} per page
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+      {/* Filters - collapsible */}
+      <aside
+        id="filters-panel"
+        className={`${showFilters ? "block" : "hidden"} lg:${
+          showFilters ? "block" : "hidden"
+        } lg:col-span-3 space-y-4 lg:sticky lg:top-20 self-start h-fit`}
+        aria-hidden={!showFilters}
+      >
+        {/* Nearby toggle lives in the top toolbar to avoid redundancy */}
 
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold">Filters</h2>
             <button
@@ -377,25 +400,22 @@ export default function ServicesExplore() {
       </aside>
 
       {/* Results */}
-      <section className="lg:col-span-9">
+      <section className={showFilters ? "lg:col-span-9" : "lg:col-span-12"}>
         {displayData?.totalElements != null && (
-          <div className="mb-3 text-sm text-zinc-600">
+          <div className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
             {displayData.totalElements} results
           </div>
         )}
 
         {error && <Alert variant="error">{error}</Alert>}
         {loading ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: Math.min(size, 9) }).map((_, i) => (
-              <div
-                key={i}
-                className="h-36 animate-pulse rounded-lg border bg-zinc-100"
-              />
+              <ServiceCardSkeleton key={i} />
             ))}
           </div>
         ) : displayData?.content?.length ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {displayData.content.map((s) => (
               <ServiceCard key={s.serviceId} service={s} />
             ))}

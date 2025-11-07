@@ -6,6 +6,7 @@ import com.sarthak.UserService.dto.ProviderReviewAggregateResponse;
 import com.sarthak.UserService.dto.QueryFilter;
 import com.sarthak.UserService.dto.request.UserUpdateRequest;
 import com.sarthak.UserService.dto.response.ProviderResponse;
+import com.sarthak.UserService.dto.response.UsernameResponse;
 import com.sarthak.UserService.exception.AlreadyInUseException;
 import com.sarthak.UserService.exception.InvalidUserTypeException;
 import com.sarthak.UserService.exception.PasswordCannotBeNullException;
@@ -278,5 +279,20 @@ public class UserService implements UserDetailsService {
         Map<Long, ProviderReviewAggregateResponse> aggregate =
                 reviewServiceClient.getProviderReviewAggregates(List.of(providerId));
         return userMapper.toProviderResponse(provider, aggregate.get(providerId));
+    }
+
+    public List<UsernameResponse> getUsernameById(List<Long> userId) {
+        List<User> users = userRepository.findUserByIdList(userId);
+
+        List<UsernameResponse> usernameResponses = new ArrayList<>();
+        for (User user : users){
+            usernameResponses.add(UsernameResponse.builder()
+                    .username(user.getUsername())
+                    .userContact(user.getUserContact())
+                    .userId(user.getUserId())
+                    .build());
+        }
+
+        return usernameResponses;
     }
 }

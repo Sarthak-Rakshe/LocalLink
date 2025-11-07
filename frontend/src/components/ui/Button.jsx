@@ -4,11 +4,13 @@ const base =
   "inline-flex items-center justify-center gap-1.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 disabled:pointer-events-none disabled:opacity-50";
 
 const variants = {
-  primary: "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm",
+  primary:
+    "bg-linear-to-r from-indigo-600 to-violet-600 text-white hover:brightness-95 shadow-sm",
   secondary:
-    "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200",
-  outline: "border border-zinc-300 bg-white hover:bg-zinc-50",
-  ghost: "hover:bg-zinc-100",
+    "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/20 dark:hover:bg-indigo-500/20",
+  outline:
+    "border border-zinc-300 bg-white hover:bg-zinc-50 dark:border-zinc-700 dark:bg-transparent dark:hover:bg-white/5",
+  ghost: "hover:bg-zinc-100 dark:hover:bg-white/5",
   danger: "bg-rose-600 text-white hover:bg-rose-700",
 };
 

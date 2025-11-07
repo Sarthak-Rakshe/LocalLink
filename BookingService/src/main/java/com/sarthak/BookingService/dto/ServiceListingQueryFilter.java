@@ -1,8 +1,8 @@
-package com.sarthak.ServiceListingService.dto;
+package com.sarthak.BookingService.dto;
 
 import java.util.Set;
 
-public record QueryFilter(
+public record ServiceListingQueryFilter(
         Set<Long> serviceIdSet,
         String category,
         Long serviceProviderId,

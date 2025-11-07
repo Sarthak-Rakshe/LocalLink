@@ -314,16 +314,16 @@ export default function BookingCreate() {
             onChange={(e) => setQuery(e.target.value)}
             disabled={!!searchParams.get("providerId")}
           />
-          <div className="max-h-48 overflow-auto rounded-md border">
+          <div className="max-h-48 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800">
             <ul className="divide-y">
               {providers.map((p) => (
                 <li
                   key={p.providerId}
                   className={
-                    "flex items-center justify-between px-3 py-2 text-sm cursor-pointer " +
+                    "flex items-center justify-between px-3 py-2 text-sm cursor-pointer transition-colors " +
                     (String(p.providerId) === String(providerId)
-                      ? "bg-blue-50 border-l-4 border-blue-500"
-                      : "hover:bg-zinc-50")
+                      ? "bg-blue-50 border-l-4 border-blue-500 dark:bg-indigo-500/10 dark:border-indigo-400"
+                      : "hover:bg-zinc-50 dark:hover:bg-white/5")
                   }
                   onClick={() => setProviderId(String(p.providerId))}
                 >
@@ -339,7 +339,7 @@ export default function BookingCreate() {
                   </div>
                   <div>
                     {String(p.providerId) === String(providerId) ? (
-                      <span className="rounded bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
+                      <span className="rounded bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700 dark:bg-indigo-500/20 dark:text-indigo-300">
                         Selected
                       </span>
                     ) : (
@@ -377,7 +377,7 @@ export default function BookingCreate() {
           <div>
             <Label>Service</Label>
             <select
-              className="w-full rounded-md border px-3 py-2"
+              className="input-base"
               value={serviceId}
               onChange={(e) => setServiceId(e.target.value)}
               disabled={
@@ -429,7 +429,7 @@ export default function BookingCreate() {
           <div>
             <Label>Available slots</Label>
             <select
-              className="w-full rounded-md border px-3 py-2"
+              className="input-base"
               value={selectedSlot?.startTime || slot}
               onChange={(e) => {
                 const start = e.target.value;
@@ -586,7 +586,7 @@ export default function BookingCreate() {
             <div>
               <div className="text-sm text-zinc-500">Payment method</div>
               <select
-                className="mt-1 w-full rounded-md border px-3 py-2"
+                className="mt-1 w-full input-base"
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
               >
@@ -603,7 +603,7 @@ export default function BookingCreate() {
                     PayPal payment type
                   </div>
                   <select
-                    className="mt-1 w-full rounded-md border px-3 py-2"
+                    className="mt-1 w-full input-base"
                     value={paypalMethod}
                     onChange={(e) => setPaypalMethod(e.target.value)}
                   >

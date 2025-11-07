@@ -36,6 +36,15 @@ public class ServiceSpecification {
                 ? null : criteriaBuilder.equal(root.get("serviceProviderId"), serviceProviderId);
     }
 
+    public static Specification<ServiceItem> byServiceIdInSet(java.util.Set<Long> serviceIdSet) {
+        return (root, query, criteriaBuilder) -> {
+            if (serviceIdSet == null || serviceIdSet.isEmpty()) {
+                return null;
+            }
+            return root.get("serviceId").in(serviceIdSet);
+        };
+    }
+
     public static Specification<ServiceItem> buildSpecification(QueryFilter queryFilter) {
         Specification<ServiceItem> spec = null;
         if(queryFilter == null) {
@@ -63,6 +72,13 @@ public class ServiceSpecification {
                 spec = ServiceSpecification.byServiceProviderId(queryFilter.serviceProviderId());
             }else{
                 spec = spec.and(ServiceSpecification.byServiceProviderId(queryFilter.serviceProviderId()));
+            }
+        }
+        if (queryFilter.serviceIdSet() != null && !queryFilter.serviceIdSet().isEmpty()) {
+            if (spec == null) {
+                spec = ServiceSpecification.byServiceIdInSet(queryFilter.serviceIdSet());
+            } else {
+                spec = spec.and(ServiceSpecification.byServiceIdInSet(queryFilter.serviceIdSet()));
             }
         }
         return spec;

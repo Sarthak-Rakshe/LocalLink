@@ -118,11 +118,18 @@ export default function ReviewsHome() {
 
   function submitEdit() {
     if (!editing) return;
+    const customerId = userId;
+    const trimmed = (comment ?? "").trim();
+    if (!trimmed) {
+      toast.error("Please add a comment to your review");
+      return;
+    }
     const payload = {
       serviceProviderId: Number(editing.providerId),
       serviceId: Number(editing.serviceId),
+      customerId: Number(customerId),
       rating: Number(rating),
-      comment: comment?.trim() || null,
+      comment: trimmed,
     };
     if (editing.reviewId) {
       updateMutation.mutate({ reviewId: editing.reviewId, payload });
@@ -169,7 +176,7 @@ export default function ReviewsHome() {
               </div>
             </div>
             <div className="md:col-span-2">
-              <Label>Comment (optional)</Label>
+              <Label>Comment</Label>
               <textarea
                 className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/50"
                 rows={3}
@@ -184,7 +191,8 @@ export default function ReviewsHome() {
                 disabled={
                   addMutation.isPending ||
                   updateMutation.isPending ||
-                  !(rating >= 1 && rating <= 5)
+                  !(rating >= 1 && rating <= 5) ||
+                  !(comment && comment.trim().length > 0)
                 }
               >
                 {addMutation.isPending || updateMutation.isPending

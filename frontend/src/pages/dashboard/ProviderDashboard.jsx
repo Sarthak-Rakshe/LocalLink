@@ -30,22 +30,66 @@ function formatDateTime(d) {
 export default function ProviderDashboard() {
   const { user } = useAuth();
   const providerId = user?.id ?? user?.userId;
+  const name = (() => {
+    const first =
+      user?.firstName || user?.givenName || user?.firstname || user?.first_name;
+    const last =
+      user?.lastName || user?.surname || user?.lastname || user?.last_name;
+    const full =
+      user?.fullName ||
+      user?.displayName ||
+      user?.name ||
+      (first && last ? `${first} ${last}` : first || last);
+    const handle =
+      user?.username ||
+      user?.userName ||
+      user?.preferredUsername ||
+      user?.preferred_username ||
+      user?.nickname ||
+      user?.sub;
+    return full || handle || user?.email || "User";
+  })();
+
+  const secondary = (() => {
+    const email = user?.email || user?.emailAddress || user?.mail;
+    const handle =
+      user?.username ||
+      user?.userName ||
+      user?.preferredUsername ||
+      user?.preferred_username ||
+      user?.nickname;
+    return email || handle || null;
+  })();
+
+  const initials =
+    (name || "U")
+      .split(/\s+|[_\.]/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0]?.toUpperCase())
+      .join("") || "U";
 
   const scheduleQ = useQuery({
     queryKey: ["provider-schedule", providerId, todayISO()],
-    queryFn: async () => Bookings.listByProviderOnDate(providerId, todayISO()),
+    queryFn: async () => {
+      const day = todayISO();
+      const from = `${day}T00:00:00Z`;
+      const to = `${day}T23:59:59Z`;
+      return Bookings.getList(
+        { serviceProviderId: providerId, dateFrom: from, dateTo: to },
+        { page: 0, size: 10, "sort-by": "createdAt", "sort-dir": "asc" }
+      );
+    },
     enabled: !!providerId,
   });
 
   const recentQ = useQuery({
     queryKey: ["provider-recent", providerId],
     queryFn: async () =>
-      Bookings.listByProvider(providerId, {
-        page: 0,
-        size: 5,
-        "sort-by": "date",
-        "sort-dir": "desc",
-      }),
+      Bookings.getList(
+        { serviceProviderId: providerId },
+        { page: 0, size: 5, "sort-by": "createdAt", "sort-dir": "desc" }
+      ),
     enabled: !!providerId,
   });
 
@@ -63,7 +107,11 @@ export default function ProviderDashboard() {
 
   const schedule = useMemo(() => {
     const raw = scheduleQ.data ?? [];
-    return Array.isArray(raw) ? raw : raw?.content ?? [];
+    return Array.isArray(raw?.content)
+      ? raw.content
+      : Array.isArray(raw)
+      ? raw
+      : [];
   }, [scheduleQ.data]);
 
   const recent = useMemo(() => {
@@ -89,28 +137,53 @@ export default function ProviderDashboard() {
     ? exceptionsQ.data.length
     : exceptionsQ.data?.totalElements ?? 0;
 
+  function customerLabel(b) {
+    return (
+      b?.customer?.customerName ||
+      b?.customerName ||
+      (b?.customerId != null ? `Customer #${b.customerId}` : "Customer")
+    );
+  }
+
+  function serviceLabel(b) {
+    const id = b?.serviceId ?? b?.service?.serviceId ?? b?.service?.id;
+    return (
+      b?.service?.serviceName ||
+      b?.serviceName ||
+      (id != null ? `Service #${id}` : "Service")
+    );
+  }
+
+  function whenLabel(b) {
+    if (b?.bookingDate && (b?.bookingStartTime || b?.bookingEndTime)) {
+      const start = (b.bookingStartTime || "").toString().slice(0, 5);
+      const end = (b.bookingEndTime || "").toString().slice(0, 5);
+      return `${b.bookingDate} ${start}${end ? ` - ${end}` : ""}`;
+    }
+    return formatDateTime(b?.createdAt ?? b?.date ?? b?.startTime);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">
-          Welcome{user?.username ? `, ${user.username}` : ""}
-        </h1>
-        <p className="text-zinc-600">
+        <h1 className="text-2xl font-semibold">Welcome, {name}</h1>
+        <p className="text-zinc-600 dark:text-zinc-400">
           Your schedule and availability at a glance.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card
           title="Quick actions"
           description="Jump back into the most common tasks"
         >
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
             <Button
               as={Link}
               to="/bookings"
               variant="primary"
               leftIcon={<ListBulletIcon className="size-4" />}
+              className="w-full h-10"
             >
               View bookings
             </Button>
@@ -119,6 +192,7 @@ export default function ProviderDashboard() {
               to="/bookings/summary"
               variant="secondary"
               leftIcon={<CalendarDaysIcon className="size-4" />}
+              className="w-full h-10"
             >
               Booking summary
             </Button>
@@ -127,6 +201,7 @@ export default function ProviderDashboard() {
               to="/availability"
               variant="outline"
               leftIcon={<Cog6ToothIcon className="size-4" />}
+              className="w-full h-10"
             >
               Manage availability
             </Button>
@@ -134,31 +209,22 @@ export default function ProviderDashboard() {
         </Card>
 
         <Card title="Availability" description="Rules and one-off exceptions">
-          <div className="grid grid-cols-2 gap-3 text-sm text-zinc-700">
-            <div className="rounded-lg border p-3">
-              <div className="text-xs text-zinc-500">Rules</div>
-              <div className="mt-1 text-xl font-semibold text-zinc-900">
+          <div className="grid grid-cols-2 gap-3 text-sm text-zinc-700 dark:text-zinc-300">
+            <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+              <div className="text-xs text-zinc-500 dark:text-zinc-500">
+                Rules
+              </div>
+              <div className="mt-1 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
                 {rulesQ.isLoading ? "…" : rulesCount}
               </div>
             </div>
-            <div className="rounded-lg border p-3">
-              <div className="text-xs text-zinc-500">Exceptions</div>
-              <div className="mt-1 text-xl font-semibold text-zinc-900">
+            <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+              <div className="text-xs text-zinc-500 dark:text-zinc-500">
+                Exceptions
+              </div>
+              <div className="mt-1 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
                 {exceptionsQ.isLoading ? "…" : exceptionsCount}
               </div>
-            </div>
-          </div>
-        </Card>
-
-        <Card title="Account">
-          <div className="text-sm text-zinc-600">
-            <div>
-              <span className="text-zinc-500">Role:</span>{" "}
-              {user?.userRole ?? "USER"}
-            </div>
-            <div>
-              <span className="text-zinc-500">Type:</span>{" "}
-              {user?.userType ?? "PROVIDER"}
             </div>
           </div>
         </Card>
@@ -187,19 +253,23 @@ export default function ProviderDashboard() {
                 message="You don’t have any bookings for today."
               />
             )}
-          <ul className="divide-y">
+          <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
             {schedule.map((b) => (
               <li key={b.id ?? b.bookingId} className="py-3">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="font-medium text-zinc-900">
-                      {b.customerName ?? b.customer?.name ?? "Customer"}
+                    <div className="font-medium text-zinc-900 dark:text-zinc-100">
+                      {customerLabel(b)}
                     </div>
-                    <div className="text-sm text-zinc-600">
-                      {formatDateTime(b.date ?? b.startTime ?? b.createdAt)}
+                    <div className="text-sm text-zinc-600 dark:text-zinc-400">
+                      {whenLabel(b)}
                     </div>
                   </div>
-                  {b.status && <Badge className="mt-1">{b.status}</Badge>}
+                  {(b.bookingStatus ?? b.status) && (
+                    <Badge className="mt-1">
+                      {b.bookingStatus ?? b.status}
+                    </Badge>
+                  )}
                 </div>
               </li>
             ))}
@@ -226,16 +296,16 @@ export default function ProviderDashboard() {
               message="New requests will show up here."
             />
           )}
-          <ul className="divide-y">
+          <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
             {recent.map((b) => (
               <li key={b.id ?? b.bookingId} className="py-3">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="font-medium text-zinc-900">
-                      Booking #{b.id ?? b.bookingId}
+                    <div className="font-medium text-zinc-900 dark:text-zinc-100">
+                      {serviceLabel(b)}
                     </div>
-                    <div className="text-sm text-zinc-600">
-                      {formatDateTime(b.date ?? b.startTime ?? b.createdAt)}
+                    <div className="text-sm text-zinc-600 dark:text-zinc-400">
+                      {whenLabel(b)}
                     </div>
                   </div>
                   {b.status && (

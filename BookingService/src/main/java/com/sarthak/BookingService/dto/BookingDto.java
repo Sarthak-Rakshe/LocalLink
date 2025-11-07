@@ -1,6 +1,5 @@
 package com.sarthak.BookingService.dto;
 
-
 import com.sarthak.BookingService.model.BookingStatus;
 import lombok.Builder;
 

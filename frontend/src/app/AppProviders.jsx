@@ -2,6 +2,7 @@ import { PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "../context/AuthContext.jsx";
+import { ThemeProvider } from "../context/ThemeContext.jsx";
 
 const queryClient = new QueryClient();
 
@@ -19,10 +20,12 @@ export function AppProviders({ children }) {
       }}
     >
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          {children}
-          <Toaster position="top-right" />
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            {children}
+            <Toaster position="top-right" />
+          </AuthProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </PayPalScriptProvider>
   );

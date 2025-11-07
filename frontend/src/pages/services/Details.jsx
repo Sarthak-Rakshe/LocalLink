@@ -77,29 +77,29 @@ export default function ServiceDetails() {
   return (
     <div className="space-y-4">
       {/* Header / Summary */}
-      <div className="rounded-xl border bg-white p-5 shadow-sm">
+      <div className="card p-5">
         {serviceQ.isLoading ? (
           <div className="animate-pulse text-sm text-zinc-500">Loading…</div>
         ) : service ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="md:col-span-2">
-              <h1 className="text-2xl font-semibold text-zinc-900">
+              <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
                 {service.serviceName}
               </h1>
               <div className="mt-1 text-sm text-zinc-600">
-                <span className="inline-flex items-center rounded bg-zinc-100 px-2 py-0.5 text-[12px] font-medium text-zinc-700">
+                <span className="inline-flex items-center rounded bg-zinc-100 px-2 py-0.5 text-[12px] font-medium text-zinc-700 dark:bg-white/5 dark:text-zinc-300">
                   {service.serviceCategory}
                 </span>
               </div>
               {service.serviceDescription && (
-                <p className="mt-3 text-zinc-700">
+                <p className="mt-3 text-zinc-700 dark:text-zinc-300">
                   {service.serviceDescription}
                 </p>
               )}
             </div>
             <div className="md:text-right">
               <div className="text-sm text-zinc-500">Price</div>
-              <div className="text-2xl font-semibold text-zinc-900">
+              <div className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
                 ₹{service.servicePricePerHour}
                 <span className="text-sm font-normal text-zinc-500">/hr</span>
               </div>

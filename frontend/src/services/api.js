@@ -73,6 +73,14 @@ export const Services = {
 export const Bookings = {
   /** page list (admin or general): params { 'sort-by','sort-dir', page, size } */
   listAll: (params) => api.get(`/bookings`, { params }).then((r) => r.data),
+  /** aggregated list with service, customer and provider details
+   * @param {{bookingStatus?: string, serviceCategory?: string, dateFrom?: string, dateTo?: string, serviceProviderId?: number, customerId?: number, serviceId?: number}} queryFilter
+   * @param {{page?: number, size?: number, 'sort-by'?: string, 'sort-dir'?: string}} params
+   */
+  getList: (queryFilter, params) =>
+    api
+      .post(`/bookings/getList`, queryFilter ?? {}, { params })
+      .then((r) => r.data),
   getById: (bookingId) => api.get(`/bookings/${bookingId}`).then((r) => r.data),
   /** provider-specific by date */
   listByProviderOnDate: (serviceProviderId, date) =>

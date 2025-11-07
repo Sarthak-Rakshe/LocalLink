@@ -1,14 +1,24 @@
 package com.sarthak.BookingService.service;
 
 import com.sarthak.BookingService.client.AvailabilityServiceClient;
+import com.sarthak.BookingService.client.ServiceListingClient;
+import com.sarthak.BookingService.client.UserServiceClient;
 import com.sarthak.BookingService.config.shared.UserPrincipal;
 import com.sarthak.BookingService.dto.AvailabilityStatus;
 import com.sarthak.BookingService.dto.BookingDto;
 import com.sarthak.BookingService.dto.BookingStatusCount;
+import com.sarthak.BookingService.dto.CustomerDto;
+import com.sarthak.BookingService.dto.QueryFilter;
+import com.sarthak.BookingService.dto.ServiceDto;
+import com.sarthak.BookingService.dto.ServiceItemDto;
+import com.sarthak.BookingService.dto.ServiceListingQueryFilter;
+import com.sarthak.BookingService.dto.ServiceProviderDto;
 import com.sarthak.BookingService.dto.Slot;
 import com.sarthak.BookingService.dto.request.BookingRescheduleRequest;
 import com.sarthak.BookingService.dto.response.BookedSlotsResponse;
+import com.sarthak.BookingService.dto.response.BookingResponse;
 import com.sarthak.BookingService.dto.response.BookingsSummaryResponse;
+import com.sarthak.BookingService.dto.response.UsernameResponse;
 import com.sarthak.BookingService.exception.BookingNotFoundException;
 import com.sarthak.BookingService.exception.ProviderNotAvailableForGivenTimeSlotException;
 import com.sarthak.BookingService.exception.TimeSlotAlreadyBookedException;
@@ -19,22 +29,29 @@ import com.sarthak.BookingService.model.BookingStatus;
 import com.sarthak.BookingService.repository.BookingRepository;
 import com.sarthak.BookingService.dto.request.AvailabilityStatusRequest;
 import com.sarthak.BookingService.dto.response.AvailabilityStatusResponse;
+import com.sarthak.BookingService.repository.BookingSpecification;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.sarthak.BookingService.model.BookingStatus.*;
 
@@ -45,16 +62,20 @@ public class BookingService {
     private final BookingRepository bookingRepository;
     private final BookingMapper bookingMapper;
     private final AvailabilityServiceClient availabilityServiceClient;
+    private final ServiceListingClient serviceListingClient;
+    private final UserServiceClient userServiceClient;
     private final Set<String> ALLOWED_SORT_FIELDS = Set.of("bookingId", "serviceProviderId", "serviceId",
             "customerId", "bookingDate", "bookingStartTime", "bookingEndTime", "bookingStatus", "createdAt");
     private final Set<BookingStatus> EXCLUDED_STATUSES_FOR_OVERLAP_CHECK = Set.of(CANCELLED, DELETED);
     private final Set<BookingStatus> INCLUDED_STATUSES_FOR_BOOKED_SLOTS = Set.of(PENDING, CONFIRMED);
 
     public BookingService(BookingRepository bookingRepository, BookingMapper bookingMapper,
-            AvailabilityServiceClient availabilityServiceClient) {
+            AvailabilityServiceClient availabilityServiceClient, ServiceListingClient serviceListingClient, UserServiceClient userServiceClient) {
         this.bookingRepository = bookingRepository;
         this.bookingMapper = bookingMapper;
         this.availabilityServiceClient = availabilityServiceClient;
+        this.serviceListingClient = serviceListingClient;
+        this.userServiceClient = userServiceClient;
     }
 
     public BookingDto getBookingDetails(Long bookingId) {
@@ -177,8 +198,10 @@ public class BookingService {
             throw new IllegalStateException("Service provider cannot book their own service");
         }
         Booking booking = bookingMapper.toEntity(bookingDto);
-        LocalDateTime newStartTimeAndDate = LocalDateTime.of(booking.getBookingDate(), booking.getBookingStartTime());
-        if(newStartTimeAndDate.isBefore(LocalDateTime.now())){
+
+        ZoneId zone = ZoneId.of("Asia/Kolkata");
+        ZonedDateTime bookingZdt = ZonedDateTime.of(booking.getBookingDate(), booking.getBookingStartTime(), zone);
+        if (bookingZdt.isBefore(ZonedDateTime.now(zone))) {
             throw new IllegalStateException("Booking start time cannot be in the past");
         }
         log.info("Booking process starting for serviceId: {} with providerId: {} on date: {} from {} to {}",
@@ -263,9 +286,10 @@ public class BookingService {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new BookingNotFoundException("Booking not found"));
 
-        LocalDateTime bookingEndDateTime = LocalDateTime.of(booking.getBookingDate(), booking.getBookingEndTime());
-        if(bookingEndDateTime.isAfter(LocalDateTime.now())){
-            throw new IllegalStateException("Cannot complete booking before end time");
+        ZoneId zone = ZoneId.of("Asia/Kolkata");
+        ZonedDateTime bookingZdt = ZonedDateTime.of(booking.getBookingDate(), booking.getBookingStartTime(), zone);
+        if (bookingZdt.isBefore(ZonedDateTime.now(zone))) {
+            throw new IllegalStateException("Booking start time cannot be in the past");
         }
 
         booking.setBookingStatus(COMPLETED);
@@ -346,9 +370,10 @@ public class BookingService {
         LocalTime changedEndTime = request.newBookingEndTime() != null ? request.newBookingEndTime()
                 : existingBooking.getBookingEndTime();
 
-        LocalDateTime newStartTimeAndDate = LocalDateTime.of(changedDate, changedStartTime);
-        if(newStartTimeAndDate.isBefore(LocalDateTime.now())){
-            throw new IllegalStateException("Rescheduled start time cannot be in the past");
+        ZoneId zone = ZoneId.of("Asia/Kolkata");
+        ZonedDateTime bookingZdt = ZonedDateTime.of(changedDate, changedStartTime, zone);
+        if (bookingZdt.isBefore(ZonedDateTime.now(zone))) {
+            throw new IllegalStateException("Booking start time cannot be in the past");
         }
 
         log.info("Changed booking details - Date: {}, StartTime: {}, EndTime: {}", changedDate, changedStartTime,
@@ -442,6 +467,48 @@ public class BookingService {
         };
     }
 
+    @Transactional(readOnly = true)
+    public Page<BookingDto> getBookingList(QueryFilter queryFilter, int page, int size, String sortBy, String sortDir){
+        Pageable pageable = getPageable(page, size, sortBy, sortDir);
+
+        Specification<Booking> specification = BookingSpecification.buildSpecification(queryFilter);
+        Page<Booking> bookings = bookingRepository.findAll(specification, pageable);
+        log.info("Fetched {} bookings with applied filters", bookings.getTotalElements());
+
+        return bookings.map(bookingMapper::toDto);
+    }
+
+    public Page<BookingResponse> getBookingResponse(Page<BookingDto> bookings) {
+        List<BookingDto> bookingDtoList = bookings.getContent();
+        Set<Long> serviceIdSet = new HashSet<>();
+        List<Long> userIdList = new ArrayList<>();
+        for(BookingDto bookingDto : bookingDtoList){
+            serviceIdSet.add(bookingDto.serviceId());
+            userIdList.add(bookingDto.customerId());
+            userIdList.add(bookingDto.serviceProviderId());
+        }
+        ServiceListingQueryFilter serviceListingQueryFilter = new ServiceListingQueryFilter(
+                serviceIdSet, null, null, null, null, null);
+
+        Page<ServiceItemDto> serviceItemsPage = serviceListingClient.getServiceDetails(serviceListingQueryFilter, 0,
+                1000, "serviceId", "asc");
+        List<ServiceItemDto> serviceItemDtoList = serviceItemsPage.getContent();
+        log.info("Fetched {} service details from Service Listing Service", serviceItemDtoList.size());
+        Map<Long, ServiceItemDto> serviceItemDtoMap = serviceItemDtoList.stream()
+                .collect(Collectors.toMap(ServiceItemDto::serviceId, item -> item));
+
+        List<UsernameResponse> usernameResponses = userServiceClient.getUsernameByUserId(userIdList);
+        Map<Long, UsernameResponse> usernameResponseMap = usernameResponses.stream()
+                .collect(Collectors.toMap(UsernameResponse::userId, item -> item));
+        log.info("Fetched {} usernames from User Service", usernameResponses.size());
+        List<BookingResponse> bookingResponses = new ArrayList<>();
+        for(BookingDto bookingDto : bookingDtoList){
+            bookingResponses.add(bookingMapper.toResponse(bookingDto, usernameResponseMap, serviceItemDtoMap));
+        }
+
+        return new PageImpl<>(bookingResponses, bookings.getPageable(), bookings.getTotalElements());
+    }
+
     private Pageable getPageable(int page, int size, String sortBy, String sortDir) {
         if (page < 0)
             page = 0;
@@ -461,4 +528,5 @@ public class BookingService {
 
         return PageRequest.of(page, size, sort);
     }
+
 }

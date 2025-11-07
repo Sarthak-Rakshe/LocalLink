@@ -14,28 +14,29 @@ public class ServiceItemsMapper {
         if (reviewAggregateResponse == null){
             reviewAggregateResponse = new ReviewAggregateResponse(0L, serviceItem.getServiceId(), serviceItem.getServiceProviderId(), 0.0, 0L);
         }
-        return new ServiceItemDto(
-                serviceItem.getServiceId(),
-                serviceItem.getServiceName(),
-                serviceItem.getServiceDescription(),
-                serviceItem.getServiceCategory(),
-                serviceItem.getServicePricePerHour(),
-                serviceItem.getServiceProviderId(),
-                serviceItem.getLatitude(),
-                serviceItem.getLongitude(),
-                reviewAggregateResponse
-        );
+        return ServiceItemDto.builder()
+                .serviceId(serviceItem.getServiceId())
+                .serviceName(serviceItem.getServiceName())
+                .serviceDescription(serviceItem.getServiceDescription())
+                .serviceCategory(serviceItem.getServiceCategory())
+                .servicePricePerHour(serviceItem.getServicePricePerHour())
+                .serviceProviderId(serviceItem.getServiceProviderId())
+                .latitude(serviceItem.getLatitude())
+                .longitude(serviceItem.getLongitude())
+                .reviewAggregate(reviewAggregateResponse)
+                .build();
+
     }
 
     public ServiceItem dtoToEntity(ServiceItemDto dto){
         return ServiceItem.builder()
-                .serviceName(dto.serviceName())
-                .serviceCategory(dto.serviceCategory())
-                .serviceDescription(dto.serviceDescription())
-                .servicePricePerHour(dto.servicePricePerHour())
-                .serviceProviderId(dto.serviceProviderId())
-                .latitude(dto.latitude())
-                .longitude(dto.longitude())
+                .serviceName(dto.getServiceName())
+                .serviceCategory(dto.getServiceCategory())
+                .serviceDescription(dto.getServiceDescription())
+                .servicePricePerHour(dto.getServicePricePerHour())
+                .serviceProviderId(dto.getServiceProviderId())
+                .latitude(dto.getLatitude())
+                .longitude(dto.getLongitude())
                 .build();
     }
 

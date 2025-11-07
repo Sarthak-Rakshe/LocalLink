@@ -17,8 +17,8 @@ function NavItem({ to, icon, children }) {
       className={({ isActive }) =>
         `flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
           isActive
-            ? "bg-indigo-50 text-indigo-700"
-            : "text-zinc-700 hover:bg-zinc-100"
+            ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
+            : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5"
         }`
       }
       end
@@ -35,7 +35,7 @@ export default function SideBar({ open, onClose }) {
 
   const content = (
     <div className="flex h-full flex-col gap-2 p-3">
-      <div className="px-2 py-3 text-xs font-semibold uppercase text-zinc-500">
+      <div className="px-2 py-3 text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
         Menu
       </div>
       {/* Dashboard (varies by user type) */}
@@ -94,7 +94,7 @@ export default function SideBar({ open, onClose }) {
 
       {/* Drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 border-r bg-white transition-transform ${
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white/70 backdrop-blur border-r border-white/60 shadow-sm transition-transform dark:bg-zinc-900/60 dark:border-zinc-800 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
         aria-label="Sidebar"

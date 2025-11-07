@@ -5,6 +5,7 @@ import com.sarthak.UserService.dto.QueryFilter;
 import com.sarthak.UserService.dto.request.UserUpdateRequest;
 import com.sarthak.UserService.dto.response.ProviderResponse;
 import com.sarthak.UserService.dto.response.UserResponse;
+import com.sarthak.UserService.dto.response.UsernameResponse;
 import com.sarthak.UserService.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -13,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
@@ -26,6 +29,12 @@ public class UserController {
     public ResponseEntity<UserResponse> getByUserId(@PathVariable Long userId) {
         UserResponse userResponse = userService.getUserById(userId);
         return ResponseEntity.ok(userResponse);
+    }
+
+    @PostMapping("/getUsername/list")
+    public ResponseEntity<List<UsernameResponse>> getUsernameByUserId(@RequestBody List<Long> userIdList) {
+        List<UsernameResponse> usernameResponse = userService.getUsernameById(userIdList);
+        return ResponseEntity.ok(usernameResponse);
     }
 
     @GetMapping("/profile")

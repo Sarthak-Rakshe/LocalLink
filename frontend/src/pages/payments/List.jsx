@@ -96,7 +96,7 @@ export default function PaymentsList() {
         actions={
           <div className="flex items-center gap-2">
             <select
-              className="rounded-md border border-zinc-300 px-2 py-2 text-sm"
+              className="rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
             >
@@ -107,7 +107,7 @@ export default function PaymentsList() {
               ))}
             </select>
             <select
-              className="rounded-md border border-zinc-300 px-2 py-2 text-sm"
+              className="rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
               value={sortDir}
               onChange={(e) => setSortDir(e.target.value)}
             >
@@ -115,7 +115,7 @@ export default function PaymentsList() {
               <option value="desc">Desc</option>
             </select>
             <select
-              className="rounded-md border border-zinc-300 px-2 py-2 text-sm"
+              className="rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
               value={size}
               onChange={(e) => setSize(Number(e.target.value))}
             >
@@ -134,7 +134,7 @@ export default function PaymentsList() {
           <div>
             <Label>Payment method</Label>
             <select
-              className="w-full rounded-md border px-3 py-2"
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
             >
@@ -149,7 +149,7 @@ export default function PaymentsList() {
           <div>
             <Label>Payment status</Label>
             <select
-              className="w-full rounded-md border px-3 py-2"
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
               value={paymentStatus}
               onChange={(e) => setPaymentStatus(e.target.value)}
             >
@@ -177,40 +177,40 @@ export default function PaymentsList() {
           {Array.from({ length: Math.min(size, 9) }).map((_, i) => (
             <div
               key={i}
-              className="h-36 animate-pulse rounded-lg border bg-zinc-100"
+              className="h-36 animate-pulse rounded-lg border border-zinc-200 bg-zinc-100"
             />
           ))}
         </div>
       ) : items.length ? (
-        <div className="overflow-hidden rounded-lg border">
-          <table className="min-w-full divide-y">
-            <thead className="bg-zinc-50">
+        <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
+          <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
+            <thead className="bg-zinc-50 dark:bg-white/5">
               <tr>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400">
                   ID
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400">
                   Provider ID
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400">
                   Reference
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400">
                   Amount
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400">
                   Method
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400">
                   Status
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400">
                   Created
                 </th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
-            <tbody className="divide-y bg-white">
+            <tbody className="divide-y divide-zinc-200 bg-white dark:divide-zinc-800 dark:bg-zinc-900">
               {items.map((t) => (
                 <tr key={t.transactionId}>
                   <td className="px-3 py-2 text-sm">{t.transactionId}</td>
