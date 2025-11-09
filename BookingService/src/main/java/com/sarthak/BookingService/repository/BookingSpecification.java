@@ -38,7 +38,7 @@ public class BookingSpecification {
             return null;
         }
         return (root, query, criteriaBuilder) ->
-                criteriaBuilder.equal(root.get("bookingStatus"), bookingStatus);
+                criteriaBuilder.equal(root.get("bookingStatus"), bookingStatusEnum);
     }
 
     public static Specification<Booking> getBookingsByServiceCategory(String serviceCategory) {

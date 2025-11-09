@@ -85,5 +85,5 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
             """)
     List<BookingStatusCount> countBookingsByStatusGroupedForCustomer(@Param("customerId") Long customerId);
 
-    Optional<Booking> findByServiceIdAndCustomerId(Long serviceId, Long customerId);
+    List<Booking> findByServiceIdAndCustomerIdAndBookingStatus(Long serviceId, Long customerId, BookingStatus bookingStatus);
 }

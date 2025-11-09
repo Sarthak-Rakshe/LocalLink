@@ -11,6 +11,7 @@ import {
   formatDuration,
 } from "../../services/retryCooldown.js";
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../../context/AuthContext.jsx";
 
 export default function PaymentDetails() {
   const { id } = useParams();
@@ -65,6 +66,24 @@ export default function PaymentDetails() {
     },
   });
 
+  const refreshMutation = useMutation({
+    mutationFn: async () => Payments.refresh(txId),
+    onSuccess: () => {
+      toast.success("Payment status refreshed");
+      qc.invalidateQueries({ queryKey: ["payment", id] });
+      qc.invalidateQueries({ queryKey: ["payments"] });
+    },
+    onError: (err) => {
+      const msg =
+        err?.response?.data?.message || err?.message || "Failed to refresh";
+      toast.error(msg);
+    },
+  });
+
+  const { user } = useAuth();
+  const isCustomer = user?.userType === "CUSTOMER";
+  const isProvider = user?.userType === "PROVIDER";
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -72,16 +91,25 @@ export default function PaymentDetails() {
         <div className="flex items-center gap-2">
           {q.data && (
             <>
-              <Button
-                onClick={() => retryMutation.mutate()}
-                disabled={!canRetry || inCooldown || retryMutation.isPending}
-              >
-                {retryMutation.isPending
-                  ? "Retrying…"
-                  : inCooldown
-                  ? `Retry in ${formatDuration(remainingMs)}`
-                  : "Retry payment"}
-              </Button>
+              {isProvider ? null : isCustomer ? (
+                <Button
+                  onClick={() => refreshMutation.mutate()}
+                  disabled={!canRetry || refreshMutation.isPending}
+                >
+                  {refreshMutation.isPending ? "Refreshing…" : "Refresh"}
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => retryMutation.mutate()}
+                  disabled={!canRetry || inCooldown || retryMutation.isPending}
+                >
+                  {retryMutation.isPending
+                    ? "Retrying…"
+                    : inCooldown
+                    ? `Retry in ${formatDuration(remainingMs)}`
+                    : "Retry payment"}
+                </Button>
+              )}
             </>
           )}
           <Link to="/payments">
@@ -133,13 +161,16 @@ export default function PaymentDetails() {
               <dd className="font-medium">{q.data.paymentStatus}</dd>
             </div>
             {(q.data.paymentStatus === "PENDING" ||
-              q.data.paymentStatus === "DECLINED") && (
-              <div className="md:col-span-2 text-sm text-zinc-600">
-                {inCooldown
-                  ? `Retry available in ${formatDuration(remainingMs)}.`
-                  : "You can retry this payment if it was declined or still pending."}
-              </div>
-            )}
+              q.data.paymentStatus === "DECLINED") &&
+              !isProvider && (
+                <div className="md:col-span-2 text-sm text-zinc-600">
+                  {inCooldown
+                    ? `Retry available in ${formatDuration(remainingMs)}.`
+                    : isCustomer
+                    ? "You can refresh this payment to check for updated status."
+                    : "You can retry this payment if it was declined or still pending."}
+                </div>
+              )}
             <div className="md:col-span-2">
               <dt className="text-sm text-zinc-500">Transaction Reference</dt>
               <dd className="font-medium break-all">

@@ -1,18 +1,16 @@
 import { Fragment } from "react";
 
 export default function Modal({ open, onClose, title, children, footer }) {
+  // Don't render anything when closed to avoid stray headers or layout glitches.
+  if (!open) return null;
   return (
     <Fragment>
       <div
-        className={`fixed inset-0 z-40 bg-black/30 transition-opacity ${
-          open ? "opacity-100" : "pointer-events-none opacity-0"
-        }`}
+        className="fixed inset-0 z-40 bg-black/30 transition-opacity opacity-100"
         onClick={onClose}
       />
       <div
-        className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${
-          open ? "" : "pointer-events-none"
-        }`}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
         aria-hidden={!open}
       >
         <div className="w-full max-w-lg rounded-xl border bg-white shadow-xl">

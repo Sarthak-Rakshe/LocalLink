@@ -189,6 +189,11 @@ export const Payments = {
    */
   retry: (transactionId) =>
     api.post(`/payments/${transactionId}/retry`).then((r) => r.data),
+  /** Refresh payment status by transaction id. Backend should expose POST /payments/{transactionId}/refresh
+   * Returns updated TransactionDto
+   */
+  refresh: (transactionId) =>
+    api.post(`/payments/${transactionId}/refresh`).then((r) => r.data),
 };
 
 // --- REVIEWS (/api/reviews) ---

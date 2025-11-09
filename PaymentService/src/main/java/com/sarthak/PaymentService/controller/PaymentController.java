@@ -5,6 +5,7 @@ import com.sarthak.PaymentService.dto.TransactionDto;
 import com.sarthak.PaymentService.dto.request.CreateOrderRequest;
 import com.sarthak.PaymentService.dto.request.TransactionFilter;
 import com.sarthak.PaymentService.dto.request.PaymentRequest;
+import com.sarthak.PaymentService.dto.request.RefreshPaymentStatusRequest;
 import com.sarthak.PaymentService.dto.response.PagedResponse;
 import com.sarthak.PaymentService.exception.FailedToCreatePaymentOrderException;
 import com.sarthak.PaymentService.service.TransactionService;
@@ -35,12 +36,12 @@ public class PaymentController {
     }
 
     @PostMapping("/allTransactions")
-    public PagedResponse<TransactionDto> getAllTransactions(@NotNull @RequestParam(name ="sort-by") String sortBy,
-                                                            @NotNull @RequestParam(name ="sort-dir") String sortDir,
-                                                            @NotNull @RequestParam(name ="page") int page,
-                                                            @NotNull @RequestParam(name ="size") int size,
-                                                            Authentication authentication,
-                                                            @RequestBody(required = false) TransactionFilter transactionFilter) {
+    public PagedResponse<TransactionDto> getAllTransactions(@NotNull @RequestParam(name = "sort-by") String sortBy,
+            @NotNull @RequestParam(name = "sort-dir") String sortDir,
+            @NotNull @RequestParam(name = "page") int page,
+            @NotNull @RequestParam(name = "size") int size,
+            Authentication authentication,
+            @RequestBody(required = false) TransactionFilter transactionFilter) {
 
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         Page<TransactionDto> transactions = transactionService.getAllTransactions(page, size, sortBy, sortDir,
@@ -51,50 +52,64 @@ public class PaymentController {
                 transactions.getNumber(),
                 transactions.getSize(),
                 transactions.getTotalElements(),
-                transactions.getTotalPages()
-        );
+                transactions.getTotalPages());
     }
 
     @PostMapping("/createOrder")
-    public ResponseEntity<String> createOrder(@RequestBody CreateOrderRequest createOrderRequest) {
-        String orderId = null;
+    public ResponseEntity<com.sarthak.PaymentService.dto.response.CreateOrderResponse> createOrder(
+            @RequestBody CreateOrderRequest createOrderRequest) {
+        com.sarthak.PaymentService.dto.response.CreateOrderResponse response = null;
         try {
-            orderId = transactionService.createOrder(createOrderRequest);
+            response = transactionService.createOrder(createOrderRequest);
         } catch (IOException | InterruptedException e) {
             throw new FailedToCreatePaymentOrderException("Failed to create payment order: " + e.getMessage());
         }
-        return ResponseEntity.ok(orderId);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/processPayment")
-    public ResponseEntity<TransactionDto> processPayment(@RequestBody @Valid PaymentRequest request){
+    public ResponseEntity<TransactionDto> processPayment(@RequestBody @Valid PaymentRequest request) {
         TransactionDto transactionDto = transactionService.processPayment(request);
         return ResponseEntity.ok(transactionDto);
     }
 
-/*
-     For now, webhook handling is disabled
-    @PostMapping("/handleWebhook")
-    public ResponseEntity<String> handleWebhook(
-            @RequestBody String payload,
-            @RequestHeader("PayPal-Transmission-Sig") String signature,
-            @RequestHeader("PayPal-Transmission-Id") String transmissionId,
-            @RequestHeader("PayPal-Transmission-Time") String transmissionTime,
-            @RequestHeader("PayPal-Cert-Url") String certUrl,
-            @RequestHeader("PayPal-Auth-Algo") String authAlgo
-    ){
-        log.info("Received webhook: {}", payload);
-
-        boolean isValid = transactionService.verifyWebhookSignature(payload, signature, transmissionId,
-                transmissionTime, certUrl, authAlgo);
-
-        if (isValid){
-            transactionService.handlePaypalWebhookEvent(payload);
-            return ResponseEntity.ok("Webhook processed");
-        } else {
-            log.warn("Invalid webhook signature");
-            return ResponseEntity.status(400).body("Invalid signature");
-        }
+    @PostMapping("/refreshStatus")
+    public ResponseEntity<TransactionDto> refreshPaymentStatus(@RequestBody @Valid RefreshPaymentStatusRequest request) {
+        TransactionDto dto = transactionService.refreshPaymentStatus(request.transactionReference());
+        return ResponseEntity.ok(dto);
     }
-*/
+
+    /*
+     * For now, webhook handling is disabled
+     * 
+     * @PostMapping("/handleWebhook")
+     * public ResponseEntity<String> handleWebhook(
+     * 
+     * @RequestBody String payload,
+     * 
+     * @RequestHeader("PayPal-Transmission-Sig") String signature,
+     * 
+     * @RequestHeader("PayPal-Transmission-Id") String transmissionId,
+     * 
+     * @RequestHeader("PayPal-Transmission-Time") String transmissionTime,
+     * 
+     * @RequestHeader("PayPal-Cert-Url") String certUrl,
+     * 
+     * @RequestHeader("PayPal-Auth-Algo") String authAlgo
+     * ){
+     * log.info("Received webhook: {}", payload);
+     * 
+     * boolean isValid = transactionService.verifyWebhookSignature(payload,
+     * signature, transmissionId,
+     * transmissionTime, certUrl, authAlgo);
+     * 
+     * if (isValid){
+     * transactionService.handlePaypalWebhookEvent(payload);
+     * return ResponseEntity.ok("Webhook processed");
+     * } else {
+     * log.warn("Invalid webhook signature");
+     * return ResponseEntity.status(400).body("Invalid signature");
+     * }
+     * }
+     */
 }

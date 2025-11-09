@@ -4,6 +4,7 @@ import lombok.Builder;
 
 @Builder
 public record CreateOrderResponse(
-        String orderId,
-        String status
-) {}
+                String orderId,
+                String status,
+                String allowedPaymentMethod) {
+}

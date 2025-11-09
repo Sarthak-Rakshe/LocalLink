@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
-import { Reviews } from "../../services/api.js";
+import { useLocation, useSearchParams } from "react-router-dom";
+import { Reviews, Bookings, Services } from "../../services/api.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import Card from "../../components/ui/Card.jsx";
 import Button from "../../components/ui/Button.jsx";
@@ -16,10 +16,12 @@ export default function ReviewsHome() {
   const isProvider = user?.userType === "PROVIDER";
   const userId = user?.id ?? user?.userId;
   const [search] = useSearchParams();
+  const location = useLocation();
 
   // Preselect from query params
-  const preServiceId = search.get("serviceId");
-  const preProviderId = search.get("providerId");
+  const preServiceId = search.get("serviceId") ?? location.state?.serviceId;
+  const preProviderId = search.get("providerId") ?? location.state?.providerId;
+  const preBookingId = search.get("bookingId") ?? location.state?.bookingId;
 
   // Fetch my reviews (customer)
   const myReviewsQ = useQuery({
@@ -32,6 +34,18 @@ export default function ReviewsHome() {
         sortDir: "desc",
       }),
     enabled: !!userId && isCustomer,
+  });
+
+  // Fetch completed bookings for this customer to discover which services can be reviewed.
+  const completedBookingsQ = useQuery({
+    queryKey: ["completed-bookings", userId, isCustomer],
+    queryFn: () =>
+      Bookings.getList(
+        { bookingStatus: "COMPLETED", customerId: userId },
+        { page: 0, size: 200, "sort-by": "createdAt", "sort-dir": "desc" }
+      ),
+    enabled: !!userId && isCustomer,
+    staleTime: 1000 * 60,
   });
 
   // Fetch received reviews (provider)
@@ -60,25 +74,51 @@ export default function ReviewsHome() {
     return map;
   }, [myReviewsQ.data]);
 
+  // Derive eligible (completed & not yet reviewed) bookings
+  const eligibleBookings = useMemo(() => {
+    if (!completedBookingsQ.data) return [];
+    const list =
+      completedBookingsQ.data.content ?? completedBookingsQ.data ?? [];
+    /** dedupe by serviceId so we only show one row per service */
+    const seen = new Set();
+    const out = [];
+    for (const b of list) {
+      const serviceId = b?.service?.serviceId;
+      if (!serviceId) continue;
+      if (myReviewsByService[serviceId]) continue; // already reviewed
+      if (seen.has(serviceId)) continue; // already added
+      seen.add(serviceId);
+      out.push(b);
+    }
+    return out;
+  }, [completedBookingsQ.data, myReviewsByService]);
+
   // UI state for editing
-  const [editing, setEditing] = useState(null); // {serviceId, providerId, reviewId?}
+  const [editing, setEditing] = useState(null); // {serviceId, providerId, bookingId?, reviewId?}
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
 
   useEffect(() => {
-    // Pre-open editor if query params provided (backend validates eligibility on submit)
-    if (isCustomer && preServiceId && preProviderId) {
-      const sId = Number(preServiceId);
-      const pId = Number(preProviderId);
-      const existing = myReviewsByService[sId];
-      setEditing({
-        serviceId: sId,
-        providerId: pId,
-        reviewId: existing?.reviewId,
-      });
-      setRating(existing?.rating ?? 5);
-      setComment(existing?.comment ?? "");
-    }
+    // Pre-open editor if navigated with query params. Allow fallback to existing review's providerId.
+    if (!isCustomer || !preServiceId) return;
+    const sId = Number(preServiceId);
+    if (!sId) return; // invalid service id
+    const existing = myReviewsByService[sId];
+    // Prefer explicit providerId from query; fall back to existing review's provider/providerId fields.
+    const pIdRaw =
+      preProviderId || existing?.serviceProviderId || existing?.providerId;
+    const pId = Number(pIdRaw);
+    if (!pId) return; // can't open form without provider id
+    setEditing({
+      serviceId: sId,
+      providerId: pId,
+      bookingId:
+        existing?.bookingId ||
+        (preBookingId ? Number(preBookingId) : undefined),
+      reviewId: existing?.reviewId,
+    });
+    setRating(existing?.rating ?? 5);
+    setComment(existing?.comment ?? "");
   }, [isCustomer, preServiceId, preProviderId, myReviewsByService]);
 
   const addMutation = useMutation({
@@ -104,9 +144,14 @@ export default function ReviewsHome() {
       toast.error(e?.response?.data?.message || "Failed to update review"),
   });
 
-  function startEdit(serviceId, providerId) {
+  function startEdit(serviceId, providerId, bookingId) {
     const existing = myReviewsByService[serviceId];
-    setEditing({ serviceId, providerId, reviewId: existing?.reviewId });
+    setEditing({
+      serviceId,
+      providerId,
+      bookingId: bookingId || existing?.bookingId,
+      reviewId: existing?.reviewId,
+    });
     setRating(existing?.rating ?? 5);
     setComment(existing?.comment ?? "");
   }
@@ -124,9 +169,14 @@ export default function ReviewsHome() {
       toast.error("Please add a comment to your review");
       return;
     }
+    if (!editing.bookingId && !editing.reviewId) {
+      toast.error("Missing booking reference for new review.");
+      return;
+    }
     const payload = {
       serviceProviderId: Number(editing.providerId),
       serviceId: Number(editing.serviceId),
+      bookingId: editing.bookingId ? Number(editing.bookingId) : undefined,
       customerId: Number(customerId),
       rating: Number(rating),
       comment: trimmed,
@@ -209,6 +259,82 @@ export default function ReviewsHome() {
         </Card>
       )}
 
+      {isCustomer && !editing && (preServiceId || preProviderId) && (
+        <Card>
+          <div className="text-sm text-amber-700">
+            {(!preServiceId || !Number(preServiceId)) && (
+              <div>Provided service id is invalid.</div>
+            )}
+            {preServiceId && !preProviderId && (
+              <div>
+                Missing provider id in URL. Please navigate from a completed
+                booking or supply both serviceId and providerId query
+                parameters.
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {isCustomer && !editing && (
+        <Card>
+          <div className="mb-3 text-lg font-medium">Pending reviews</div>
+          {completedBookingsQ.isLoading && (
+            <div className="text-sm text-zinc-500">
+              Loading completed bookings…
+            </div>
+          )}
+          {completedBookingsQ.isError && (
+            <div className="text-sm text-red-600">
+              {completedBookingsQ.error?.response?.data?.message ||
+                "Failed to load completed bookings."}
+            </div>
+          )}
+          {completedBookingsQ.data && eligibleBookings.length === 0 && (
+            <div className="text-sm text-zinc-600">
+              You have no completed services awaiting a review.
+            </div>
+          )}
+          {eligibleBookings.length > 0 && (
+            <ul className="divide-y">
+              {eligibleBookings.map((b) => {
+                const service = b.service;
+                const provider = b.serviceProvider;
+                const serviceId = service?.serviceId;
+                const providerId = provider?.serviceProviderId;
+                return (
+                  <li
+                    key={b.bookingId}
+                    className="py-3 text-sm flex items-start justify-between gap-3"
+                  >
+                    <div>
+                      <div className="font-medium">
+                        {service?.serviceName ||
+                          service?.serviceTitle ||
+                          `Service #${serviceId}`}
+                      </div>
+                      <div className="text-xs text-zinc-500">
+                        Provider #{providerId}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={() =>
+                          startEdit(serviceId, providerId, b.bookingId)
+                        }
+                        variant="primary"
+                      >
+                        Review
+                      </Button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
+      )}
+
       {isCustomer && (
         <Card>
           <div className="mb-3 text-lg font-medium">My reviews</div>
@@ -230,14 +356,18 @@ export default function ReviewsHome() {
                       <Button
                         variant="outline"
                         onClick={() =>
-                          startEdit(r.serviceId, r.serviceProviderId)
+                          startEdit(
+                            r.serviceId,
+                            r.serviceProviderId,
+                            r.bookingId
+                          )
                         }
                       >
                         Edit
                       </Button>
                       <div>
                         <div className="font-medium">
-                          Service #{r.serviceId}
+                          <ServiceName serviceId={r.serviceId} />
                         </div>
                         {r.comment && (
                           <div className="text-zinc-600">{r.comment}</div>
@@ -286,7 +416,9 @@ export default function ReviewsHome() {
                 <li key={r.reviewId} className="py-3">
                   <div className="flex items-center justify-between text-sm">
                     <div>
-                      <div className="font-medium">Service #{r.serviceId}</div>
+                      <div className="font-medium">
+                        <ServiceName serviceId={r.serviceId} />
+                      </div>
                       {r.comment && (
                         <div className="text-zinc-600">{r.comment}</div>
                       )}
@@ -311,5 +443,21 @@ export default function ReviewsHome() {
         </Card>
       )}
     </div>
+  );
+}
+
+function ServiceName({ serviceId, className, fallback }) {
+  const enabled = !!serviceId;
+  const q = useQuery({
+    queryKey: ["service", serviceId],
+    queryFn: () => Services.getById(serviceId),
+    enabled,
+    staleTime: 1000 * 60 * 5,
+  });
+  const name = q.data?.serviceName || q.data?.serviceTitle;
+  return (
+    <span className={className}>
+      {name || fallback || `Service #${serviceId}`}
+    </span>
   );
 }

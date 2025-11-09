@@ -4,8 +4,7 @@ public enum PaymentMethod {
     CREDIT_CARD,
     NET_BANKING,
     UPI,
-    WALLET,
-    CASH;
+    WALLET;
 
     public static PaymentMethod fromString(String method) {
         for (PaymentMethod pm : PaymentMethod.values()) {

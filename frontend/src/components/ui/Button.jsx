@@ -12,6 +12,8 @@ const variants = {
     "border border-zinc-300 bg-white hover:bg-zinc-50 dark:border-zinc-700 dark:bg-transparent dark:hover:bg-white/5",
   ghost: "hover:bg-zinc-100 dark:hover:bg-white/5",
   danger: "bg-rose-600 text-white hover:bg-rose-700",
+  success:
+    "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm dark:bg-emerald-500 dark:hover:bg-emerald-600",
 };
 
 const sizes = {

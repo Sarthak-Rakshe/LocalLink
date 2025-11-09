@@ -3,14 +3,12 @@ package com.sarthak.PaymentService.service;
 import com.sarthak.PaymentService.client.BookingClient;
 import com.sarthak.PaymentService.client.PayPalClient;
 import com.sarthak.PaymentService.config.shared.UserPrincipal;
-import com.sarthak.PaymentService.dto.BookingDto;
 import com.sarthak.PaymentService.dto.TransactionDto;
 import com.sarthak.PaymentService.dto.request.CreateOrderRequest;
 import com.sarthak.PaymentService.dto.request.TransactionFilter;
 import com.sarthak.PaymentService.dto.request.PaymentRequest;
 import com.sarthak.PaymentService.dto.response.CaptureOrderResponse;
 import com.sarthak.PaymentService.dto.response.CreateOrderResponse;
-import com.sarthak.PaymentService.dto.response.WebhookResponse;
 import com.sarthak.PaymentService.enums.SortField;
 import com.sarthak.PaymentService.exception.*;
 import com.sarthak.PaymentService.mapper.TransactionMapper;
@@ -32,13 +30,11 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalTime;
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.sarthak.PaymentService.enums.PaymentStatus.COMPLETED;
 import static com.sarthak.PaymentService.enums.PaymentStatus.DECLINED;
 import static com.sarthak.PaymentService.enums.PaymentStatus.PENDING;
-
 
 @Service
 @Slf4j
@@ -50,7 +46,7 @@ public class TransactionService {
     private final TransactionMapper mapper;
 
     public TransactionService(TransactionRepository transactionRepository, PayPalClient payPalClient,
-                              TransactionMapper mapper, BookingClient bookingClient) {
+            TransactionMapper mapper, BookingClient bookingClient) {
         this.transactionRepository = transactionRepository;
         this.payPalClient = payPalClient;
         this.bookingClient = bookingClient;
@@ -59,12 +55,13 @@ public class TransactionService {
 
     public TransactionDto getTransactionById(Long transactionId) {
         Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(()-> new TransactionNotFoundException("Transaction not found with id: " + transactionId));
+                .orElseThrow(() -> new TransactionNotFoundException("Transaction not found with id: " + transactionId));
 
         return mapper.toDto(transaction);
     }
 
-    public String createOrder(CreateOrderRequest createOrderRequest) throws IOException, InterruptedException {
+    public CreateOrderResponse createOrder(
+            CreateOrderRequest createOrderRequest) throws IOException, InterruptedException {
 
         LocalTime startTime = createOrderRequest.slot().startTime();
         LocalTime endTime = createOrderRequest.slot().endTime();
@@ -72,22 +69,37 @@ public class TransactionService {
                 .valueOf(createOrderRequest.pricePerHour() * (endTime.getHour() - startTime.getHour()) / 88.0)
                 .setScale(2, RoundingMode.HALF_UP);
 
-        log.info("Creating PayPal order for amount: {}", amount);
-        CreateOrderResponse response =  payPalClient.createOrder(amount.toString());
+        log.info("Creating PayPal order for amount: {} and requested payment method: {}", amount,
+                createOrderRequest.paymentMethod());
 
-        if(!response.status().equals("CREATED")){
+        // validate payment method: ensure it's one of supported enum values
+        String requestedMethod = createOrderRequest.paymentMethod();
+        PaymentMethod pm = com.sarthak.PaymentService.enums.PaymentMethod
+                .fromString(requestedMethod);
+        if (pm == null) {
+            log.error("Invalid payment method requested: {}", requestedMethod);
+            throw new com.sarthak.PaymentService.exception.InvalidPaymentMethodException(
+                    "Unsupported payment method: " + requestedMethod);
+        }
+
+        CreateOrderResponse response = payPalClient
+                .createOrder(amount.toString(), requestedMethod);
+
+        if (!response.status().equals("CREATED")) {
             log.error("Failed to create PayPal order. Status: {}", response.status());
             throw new FailedToCreatePaymentOrderException("PayPal return with status: " + response.status());
         }
 
-        log.info("PayPal order created with ID: {}", response.orderId());
-        return response.orderId();
+        log.info("PayPal order created with ID: {} and allowedPaymentMethod: {}", response.orderId(),
+                response.allowedPaymentMethod());
+
+        return response;
     }
 
-    public TransactionDto processPayment(PaymentRequest paymentRequest){
+    public TransactionDto processPayment(PaymentRequest paymentRequest) {
         String orderId = paymentRequest.orderId();
 
-        if(orderId == null || orderId.isEmpty()){
+        if (orderId == null || orderId.isEmpty()) {
             log.info("Order ID is null or empty in payment request");
             throw new IllegalArgumentException("Order ID cannot be null or empty");
         }
@@ -95,8 +107,13 @@ public class TransactionService {
         PaymentStatus paymentStatus = PENDING;
         try {
             CaptureOrderResponse captureOrderResponse = payPalClient.captureOrder(orderId);
-            log.info("Capture order response received for orderId: {} with status: {}", orderId, captureOrderResponse.status());
+            log.info("Capture order response received for orderId: {} with status: {}", orderId,
+                    captureOrderResponse.status());
             paymentStatus = PaymentStatus.fromString(captureOrderResponse.status());
+            if (paymentStatus == null) {
+                log.warn("Unknown PayPal status '{}' for order {} - treating as DECLINED", captureOrderResponse.status(), orderId);
+                paymentStatus = DECLINED;
+            }
         } catch (Exception e) {
             log.info("Exception occurred while capturing order for orderId: {}. Marking payment as DECLINED. Error: {}",
                     orderId, e.getMessage());
@@ -104,9 +121,10 @@ public class TransactionService {
         }
 
         Optional<Transaction> existingTransaction = transactionRepository.findByTransactionReference(orderId);
-        if(existingTransaction.isPresent()){
+        if (existingTransaction.isPresent()) {
             Long transactionId = existingTransaction.get().getTransactionId();
-            log.info("Transaction is already present for orderId: {}, updating status to {} if it is not completed", orderId, paymentStatus);
+            log.info("Transaction is already present for orderId: {}, updating status to {} if it is not completed",
+                    orderId, paymentStatus);
             return updateTransactionStatus(transactionId, paymentStatus);
         }
         bookingClient.updateBookingStatus(paymentRequest.bookingId(), mapPaymentToBookingStatus(paymentStatus));
@@ -114,7 +132,7 @@ public class TransactionService {
     }
 
     @Transactional
-    public TransactionDto createTransaction(PaymentRequest paymentRequest, PaymentStatus paymentStatus){
+    public TransactionDto createTransaction(PaymentRequest paymentRequest, PaymentStatus paymentStatus) {
         String orderId = paymentRequest.orderId();
 
         log.info("Creating transaction for orderId: {}", orderId);
@@ -137,7 +155,8 @@ public class TransactionService {
         return mapper.toDto(saved);
     }
 
-    public Page<TransactionDto> getAllTransactions(int page, int size, String sortBy, String sortDirection, TransactionFilter filter, UserPrincipal userPrincipal){
+    public Page<TransactionDto> getAllTransactions(int page, int size, String sortBy, String sortDirection,
+            TransactionFilter filter, UserPrincipal userPrincipal) {
 
         Pageable pageable = getPageable(page, size, sortBy, sortDirection);
         Long userId = userPrincipal.getUserId();
@@ -163,12 +182,13 @@ public class TransactionService {
     }
 
     @Transactional
-    public TransactionDto updateTransactionStatus(Long transactionId, PaymentStatus updatedStatus){
+    public TransactionDto updateTransactionStatus(Long transactionId, PaymentStatus updatedStatus) {
         Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(()-> new TransactionNotFoundException("Transaction not found with id: " + transactionId));
+                .orElseThrow(() -> new TransactionNotFoundException("Transaction not found with id: " + transactionId));
 
         if (transaction.getPaymentStatus() == updatedStatus || transaction.getPaymentStatus() == COMPLETED) {
-            log.info("No status update needed for transaction with id: {}. Current status: {}", transactionId, transaction.getPaymentStatus());
+            log.info("No status update needed for transaction with id: {}. Current status: {}", transactionId,
+                    transaction.getPaymentStatus());
             return mapper.toDto(transaction);
         }
         String bookingStatus = mapPaymentToBookingStatus(updatedStatus);
@@ -181,15 +201,44 @@ public class TransactionService {
         return mapper.toDto(transaction);
     }
 
+    public TransactionDto refreshPaymentStatus(String transactionReference) {
+        if (transactionReference == null || transactionReference.isBlank()) {
+            throw new TransactionReferenceNotValidException("Transaction reference must not be blank");
+        }
+        Optional<Transaction> optional = transactionRepository.findByTransactionReference(transactionReference);
+        Transaction existing = optional.orElseThrow(() ->
+                new TransactionNotFoundException("Transaction not found with reference: " + transactionReference));
+
+        PaymentStatus updatedStatus = PENDING;
+        try {
+            CaptureOrderResponse response = payPalClient.captureOrder(transactionReference);
+            updatedStatus = PaymentStatus.fromString(response.status());
+            if (updatedStatus == null) {
+                log.warn("Unknown PayPal status '{}' for reference {} - treating as DECLINED", response.status(), transactionReference);
+                updatedStatus = DECLINED;
+            }
+        } catch (Exception e) {
+            log.warn("Failed to capture order {} during refresh. Marking as DECLINED. Error: {}", transactionReference, e.getMessage());
+            updatedStatus = DECLINED;
+        }
+
+        // Reuse existing logic which also updates booking status and persists
+        return updateTransactionStatus(existing.getTransactionId(), updatedStatus);
+    }
+
     private SortField validateSortField(String field) {
         return SortField.fromString(field);
     }
 
     private Pageable getPageable(int page, int size, String sortBy, String sortDirection) {
-        if(page < 0) page = 0;
-        if(size <= 0) size = 10;
-        if(sortBy == null || sortBy.isEmpty()) sortBy = "createdAt";
-        if(sortDirection == null || (!sortDirection.equalsIgnoreCase("asc") && !sortDirection.equalsIgnoreCase("desc"))) {
+        if (page < 0)
+            page = 0;
+        if (size <= 0)
+            size = 10;
+        if (sortBy == null || sortBy.isEmpty())
+            sortBy = "createdAt";
+        if (sortDirection == null
+                || (!sortDirection.equalsIgnoreCase("asc") && !sortDirection.equalsIgnoreCase("desc"))) {
             sortDirection = "desc";
         }
         SortField sortField = validateSortField(sortBy);
@@ -208,31 +257,40 @@ public class TransactionService {
             case COMPLETED -> "CONFIRMED";
         };
     }
-/*
-    public void handlePaypalWebhookEvent(String payload){
-        WebhookResponse response = payPalClient.handleWebhookEvent(payload);
-        Transaction transaction = transactionRepository.findByTransactionReference(response.orderId())
-                .orElseThrow(()-> new TransactionNotFoundException("Transaction not found with reference: " + response.orderId()));
-        updateTransactionStatus(transaction.getTransactionId(), response.paymentStatus());
-        String bookingStatus;
-        if (Objects.requireNonNull(response.paymentStatus()) == COMPLETED) {
-            bookingStatus = "CONFIRMED";
-        } else if(response.paymentStatus() == DECLINED){
-            bookingStatus = "FAILED";
-        } else {
-            bookingStatus = "PENDING";
-        }
-        try{
-            BookingDto bookingDto = bookingClient.updateBookingStatus(transaction.getBookingId(), bookingStatus);
-        }catch (Exception e){
-            log.error("Failed to update booking status for bookingId: {}. Error: {}", transaction.getBookingId(),
-                    e.getMessage());
-        }
-    }
-
-    public boolean verifyWebhookSignature(String payload, String signature, String transmissionId, String transmissionTime, String certUrl, String authAlgo){
-        return payPalClient.verifyWebhookSignature(payload, signature, transmissionId, transmissionTime, certUrl, authAlgo);
-    }
-
- */
+    /*
+     * public void handlePaypalWebhookEvent(String payload){
+     * WebhookResponse response = payPalClient.handleWebhookEvent(payload);
+     * Transaction transaction =
+     * transactionRepository.findByTransactionReference(response.orderId())
+     * .orElseThrow(()-> new
+     * TransactionNotFoundException("Transaction not found with reference: " +
+     * response.orderId()));
+     * updateTransactionStatus(transaction.getTransactionId(),
+     * response.paymentStatus());
+     * String bookingStatus;
+     * if (Objects.requireNonNull(response.paymentStatus()) == COMPLETED) {
+     * bookingStatus = "CONFIRMED";
+     * } else if(response.paymentStatus() == DECLINED){
+     * bookingStatus = "FAILED";
+     * } else {
+     * bookingStatus = "PENDING";
+     * }
+     * try{
+     * BookingDto bookingDto =
+     * bookingClient.updateBookingStatus(transaction.getBookingId(), bookingStatus);
+     * }catch (Exception e){
+     * log.error("Failed to update booking status for bookingId: {}. Error: {}",
+     * transaction.getBookingId(),
+     * e.getMessage());
+     * }
+     * }
+     * 
+     * public boolean verifyWebhookSignature(String payload, String signature,
+     * String transmissionId, String transmissionTime, String certUrl, String
+     * authAlgo){
+     * return payPalClient.verifyWebhookSignature(payload, signature,
+     * transmissionId, transmissionTime, certUrl, authAlgo);
+     * }
+     * 
+     */
 }

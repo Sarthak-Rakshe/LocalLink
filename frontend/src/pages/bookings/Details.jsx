@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Availability, Bookings, Reviews } from "../../services/api.js";
+import { Availability, Bookings, Reviews, Users } from "../../services/api.js";
 import { useAvailableSlots } from "../../hooks/useAvailability.js";
 import Card from "../../components/ui/Card.jsx";
 import Button from "../../components/ui/Button.jsx";
@@ -42,10 +42,10 @@ function serviceLabel(b) {
 
 function providerLabel(b) {
   const id =
-    b?.serviceProviderId ??
-    b?.providerId ??
-    b?.provider?.id ??
-    b?.serviceProvider?.serviceProviderId ??
+    b?.serviceProviderId ||
+    b?.providerId ||
+    b?.provider?.id ||
+    b?.serviceProvider?.serviceProviderId ||
     b?.serviceProvider?.id;
   return (
     b?.providerName ||
@@ -109,6 +109,114 @@ export default function BookingDetails() {
       ? { ...q.data, ...(enrichedFromList || {}) }
       : enrichedFromList;
   }, [q.data, enrichedFromList]);
+  // Provider enrichment: if we only have an ID (label resolves to #id), fetch full provider profile
+  const providerId = useMemo(
+    () =>
+      b?.serviceProviderId ||
+      b?.providerId ||
+      b?.serviceProvider?.serviceProviderId ||
+      b?.serviceProvider?.id ||
+      b?.provider?.id ||
+      null,
+    [b]
+  );
+  const hasProviderName = useMemo(() => {
+    if (!b) return false;
+    const direct =
+      b?.providerName ||
+      b?.serviceProviderName ||
+      b?.serviceProvider?.serviceProviderName ||
+      b?.providerFullName ||
+      b?.serviceProviderFullName ||
+      b?.provider?.name ||
+      b?.serviceProvider?.name;
+    return !!direct;
+  }, [b]);
+  const providerInfoQ = useQuery({
+    queryKey: ["provider", providerId],
+    queryFn: () => Users.getProviderById(providerId),
+    enabled: !!providerId && !!b && !hasProviderName,
+  });
+  const displayProvider = useMemo(() => {
+    if (!b) return "";
+    if (providerInfoQ.data) {
+      const merged = {
+        ...b,
+        serviceProvider: {
+          ...(b.serviceProvider || {}),
+          ...providerInfoQ.data,
+        },
+        provider: { ...(b.provider || {}), ...providerInfoQ.data },
+        providerName:
+          providerInfoQ.data.providerName ||
+          providerInfoQ.data.name ||
+          providerInfoQ.data.username,
+      };
+      return providerLabel(merged);
+    }
+    return providerLabel(b);
+  }, [b, providerInfoQ.data]);
+
+  const serviceId = useMemo(
+    () => b?.serviceId ?? b?.service?.serviceId ?? b?.service?.id,
+    [b]
+  );
+
+  // Service enrichment: when only an ID is present, fetch the service to get a readable name
+  const hasServiceName = useMemo(() => {
+    if (!b) return false;
+    return (
+      b?.serviceName ||
+      b?.serviceTitle ||
+      b?.service?.serviceName ||
+      b?.service?.name ||
+      b?.service?.title
+    );
+  }, [b]);
+  const serviceInfoQ = useQuery({
+    queryKey: ["service", serviceId],
+    queryFn: async () =>
+      (await import("../../services/api.js")).Services.getById(serviceId),
+    enabled: !!serviceId && !!b && !hasServiceName,
+  });
+  const displayService = useMemo(() => {
+    if (!b) return "";
+    const s = serviceInfoQ.data;
+    if (s) {
+      const merged = { ...b, service: { ...(b.service || {}), ...s } };
+      return serviceLabel(merged);
+    }
+    return serviceLabel(b);
+  }, [b, serviceInfoQ.data]);
+
+  // Customer enrichment: show a readable customer name
+  const customerId = useMemo(
+    () => b?.customerId ?? b?.customer?.customerId ?? b?.customer?.id,
+    [b]
+  );
+  const hasCustomerName = useMemo(() => {
+    if (!b) return false;
+    return (
+      b?.customerName ||
+      b?.customer?.customerName ||
+      b?.customerFullName ||
+      b?.customer?.name
+    );
+  }, [b]);
+  const customerInfoQ = useQuery({
+    queryKey: ["customer", customerId],
+    queryFn: () => Users.getById(customerId),
+    enabled: !!customerId && !!b && !hasCustomerName,
+  });
+  const displayCustomer = useMemo(() => {
+    if (!b) return "";
+    const c = customerInfoQ.data;
+    if (c) {
+      const merged = { ...b, customer: { ...(b.customer || {}), ...c } };
+      return customerLabel(merged);
+    }
+    return customerLabel(b);
+  }, [b, customerInfoQ.data]);
 
   // If the current booking is RESCHEDULED and has a rescheduledToId, fetch the new booking details
   const isRescheduled = useMemo(
@@ -156,20 +264,6 @@ export default function BookingDetails() {
       : enrichedRescheduledFromList;
   }, [qRescheduled.data, enrichedRescheduledFromList]);
 
-  // Derive provider/service ids with fallbacks
-  const providerId = useMemo(
-    () =>
-      b?.serviceProviderId ??
-      b?.providerId ??
-      b?.serviceProvider?.serviceProviderId ??
-      b?.serviceProvider?.id ??
-      b?.provider?.id,
-    [b]
-  );
-  const serviceId = useMemo(
-    () => b?.serviceId ?? b?.service?.serviceId ?? b?.service?.id,
-    [b]
-  );
   const isCompleted = useMemo(
     () =>
       String(b?.bookingStatus ?? b?.status ?? "")
@@ -378,7 +472,7 @@ export default function BookingDetails() {
                     Service
                   </div>
                   <div className="truncate text-lg font-medium dark:text-zinc-100">
-                    {serviceLabel(b)}
+                    {displayService}
                   </div>
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -387,7 +481,7 @@ export default function BookingDetails() {
                       Provider
                     </div>
                     <div className="font-medium dark:text-zinc-100">
-                      {providerLabel(b)}
+                      {displayProvider}
                     </div>
                   </div>
                   <div>
@@ -431,7 +525,7 @@ export default function BookingDetails() {
               </div>
               <div>
                 <div className="text-sm text-zinc-500">Service</div>
-                <div className="font-medium">{serviceLabel(b)}</div>
+                <div className="font-medium">{displayService}</div>
               </div>
               <div>
                 <div className="text-sm text-zinc-500">Service category</div>
@@ -441,7 +535,7 @@ export default function BookingDetails() {
               </div>
               <div>
                 <div className="text-sm text-zinc-500">Provider</div>
-                <div className="font-medium">{providerLabel(b)}</div>
+                <div className="font-medium">{displayProvider}</div>
                 {b?.serviceProvider?.serviceProviderContact && (
                   <div className="text-xs text-zinc-500">
                     {b.serviceProvider.serviceProviderContact}
@@ -450,7 +544,7 @@ export default function BookingDetails() {
               </div>
               <div>
                 <div className="text-sm text-zinc-500">Customer</div>
-                <div className="font-medium">{customerLabel(b)}</div>
+                <div className="font-medium">{displayCustomer}</div>
                 {b?.customer?.customerContact && (
                   <div className="text-xs text-zinc-500">
                     {b.customer.customerContact}

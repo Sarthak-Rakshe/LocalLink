@@ -37,6 +37,10 @@ public class Review {
     private Long serviceProviderId;
 
     @NotNull
+    @Column(name = "booking_id", nullable = false)
+    private Long bookingId;
+
+    @NotNull
     @Column(name = "service_id", nullable = false)
     private Long serviceId;
 

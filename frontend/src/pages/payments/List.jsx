@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "../../context/AuthContext.jsx";
 import { Payments } from "../../services/api.js";
 import Card from "../../components/ui/Card.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
@@ -87,6 +88,23 @@ export default function PaymentsList() {
       toast.error(msg);
     },
   });
+
+  const refreshMutation = useMutation({
+    mutationFn: async (txId) => Payments.refresh(txId),
+    onSuccess: (_data, txId) => {
+      toast.success("Payment status refreshed");
+      qc.invalidateQueries({ queryKey: ["payments"] });
+    },
+    onError: (err) => {
+      const msg =
+        err?.response?.data?.message || err?.message || "Failed to refresh";
+      toast.error(msg);
+    },
+  });
+
+  const { user } = useAuth();
+  const isProvider = user?.userType === "PROVIDER";
+  const isCustomer = user?.userType === "CUSTOMER";
 
   return (
     <div className="space-y-4">
@@ -247,29 +265,48 @@ export default function PaymentsList() {
                     <div className="flex items-center justify-end gap-3">
                       {(t.paymentStatus === "PENDING" ||
                         t.paymentStatus === "DECLINED") && (
-                        <Button
-                          size="sm"
-                          onClick={() => retryMutation.mutate(t.transactionId)}
-                          disabled={
-                            isInCooldown(t.transactionId) ||
-                            retryMutation.isPending
-                          }
-                          title={
-                            isInCooldown(t.transactionId)
-                              ? `Retry in ${formatDuration(
-                                  getRemainingMs(t.transactionId)
-                                )}`
-                              : undefined
-                          }
-                        >
-                          {isInCooldown(t.transactionId)
-                            ? `Retry in ${formatDuration(
-                                getRemainingMs(t.transactionId)
-                              )}`
-                            : retryMutation.isPending
-                            ? "Retrying…"
-                            : "Retry"}
-                        </Button>
+                        <>
+                          {isProvider ? null : isCustomer ? (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                refreshMutation.mutate(t.transactionId)
+                              }
+                              disabled={refreshMutation.isPending}
+                            >
+                              {refreshMutation.isPending
+                                ? "Refreshing…"
+                                : "Refresh"}
+                            </Button>
+                          ) : (
+                            // non-customer (admin) keep retry behaviour
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                retryMutation.mutate(t.transactionId)
+                              }
+                              disabled={
+                                isInCooldown(t.transactionId) ||
+                                retryMutation.isPending
+                              }
+                              title={
+                                isInCooldown(t.transactionId)
+                                  ? `Retry in ${formatDuration(
+                                      getRemainingMs(t.transactionId)
+                                    )}`
+                                  : undefined
+                              }
+                            >
+                              {isInCooldown(t.transactionId)
+                                ? `Retry in ${formatDuration(
+                                    getRemainingMs(t.transactionId)
+                                  )}`
+                                : retryMutation.isPending
+                                ? "Retrying…"
+                                : "Retry"}
+                            </Button>
+                          )}
+                        </>
                       )}
                       <Link
                         to={`/payments/${t.transactionId}`}

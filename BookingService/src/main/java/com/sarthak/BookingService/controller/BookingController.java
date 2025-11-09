@@ -111,14 +111,6 @@ public class BookingController {
         );
     }
 
-    @GetMapping("/{serviceId}/{customerId}/bookings")
-    public ResponseEntity<BookingDto> getBookingByServiceAndCustomer(
-            @PathVariable Long serviceId,
-            @PathVariable Long customerId
-    ) {
-        return ResponseEntity.ok(bookingService.getBookingByServiceIdAndCustomerId(serviceId, customerId));
-    }
-
     @GetMapping("/my-summary")
     public ResponseEntity<BookingsSummaryResponse> getBookingSummary(Authentication authentication) {
         return ResponseEntity.ok(bookingService.getBookingSummary(authentication));

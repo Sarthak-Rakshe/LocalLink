@@ -5,6 +5,7 @@ import com.sarthak.ReviewService.dto.BookingDto;
 import com.sarthak.ReviewService.dto.ReviewAggregateResponse;
 import com.sarthak.ReviewService.dto.ReviewDto;
 import com.sarthak.ReviewService.dto.response.ProviderReviewAggregateResponse;
+import com.sarthak.ReviewService.exception.BookingNotCompleteException;
 import com.sarthak.ReviewService.exception.DuplicateReviewForSameServiceException;
 import com.sarthak.ReviewService.exception.EntityNotFoundException;
 import com.sarthak.ReviewService.mapper.ReviewMapper;
@@ -44,16 +45,13 @@ public class ReviewService {
 
     public ReviewDto validateAndAddReview(ReviewDto reviewDto){
         log.info("Validating if user is authorized to add review: {}", reviewDto);
-        BookingDto bookingDto = bookingClient.getBookingByServiceAndCustomer(reviewDto.serviceId(), reviewDto.customerId());
-        if(bookingDto != null){
-            if (bookingDto.bookingStatus().equalsIgnoreCase("COMPLETED")) {
-                log.info("User {} is authorized to add review for service {}", reviewDto.customerId(), reviewDto.serviceId());
-            } else {
-                log.error("User {} attempted to add review for service {} without completing the booking", reviewDto.customerId(), reviewDto.serviceId());
-                throw new AccessDeniedException("You can only review services you have completed booking for");
-            }
+        BookingDto bookingDto = bookingClient.getBookingDetails(reviewDto.bookingId());
+        if (bookingDto == null) {
+            throw new EntityNotFoundException("Booking not found for ID: " + reviewDto.bookingId());
         }
-        
+        if (!bookingDto.bookingStatus().equalsIgnoreCase("COMPLETED")){
+            throw new BookingNotCompleteException("Booking status should be complete to add review");
+        }
         return addReview(reviewDto);
     }
 
@@ -102,6 +100,7 @@ public class ReviewService {
                         .reviewId(r.getReviewId())
                         .serviceProviderId(r.getServiceProviderId())
                         .serviceId(r.getServiceId())
+                        .bookingId(r.getBookingId())
                         .customerId(r.getCustomerId())
                         .rating(r.getRating())
                         .comment(r.getComment())
@@ -118,6 +117,7 @@ public class ReviewService {
                         .reviewId(r.getReviewId())
                         .serviceProviderId(r.getServiceProviderId())
                         .serviceId(r.getServiceId())
+                        .bookingId(r.getBookingId())
                         .customerId(r.getCustomerId())
                         .rating(r.getRating())
                         .comment(r.getComment())

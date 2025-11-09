@@ -35,7 +35,6 @@ public class CleanupService {
         List<Transaction> oldPendingTransactions = transactionRepository
                 .findAllByPaymentStatusAndCreatedAtBefore(PaymentStatus.PENDING, cutOffTime)
                 .stream()
-                .filter(t -> t.getPaymentMethod() != PaymentMethod.CASH)
                 .toList();
 
         int batchSize = 30;
@@ -56,7 +55,6 @@ public class CleanupService {
             try {
                 transactionRepository.findById(t.getTransactionId()).ifPresent(managed -> {
                     // double-check current state to avoid unexpected inserts/duplicates
-                    if (managed.getPaymentMethod() == PaymentMethod.CASH) return;
                     if (managed.getPaymentStatus() != PaymentStatus.PENDING) return;
 
                     managed.setPaymentStatus(PaymentStatus.FAILED);

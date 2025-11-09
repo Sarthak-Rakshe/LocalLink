@@ -13,6 +13,7 @@ import { useMutation } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import PageHeader from "../../components/ui/PageHeader.jsx";
 import { Input } from "../../components/ui/Input.jsx";
+import Modal from "../../components/ui/Modal.jsx";
 import {
   CalendarDaysIcon,
   CheckCircleIcon,
@@ -143,7 +144,11 @@ export default function BookingsList() {
   const pageSize = 10;
   const id = user?.id ?? user?.userId;
   const isProvider = user?.userType === "PROVIDER";
+  const isCustomer = user?.userType === "CUSTOMER";
   const promptedRef = useRef(new Set());
+  // Holds the booking currently being confirmed (replaces window.confirm prompt)
+  const [completionPrompt, setCompletionPrompt] = useState(null); // { bookingId, endDate }
+  const promptOpen = isCustomer && !!completionPrompt;
 
   const query = useQuery({
     queryKey: ["bookings-list", id, isProvider, page, pageSize],
@@ -257,46 +262,62 @@ export default function BookingsList() {
   }
 
   useEffect(() => {
-    // Prompt once per eligible booking
+    // Discover next eligible booking needing completion confirmation.
     if (!items || items.length === 0) return;
-    (async () => {
-      for (const b of items) {
-        const bookingId = b.id ?? b.bookingId;
-        if (!bookingId) continue;
-        if (promptedRef.current.has(bookingId)) continue;
-        const status = String(b.status ?? b.bookingStatus ?? "").toUpperCase();
-        if (status !== "CONFIRMED") continue;
-        const endDate = toEndDate(b);
-        if (!endDate) continue;
-        const now = new Date();
-        if (now <= endDate) continue;
+    // Only customers should be prompted for completion confirmation
+    if (!isCustomer) return;
+    if (completionPrompt) return; // wait until current prompt resolved
+    for (const b of items) {
+      const bookingId = b.id ?? b.bookingId;
+      if (!bookingId) continue;
+      if (promptedRef.current.has(bookingId)) continue;
+      const status = String(b.status ?? b.bookingStatus ?? "").toUpperCase();
+      if (status !== "CONFIRMED") continue; // only confirm completed occurrence of confirmed bookings
+      const endDate = toEndDate(b);
+      if (!endDate) continue;
+      const now = new Date();
+      if (now <= endDate) continue; // not ended yet
+      promptedRef.current.add(bookingId);
+      setCompletionPrompt({ bookingId, endDate });
+      break; // show one at a time
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, completionPrompt, isCustomer]);
 
-        // Mark as prompted immediately to avoid re-asks on fast re-renders
-        promptedRef.current.add(bookingId);
-        const occurred = window.confirm(
-          `Booking #${bookingId} ended on ${endDate.toLocaleString()}. Did this booking occur?\nPress OK for Yes (mark Completed). Press Cancel for No (mark Cancelled).`
-        );
-        try {
-          if (occurred) {
-            await updateStatusMutation.mutateAsync({
-              bookingId,
-              status: "COMPLETED",
-            });
-          } else {
-            await updateStatusMutation.mutateAsync({
-              bookingId,
-              status: "CANCELLED",
-            });
-          }
-        } catch {
-          // errors are handled in onError; allow loop to continue
-          void 0;
-        }
-      }
-    })();
-    // We intentionally do not include mutation/query in deps to avoid loops
+  // Auto-close if the selected booking is no longer eligible (e.g., list refreshed)
+  useEffect(() => {
+    if (!completionPrompt) return;
+    const found = items.find(
+      (x) => (x.id ?? x.bookingId) === completionPrompt.bookingId
+    );
+    if (!found) return; // ignore if not present in current page
+    const status = String(
+      found.status ?? found.bookingStatus ?? ""
+    ).toUpperCase();
+    const endDate = toEndDate(found);
+    const now = new Date();
+    const stillEligible = status === "CONFIRMED" && endDate && now > endDate;
+    if (!stillEligible) setCompletionPrompt(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
+
+  function handleMarkCompleted() {
+    if (!completionPrompt) return;
+    updateStatusMutation.mutate({
+      bookingId: completionPrompt.bookingId,
+      status: "COMPLETED",
+    });
+    setCompletionPrompt(null);
+  }
+
+  function handleMarkCancelled() {
+    if (!completionPrompt) return;
+    updateStatusMutation.mutate({
+      bookingId: completionPrompt.bookingId,
+      status: "CANCELLED",
+    });
+    setCompletionPrompt(null);
+  }
 
   return (
     <div className="space-y-4">
@@ -355,8 +376,8 @@ export default function BookingsList() {
       </div>
 
       <Card>
-        {/* Search and status chips */}
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* Toolbar: search and status chips */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="sm:w-80">
             <Input
               value={search}
@@ -399,158 +420,135 @@ export default function BookingsList() {
             ))}
           </div>
         </div>
-
-        {query.isLoading && (
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-          </div>
-        )}
-        {query.isError && (
-          <Alert variant="error">
-            {query.error?.response?.data?.message || "Failed to load bookings."}
-          </Alert>
-        )}
-        {!query.isLoading && !query.isError && items.length === 0 && (
-          <EmptyState
-            title="No bookings"
-            message={
-              isProvider
-                ? "You have no bookings yet."
-                : "Create your first booking."
-            }
-          />
-        )}
-
-        {!query.isLoading && !query.isError && items.length > 0 && (
-          <div className="space-y-6">
-            {filtered.upcoming.length > 0 && (
-              <section>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Upcoming
-                </h3>
-                <ul className="divide-y divide-zinc-200 rounded-lg bg-white dark:divide-zinc-800 dark:bg-zinc-900">
-                  {filtered.upcoming.map((b) => {
-                    const id = b.id ?? b.bookingId;
-                    const status = b.status ?? b.bookingStatus;
-                    return (
-                      <li key={id} className="px-4 py-3">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="min-w-0">
-                            <Link
-                              to={`/bookings/${id}`}
-                              className="block truncate font-medium text-zinc-900 hover:underline dark:text-zinc-100"
-                            >
-                              {serviceLabel(b)}
-                            </Link>
-                            <div className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
-                              {formatDateRangeLabel(b)}
-                            </div>
-                            <div className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-                              Provider: {providerLabel(b)}
-                            </div>
-                            <div className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-                              Customer: {customerLabel(b)}
-                            </div>
+        {/* Lists */}
+        <div className="space-y-10">
+          {filtered.upcoming.length > 0 && (
+            <section>
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Upcoming
+              </h3>
+              <ul className="divide-y divide-zinc-200 overflow-hidden rounded-lg border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-700 dark:bg-zinc-900">
+                {filtered.upcoming.map((b) => {
+                  const id = b.id ?? b.bookingId;
+                  const status = b.status ?? b.bookingStatus;
+                  return (
+                    <li key={id} className="px-4 py-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <Link
+                            to={`/bookings/${id}`}
+                            className="block truncate font-medium text-zinc-900 hover:underline dark:text-zinc-100"
+                          >
+                            {serviceLabel(b)}
+                          </Link>
+                          <div className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
+                            {formatDateRangeLabel(b)}
                           </div>
-                          <div className="shrink-0 text-right">
-                            {status && (
-                              <Badge
-                                color={statusColor(status)}
-                                className="mt-0.5"
-                              >
-                                {capitalizeWords(status)}
-                              </Badge>
-                            )}
+                          <div className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+                            Provider: {providerLabel(b)}
+                          </div>
+                          <div className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+                            Customer: {customerLabel(b)}
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          {status && (
+                            <Badge
+                              color={statusColor(status)}
+                              className="mt-0.5"
+                            >
+                              {capitalizeWords(status)}
+                            </Badge>
+                          )}
+                          <div className="mt-2">
+                            <Button
+                              as={Link}
+                              to={`/bookings/${id}`}
+                              size="sm"
+                              variant="outline"
+                            >
+                              View
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+          {filtered.past.length > 0 && (
+            <section>
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Past
+              </h3>
+              <ul className="divide-y divide-zinc-200 overflow-hidden rounded-lg border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-700 dark:bg-zinc-900">
+                {filtered.past.map((b) => {
+                  const id = b.id ?? b.bookingId;
+                  const status = b.status ?? b.bookingStatus;
+                  const isCompleted = String(status || "")
+                    .toUpperCase()
+                    .includes("COMPLETED");
+                  return (
+                    <li key={id} className="px-4 py-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <Link
+                            to={`/bookings/${id}`}
+                            className="block truncate font-medium text-zinc-900 hover:underline dark:text-zinc-100"
+                          >
+                            {serviceLabel(b)}
+                          </Link>
+                          <div className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
+                            {formatDateRangeLabel(b)}
+                          </div>
+                          <div className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+                            Provider: {providerLabel(b)}
+                          </div>
+                          <div className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+                            Customer: {customerLabel(b)}
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          {status && (
+                            <Badge
+                              color={statusColor(status)}
+                              className="mt-0.5"
+                            >
+                              {capitalizeWords(status)}
+                            </Badge>
+                          )}
+                          {user?.userType === "CUSTOMER" && isCompleted && (
                             <div className="mt-2">
                               <Button
                                 as={Link}
-                                to={`/bookings/${id}`}
+                                to={`/reviews?serviceId=${
+                                  b.serviceId ?? ""
+                                }&providerId=${
+                                  b.serviceProviderId ?? b.providerId ?? ""
+                                }`}
+                                state={{
+                                  serviceId: b.serviceId ?? null,
+                                  providerId:
+                                    b.serviceProviderId ?? b.providerId ?? null,
+                                }}
                                 size="sm"
                                 variant="outline"
                               >
-                                View
+                                Add review
                               </Button>
                             </div>
-                          </div>
+                          )}
                         </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            )}
-
-            {filtered.past.length > 0 && (
-              <section>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Past
-                </h3>
-                <ul className="divide-y divide-zinc-200 rounded-lg bg-white dark:divide-zinc-800 dark:bg-zinc-900">
-                  {filtered.past.map((b) => {
-                    const id = b.id ?? b.bookingId;
-                    const status = b.status ?? b.bookingStatus;
-                    const isCompleted = String(status || "")
-                      .toUpperCase()
-                      .includes("COMPLETED");
-                    return (
-                      <li key={id} className="px-4 py-3">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="min-w-0">
-                            <Link
-                              to={`/bookings/${id}`}
-                              className="block truncate font-medium text-zinc-900 hover:underline dark:text-zinc-100"
-                            >
-                              {serviceLabel(b)}
-                            </Link>
-                            <div className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
-                              {formatDateRangeLabel(b)}
-                            </div>
-                            <div className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-                              Provider: {providerLabel(b)}
-                            </div>
-                            <div className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-                              Customer: {customerLabel(b)}
-                            </div>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            {status && (
-                              <Badge
-                                color={statusColor(status)}
-                                className="mt-0.5"
-                              >
-                                {capitalizeWords(status)}
-                              </Badge>
-                            )}
-                            {user?.userType === "CUSTOMER" && isCompleted && (
-                              <div className="mt-2">
-                                <Button
-                                  as={Link}
-                                  to={`/reviews?serviceId=${
-                                    b.serviceId ?? ""
-                                  }&providerId=${
-                                    b.serviceProviderId ?? b.providerId ?? ""
-                                  }`}
-                                  size="sm"
-                                  variant="outline"
-                                >
-                                  Add review
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            )}
-          </div>
-        )}
-
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+        </div>
         {total > pageSize && (
           <div className="mt-3 flex items-center justify-between text-sm">
             <div className="text-zinc-600">
@@ -576,6 +574,66 @@ export default function BookingsList() {
           </div>
         )}
       </Card>
+      {/* Completion confirmation modal */}
+      <Modal
+        open={isCustomer && !!completionPrompt}
+        onClose={() => setCompletionPrompt(null)}
+        title="Has the service been completed?"
+      >
+        {completionPrompt && (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                <CheckCircleIcon className="h-5 w-5" />
+              </div>
+              <div className="text-sm text-zinc-700 dark:text-zinc-300">
+                <p>
+                  Booking{" "}
+                  <span className="font-semibold">
+                    #{completionPrompt.bookingId}
+                  </span>{" "}
+                  ended on{" "}
+                  <span className="font-medium">
+                    {completionPrompt.endDate.toLocaleString()}
+                  </span>
+                  . Did this service actually occur?
+                </p>
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                  Confirming completion lets you leave a review and keeps your
+                  history accurate.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+              <Button
+                variant="ghost"
+                onClick={() => setCompletionPrompt(null)}
+                disabled={updateStatusMutation.isPending}
+              >
+                Remind me later
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleMarkCancelled}
+                disabled={updateStatusMutation.isPending}
+              >
+                {updateStatusMutation.isPending
+                  ? "Saving…"
+                  : "No, not completed"}
+              </Button>
+              <Button
+                variant="success"
+                onClick={handleMarkCompleted}
+                disabled={updateStatusMutation.isPending}
+              >
+                {updateStatusMutation.isPending
+                  ? "Saving…"
+                  : "Yes, mark completed"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

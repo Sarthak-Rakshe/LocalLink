@@ -76,14 +76,9 @@ public class Transaction {
         if (createdAt == null) {
             createdAt = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         }
-        if(transactionReference == null || transactionReference.isEmpty() && !(paymentMethod.equals(PaymentMethod.CASH))) {
+        if(transactionReference == null || transactionReference.isEmpty()) {
             throw new TransactionReferenceNotValidException("Transaction reference cannot be null or empty for non-cash payments");
         }
-        if(paymentMethod.equals(PaymentMethod.CASH)) {
-            this.paymentStatus = PaymentStatus.PENDING;
-            this.transactionReference = "CASH-" + bookingId + "-" + Instant.now().toEpochMilli();
-        }
-
     }
 
 }

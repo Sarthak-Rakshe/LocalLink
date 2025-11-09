@@ -2,7 +2,6 @@ package com.sarthak.ReviewService.mapper;
 
 import com.sarthak.ReviewService.dto.ReviewAggregateResponse;
 import com.sarthak.ReviewService.dto.ReviewDto;
-import com.sarthak.ReviewService.dto.response.ProviderReviewAggregateResponse;
 import com.sarthak.ReviewService.model.Review;
 import com.sarthak.ReviewService.model.ReviewAggregate;
 import org.springframework.stereotype.Component;
@@ -18,6 +17,7 @@ public class ReviewMapper {
                 .reviewId(review.getReviewId())
                 .serviceProviderId(review.getServiceProviderId())
                 .serviceId(review.getServiceId())
+                .bookingId(review.getBookingId())
                 .customerId(review.getCustomerId())
                 .rating(review.getRating())
                 .comment(review.getComment())
@@ -30,6 +30,7 @@ public class ReviewMapper {
         return Review.builder()
                 .serviceProviderId(reviewDto.serviceProviderId())
                 .serviceId(reviewDto.serviceId())
+                .bookingId(reviewDto.bookingId())
                 .customerId(reviewDto.customerId())
                 .rating(reviewDto.rating())
                 .comment(reviewDto.comment())

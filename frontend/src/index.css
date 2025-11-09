@@ -154,6 +154,25 @@
         transparent 60%
       );
   }
+
+  /* PayPal buttons wrapper: make the rendered iframe/buttons full-width and consistent height */
+  .paypal-wrapper {
+    @apply w-full max-w-md;
+  }
+  .paypal-wrapper > * {
+    width: 100% !important;
+  }
+  .paypal-wrapper iframe {
+    width: 100% !important;
+    min-height: 48px;
+  }
+  /* Dark theme: remove white gap between stacked PayPal iframes by darkening container */
+  .dark .paypal-wrapper .paypal-buttons {
+    background-color: #18181b !important; /* matches dark surface */
+  }
+  .dark .paypal-wrapper .paypal-buttons > * {
+    background-color: #18181b !important;
+  }
 }
 
 /* Improve native form-control theming in dark mode (select menus, date/time pickers) */

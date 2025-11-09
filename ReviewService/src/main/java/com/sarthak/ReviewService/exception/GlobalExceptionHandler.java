@@ -24,6 +24,11 @@ public class GlobalExceptionHandler {
         return new ExceptionResponse("Entity Not Found", ex.getMessage(),  HttpStatus.NOT_FOUND.value());
     }
 
+    @ExceptionHandler(BookingNotCompleteException.class)
+    public ExceptionResponse bookingNotComplete (BookingNotCompleteException ex) {
+        return new ExceptionResponse("Booking is not completed", ex.getMessage(), HttpStatus.BAD_REQUEST.value());
+    }
+
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ExceptionResponse> handleMissingParams(MissingServletRequestParameterException ex) {
         String name = ex.getParameterName();

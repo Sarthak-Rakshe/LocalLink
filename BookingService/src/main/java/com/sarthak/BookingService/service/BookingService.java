@@ -7,12 +7,9 @@ import com.sarthak.BookingService.config.shared.UserPrincipal;
 import com.sarthak.BookingService.dto.AvailabilityStatus;
 import com.sarthak.BookingService.dto.BookingDto;
 import com.sarthak.BookingService.dto.BookingStatusCount;
-import com.sarthak.BookingService.dto.CustomerDto;
 import com.sarthak.BookingService.dto.QueryFilter;
-import com.sarthak.BookingService.dto.ServiceDto;
 import com.sarthak.BookingService.dto.ServiceItemDto;
 import com.sarthak.BookingService.dto.ServiceListingQueryFilter;
-import com.sarthak.BookingService.dto.ServiceProviderDto;
 import com.sarthak.BookingService.dto.Slot;
 import com.sarthak.BookingService.dto.request.BookingRescheduleRequest;
 import com.sarthak.BookingService.dto.response.BookedSlotsResponse;
@@ -113,14 +110,6 @@ public class BookingService {
         Page<Booking> bookings = bookingRepository.findByServiceProviderId(serviceProviderId, pageable);
         log.info("Fetched {} bookings for serviceProviderId: {}", bookings.getTotalElements(), serviceProviderId);
         return bookings.map(bookingMapper::toDto);
-    }
-
-    public BookingDto getBookingByServiceIdAndCustomerId(Long serviceId, Long customerId){
-        Booking booking = bookingRepository.findByServiceIdAndCustomerId(serviceId, customerId)
-                .orElseThrow(() -> new BookingNotFoundException("Booking not found for serviceId: " + serviceId +
-                        " and customerId: " + customerId));
-        log.info("Fetched booking for serviceId: {} and customerId: {}", serviceId, customerId);
-        return bookingMapper.toDto(booking);
     }
 
     public BookedSlotsResponse getBookedSlotsForProviderOnDate(Long serviceProviderId, Long serviceId, LocalDate date) {
@@ -285,12 +274,6 @@ public class BookingService {
     private BookingDto completeBooking(Long bookingId) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new BookingNotFoundException("Booking not found"));
-
-        ZoneId zone = ZoneId.of("Asia/Kolkata");
-        ZonedDateTime bookingZdt = ZonedDateTime.of(booking.getBookingDate(), booking.getBookingStartTime(), zone);
-        if (bookingZdt.isBefore(ZonedDateTime.now(zone))) {
-            throw new IllegalStateException("Booking start time cannot be in the past");
-        }
 
         booking.setBookingStatus(COMPLETED);
         Booking updatedBooking = bookingRepository.save(booking);
