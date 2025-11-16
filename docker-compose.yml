@@ -5,8 +5,8 @@ services:
     ports:
       - "8080:8080"
     environment:
-      API_GATEWAY_PORT: 8088
-      CORS_ALLOWED_ORIGIN: http://localhost:5173
+      API_GATEWAY_PORT: 8080
+      CORS_ALLOWED_ORIGIN: http://localhost:80
 
       USER_SERVICE_URI: http://userservice:8086
       SERVICE_LISTING_SERVICE_URI: http://servicelistingservice:8085
@@ -130,10 +130,12 @@ services:
       - postgres
 
   frontend:
-    image: sarthakrakshe/frontend:latest
-    container_name: frontend
+    image: sarthakrakshe/frontend-locallink:latest
+    container_name: frontend-locallink
     ports:
       - "80:80"
+    environment:
+      VITE_API_BASE_URL: http://apigateway:8080
     depends_on:
       - apigateway
     restart: always
