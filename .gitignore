@@ -9,7 +9,6 @@
 **/*.pptx
 **/*.txt
 **/*.csv
-**/*.md
 
 # Ignore environment and IDE files
 .env
