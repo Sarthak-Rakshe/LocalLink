@@ -1,0 +1,155 @@
+services:
+  apigateway:
+    image: sarthakrakshe/apigateway:latest
+    container_name: apigateway
+    ports:
+      - "8080:8080"
+    environment:
+      API_GATEWAY_PORT: 8088
+      CORS_ALLOWED_ORIGIN: http://localhost:5173
+
+      USER_SERVICE_URI: http://userservice:8086
+      SERVICE_LISTING_SERVICE_URI: http://servicelistingservice:8085
+      BOOKING_SERVICE_URI: http://bookingservice:8082
+      AVAILABILITY_SERVICE_URI: http://availabilityservice:8081
+      PAYMENT_SERVICE_URI: http://paymentservice:8083
+      REVIEW_SERVICE_URI: http://reviewservice:8084
+    restart: always
+    depends_on:
+      - userservice
+      - servicelistingservice
+      - bookingservice
+      - availabilityservice
+      - paymentservice
+      - reviewservice
+
+  availabilityservice:
+    image: sarthakrakshe/availabilityservice:latest
+    container_name: availabilityservice
+    ports:
+      - "8081:8081"
+    environment:
+      DB_URL_AVAILABILITY_SERVICE: jdbc:postgresql://postgres:5432/availability_service_db
+      DB_NAME: user
+      DB_PASSWORD: password
+      JWT_SECRET: MyJwtSecretKey
+      JWT_EXPIRY: 3600000
+      JWT_REFRESH_EXPIRY: 86400000
+    restart: always
+    depends_on:
+      - postgres
+
+  bookingservice:
+    image: sarthakrakshe/bookingservice:latest
+    container_name: bookingservice
+    ports:
+      - "8082:8082"
+    environment:
+      DB_URL_BOOKING_SERVICE: jdbc:postgresql://postgres:5432/booking_service_db
+      DB_NAME: user
+      DB_PASSWORD: password
+      JWT_SECRET: MyJwtSecretKey
+      JWT_EXPIRY: 3600000
+      JWT_REFRESH_EXPIRY: 86400000
+    restart: always
+    depends_on:
+      - postgres
+
+  paymentservice:
+    image: sarthakrakshe/paymentservice:latest
+    container_name: paymentservice
+    ports:
+      - "8083:8083"
+    environment:
+      DB_URL_PAYMENT_SERVICE: jdbc:postgresql://postgres:5432/payment_service_db
+      DB_NAME: user
+      DB_PASSWORD: password
+      JWT_SECRET: MyJwtSecretKey
+      JWT_EXPIRY: 3600000
+      JWT_REFRESH_EXPIRY: 86400000
+      PAYPAL_CLIENT_ID: AZWiQr0pWKbmG3Ona_aUzEmhR4PER88aTtso4W07K2Ujadnme2iBxaWtXrFQVpKAGbLexhO_BhmQVA97
+      PAYPAL_CLIENT_SECRET: EIQLyciksDORGg25diwn12MRLehD__7ynWFRVhqwzVDsaVzmlgL5EL6f3_U1mNI_Z73vcmc_938CKRkO
+      PAYPAL_BASE_URL: https://api.sandbox.paypal.com
+    restart: always
+    depends_on:
+      - postgres
+
+  reviewservice:
+    image: sarthakrakshe/reviewservice:latest
+    container_name: reviewservice
+    ports:
+      - "8084:8084"
+    environment:
+      DB_URL_REVIEW_SERVICE: jdbc:postgresql://postgres:5432/review_service_db
+      DB_NAME: user
+      DB_PASSWORD: password
+      JWT_SECRET: MyJwtSecretKey
+      JWT_EXPIRY: 3600000
+      JWT_REFRESH_EXPIRY: 86400000
+      BOOKING_SERVICE_URI: http://bookingservice:8082
+    restart: always
+    depends_on:
+      - bookingservice
+      - postgres
+
+  servicelistingservice:
+    image: sarthakrakshe/servicelistingservice:latest
+    container_name: servicelistingservice
+    ports:
+      - "8085:8085"
+    environment:
+      DB_URL_SERVICE_LISTING_SERVICE: jdbc:postgresql://postgres:5432/service_listing_db
+      DB_NAME: user
+      DB_PASSWORD: password
+      JWT_SECRET: MyJwtSecretKey
+      JWT_EXPIRY: 3600000
+      JWT_REFRESH_EXPIRY: 86400000
+    restart: always
+    depends_on:
+      - postgres
+
+  userservice:
+    image: sarthakrakshe/userservice:latest
+    container_name: userservice
+    ports:
+      - "8086:8086"
+    environment:
+      DB_URL_USER_SERVICE: jdbc:postgresql://postgres:5432/user_service_db
+      DB_NAME: user
+      DB_PASSWORD: password
+      JWT_SECRET: MyJwtSecretKey
+      JWT_EXPIRY: 3600000
+      JWT_REFRESH_EXPIRY: 86400000
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: admin123
+      ADMIN_EMAIL: admin@gmail.com
+      REVIEW_SERVICE_URI: http://reviewservice:8084
+    restart: always
+    depends_on:
+      - reviewservice
+      - postgres
+
+  frontend:
+    image: sarthakrakshe/frontend:latest
+    container_name: frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - apigateway
+    restart: always
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: localdb
+    ports:
+      - "5432:5432"
+    restart: always
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U user" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
