@@ -80,7 +80,7 @@ jobs:
           if: ${{ needs.detect_changes.outputs.changed_services != '' }}
           run: |
             for SERVICE in ${{ needs.detect_changes.outputs.changed_services }}; do
-              IMAGE="${{ secrets.DOCKER_USERNAME }}/$SERVICE:latest"
+              IMAGE="${{ secrets.DOCKER_USERNAME }}/$(echo $SERVICE | tr '[:upper:]' '[:lower:]'):latest"
               echo "Dockerizing $SERVICE → $IMAGE"
               docker build -t "$IMAGE" "$SERVICE"
               docker push "$IMAGE"
