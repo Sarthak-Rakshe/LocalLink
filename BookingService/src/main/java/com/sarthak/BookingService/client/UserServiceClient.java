@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
 
-@FeignClient(name = "User-Service")
+@FeignClient(name = "User-Service", url = "${feign.client.config.user-service.url}")
 public interface UserServiceClient {
 
     @PostMapping("/api/users/getUsername/list")

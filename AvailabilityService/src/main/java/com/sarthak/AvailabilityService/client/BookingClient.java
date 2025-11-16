@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.LocalDate;
 
-@FeignClient(name = "Booking-Service")
+@FeignClient(name = "Booking-Service", url = "${feign.client.config.booking-service.url}")
 public interface BookingClient {
 
     @GetMapping("/api/bookings/bookedSlots/{serviceProviderId}/{serviceId}")

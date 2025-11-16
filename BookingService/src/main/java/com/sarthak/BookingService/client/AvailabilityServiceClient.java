@@ -6,7 +6,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-@FeignClient(name = "Availability-Service")
+@FeignClient(name = "Availability-Service", url = "${feign.client.config.availability-service.url}")
 public interface AvailabilityServiceClient {
 
     @PostMapping("/api/availability/status")

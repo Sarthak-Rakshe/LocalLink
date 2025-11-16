@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import java.util.List;
 import java.util.Map;
 
-@FeignClient("REVIEW-SERVICE")
+@FeignClient(name = "REVIEW-SERVICE", url = "${feign.client.config.review-service.url}")
 public interface ReviewServiceClient {
 
     @PostMapping("api/reviews/providers/aggregate")

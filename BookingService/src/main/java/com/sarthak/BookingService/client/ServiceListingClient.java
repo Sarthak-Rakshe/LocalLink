@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@FeignClient(name = "Service-Listing-Service")
+@FeignClient(name = "Service-Listing-Service", url = "${feign.client.config.service-listing-service.url}")
 public interface ServiceListingClient {
 
     @GetMapping("/api/services/all-services")
