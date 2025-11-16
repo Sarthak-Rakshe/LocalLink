@@ -135,7 +135,7 @@ services:
     ports:
       - "80:80"
     environment:
-      VITE_API_BASE_URL: http://apigateway:8080
+      VITE_API_BASE_URL: http://localhost:8080/api
     depends_on:
       - apigateway
     restart: always
