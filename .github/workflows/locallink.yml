@@ -18,7 +18,7 @@ jobs:
      - name: Detect changed services
        id: changed
        run: |
-        SERVICES="ApiGateway AvailabilityService BookingService PaymentsService ReviewService UserService ServiceListingService"
+        SERVICES="ApiGateway AvailabilityService BookingService PaymentService ReviewService UserService ServiceListingService"
         CHANGED_SERVICES=""
         for SERVICE in $SERVICES; do
           if git diff --name-only HEAD~1 HEAD --$SERVICE; then
