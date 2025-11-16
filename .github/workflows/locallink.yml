@@ -89,5 +89,5 @@ jobs:
         - name: Build & Push Frontend Image
           if: needs.detect_changes.outputs.frontend_changed == 'true'
           run: |
-            docker build -t ${{ secrets.DOCKER_USERNAME }}/frontend-locallink:latest frontend-locallink
+            docker build -t ${{ secrets.DOCKER_USERNAME }}/frontend-locallink:latest frontend
             docker push ${{ secrets.DOCKER_USERNAME }}/frontend-locallink:latest
