@@ -22,3 +22,5 @@
 **/.mvn/wrapper/maven-wrapper.jar
 **/build/
 **/.vscode/
+
+docker-compose.yml
