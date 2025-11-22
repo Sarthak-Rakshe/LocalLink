@@ -56,13 +56,13 @@ export default function NavBar({ onMenuToggle }) {
       .join("") || "U";
 
   return (
-    <header className="sticky top-0 z-20 bg-white/70 border-b border-white/60 backdrop-blur shadow-sm dark:bg-zinc-900/70 dark:border-zinc-800">
-      <div className="container-page flex h-14 items-center justify-between">
-        <div className="flex items-center gap-2">
+    <header className="sticky top-0 z-20 bg-white/80 border-b border-zinc-200/60 backdrop-blur-md shadow-sm dark:bg-zinc-900/80 dark:border-zinc-800/60">
+      <div className="container-page flex h-16 items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onMenuToggle}
-            className="inline-flex items-center justify-center rounded-md p-2.5 text-zinc-600 hover:bg-zinc-100"
+            className="inline-flex items-center justify-center rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 transition-colors"
             aria-label="Toggle menu"
             title="Toggle menu"
           >
@@ -70,48 +70,50 @@ export default function NavBar({ onMenuToggle }) {
           </button>
           <Link
             to="/dashboard"
-            className="bg-linear-to-r from-indigo-600 to-violet-600 bg-clip-text text-base font-semibold text-transparent outline-none focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-indigo-500/40 rounded-sm"
+            className="bg-gradient-to-r from-brand-600 to-accent-600 bg-clip-text text-xl font-bold text-transparent outline-none focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-brand-500/40 rounded-sm"
             title="Go to dashboard"
             aria-label="Go to dashboard"
           >
             LocalLink
           </Link>
         </div>
+
         {/* Search (hidden on very small screens) */}
         <form
           onSubmit={onSearch}
-          className="hidden md:block w-full max-w-lg mx-4"
+          className="hidden md:block w-full max-w-md mx-auto"
         >
           <label htmlFor="global-search" className="sr-only">
             Search services
           </label>
-          <div className="relative">
+          <div className="relative group">
             <input
               id="global-search"
-              className="input-base pl-9 pr-3 py-1.5"
-              placeholder="Search services, categories, providers..."
+              className="w-full rounded-full border border-zinc-200 bg-zinc-50/50 pl-10 pr-4 py-2 text-sm transition-all focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-100 dark:focus:bg-zinc-900"
+              placeholder="Search services..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            <MagnifyingGlassIcon className="pointer-events-none absolute left-2 top-1/2 size-5 -translate-y-1/2 text-zinc-400" />
+            <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-zinc-400 group-focus-within:text-brand-500 transition-colors" />
           </div>
         </form>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Mobile search affordance */}
           <button
             type="button"
             onClick={() => navigate("/services")}
-            className="md:hidden inline-flex items-center justify-center rounded-md p-2 text-zinc-600 hover:bg-zinc-100"
+            className="md:hidden inline-flex items-center justify-center rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
             aria-label="Search"
           >
             <MagnifyingGlassIcon className="size-5" />
           </button>
-          {/* Theme toggle: simple light <-> dark */}
+
+          {/* Theme toggle */}
           <button
             type="button"
             onClick={toggle}
-            className="inline-flex items-center justify-center rounded-md p-2 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5"
+            className="inline-flex items-center justify-center rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 transition-colors"
             aria-label="Toggle theme"
             title={
               resolvedTheme === "dark" ? "Switch to light" : "Switch to dark"
@@ -123,13 +125,14 @@ export default function NavBar({ onMenuToggle }) {
               <MoonIcon className="size-5" />
             )}
           </button>
+
           {user && (
             <Menu as="div" className="relative">
-              <Menu.Button className="hidden items-center gap-2 rounded-md p-1.5 hover:bg-zinc-100 dark:hover:bg-white/5 sm:flex">
-                <div className="grid size-8 place-items-center rounded-full bg-indigo-600 text-white text-sm font-semibold">
+              <Menu.Button className="hidden items-center gap-2 rounded-full p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors sm:flex pr-3 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700">
+                <div className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 text-white text-sm font-semibold shadow-sm">
                   {initials}
                 </div>
-                <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-200 max-w-[100px] truncate">
                   {displayName}
                 </span>
               </Menu.Button>
@@ -141,32 +144,39 @@ export default function NavBar({ onMenuToggle }) {
                 leaveFrom="transform opacity-100 scale-100"
                 leaveTo="transform opacity-0 scale-95"
               >
-                <Menu.Items className="absolute right-0 z-30 mt-2 w-48 overflow-hidden rounded-md border border-zinc-200 bg-white py-1 shadow-lg focus:outline-none dark:border-zinc-800 dark:bg-zinc-900">
-                  <Menu.Item>
-                    {({ active }) => (
-                      <button
-                        className={`block w-full px-3 py-2 text-left text-sm ${
-                          active ? "bg-zinc-50 dark:bg-white/5" : ""
-                        }`}
-                        onClick={() => navigate("/profile")}
-                      >
-                        My Profile
-                      </button>
-                    )}
-                  </Menu.Item>
-                  <div className="my-1 h-px bg-zinc-200 dark:bg-zinc-800" />
-                  <Menu.Item>
-                    {({ active }) => (
-                      <button
-                        className={`block w-full px-3 py-2 text-left text-sm text-rose-600 ${
-                          active ? "bg-rose-50 dark:bg-rose-500/10" : ""
-                        }`}
-                        onClick={handleLogout}
-                      >
-                        Logout
-                      </button>
-                    )}
-                  </Menu.Item>
+                <Menu.Items className="absolute right-0 z-30 mt-2 w-56 origin-top-right overflow-hidden rounded-xl border border-zinc-200 bg-white/90 backdrop-blur-lg shadow-xl focus:outline-none dark:border-zinc-800 dark:bg-zinc-900/90">
+                  <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
+                    <p className="text-sm font-medium text-zinc-900 dark:text-white truncate">
+                      {displayName}
+                    </p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                      {user.email}
+                    </p>
+                  </div>
+                  <div className="p-1">
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${active ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white" : "text-zinc-700 dark:text-zinc-300"
+                            }`}
+                          onClick={() => navigate("/profile")}
+                        >
+                          My Profile
+                        </button>
+                      )}
+                    </Menu.Item>
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${active ? "bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400" : "text-rose-600 dark:text-rose-400"
+                            }`}
+                          onClick={handleLogout}
+                        >
+                          Logout
+                        </button>
+                      )}
+                    </Menu.Item>
+                  </div>
                 </Menu.Items>
               </Transition>
             </Menu>
@@ -174,7 +184,7 @@ export default function NavBar({ onMenuToggle }) {
           {!user && (
             <button
               onClick={() => navigate("/login")}
-              className="btn btn-outline px-3 py-1.5"
+              className="btn btn-primary px-4 py-2 shadow-md shadow-brand-500/20"
             >
               Login
             </button>
@@ -184,3 +194,4 @@ export default function NavBar({ onMenuToggle }) {
     </header>
   );
 }
+

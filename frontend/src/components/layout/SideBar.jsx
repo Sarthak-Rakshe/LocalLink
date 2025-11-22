@@ -15,15 +15,17 @@ function NavItem({ to, icon, children }) {
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-          isActive
-            ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
-            : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5"
+        `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${isActive
+          ? "bg-brand-50 text-brand-700 shadow-sm dark:bg-brand-900/20 dark:text-brand-300"
+          : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100"
         }`
       }
       end
     >
-      <span className="size-5">{icon}</span>
+      <span className={`size-5 transition-colors ${({ isActive }) => isActive ? "text-brand-600 dark:text-brand-400" : "text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300"
+        }`}>
+        {icon}
+      </span>
       <span>{children}</span>
     </NavLink>
   );
@@ -34,10 +36,13 @@ export default function SideBar({ open, onClose }) {
   const isProvider = user?.userType === "PROVIDER";
 
   const content = (
-    <div className="flex h-full flex-col gap-2 p-3">
-      <div className="px-2 py-3 text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
-        Menu
+    <div className="flex h-full flex-col gap-1 p-4">
+      <div className="px-3 py-4 mb-2">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+          Menu
+        </h2>
       </div>
+
       {/* Dashboard (varies by user type) */}
       {isProvider ? (
         <NavItem
@@ -54,6 +59,7 @@ export default function SideBar({ open, onClose }) {
           Dashboard
         </NavItem>
       )}
+
       <NavItem to="/bookings" icon={<ListBulletIcon className="size-5" />}>
         Bookings
       </NavItem>
@@ -63,22 +69,32 @@ export default function SideBar({ open, onClose }) {
       <NavItem to="/reviews" icon={<StarIcon className="size-5" />}>
         Reviews
       </NavItem>
+
       {isProvider && (
-        <NavItem to="/availability" icon={<CalendarIcon className="size-5" />}>
-          Availability
-        </NavItem>
+        <>
+          <div className="my-2 mx-3 h-px bg-zinc-100 dark:bg-zinc-800/50" />
+          <div className="px-3 py-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+              Provider
+            </h2>
+          </div>
+          <NavItem to="/availability" icon={<CalendarIcon className="size-5" />}>
+            Availability
+          </NavItem>
+          <NavItem
+            to="/services/manage"
+            icon={<WrenchScrewdriverIcon className="size-5" />}
+          >
+            My Services
+          </NavItem>
+        </>
       )}
-      {isProvider && (
-        <NavItem
-          to="/services/manage"
-          icon={<WrenchScrewdriverIcon className="size-5" />}
-        >
-          My Services
+
+      <div className="mt-auto">
+        <NavItem to="/payments" icon={<CreditCardIcon className="size-5" />}>
+          Payments
         </NavItem>
-      )}
-      <NavItem to="/payments" icon={<CreditCardIcon className="size-5" />}>
-        Payments
-      </NavItem>
+      </div>
     </div>
   );
 
@@ -86,17 +102,15 @@ export default function SideBar({ open, onClose }) {
     <>
       {/* Mobile overlay */}
       <div
-        className={`fixed inset-0 z-30 bg-black/30 transition-opacity md:hidden ${
-          open ? "opacity-100" : "pointer-events-none opacity-0"
-        }`}
+        className={`fixed inset-0 z-30 bg-zinc-900/20 backdrop-blur-sm transition-opacity md:hidden ${open ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
         onClick={onClose}
       />
 
       {/* Drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white/70 backdrop-blur border-r border-white/60 shadow-sm transition-transform dark:bg-zinc-900/60 dark:border-zinc-800 ${
-          open ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white/80 backdrop-blur-md border-r border-zinc-200/60 shadow-xl transition-transform duration-300 ease-in-out dark:bg-zinc-900/80 dark:border-zinc-800/60 ${open ? "translate-x-0" : "-translate-x-full"
+          }`}
         aria-label="Sidebar"
         aria-hidden={!open}
       >

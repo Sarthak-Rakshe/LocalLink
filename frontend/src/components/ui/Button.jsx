@@ -1,25 +1,28 @@
 import clsx from "clsx";
 
 const base =
-  "inline-flex items-center justify-center gap-1.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 dark:focus-visible:ring-offset-zinc-950";
 
 const variants = {
   primary:
-    "bg-linear-to-r from-indigo-600 to-violet-600 text-white hover:brightness-95 shadow-sm",
+    "bg-brand-600 text-white shadow-md shadow-brand-500/20 hover:bg-brand-700 hover:shadow-lg hover:shadow-brand-500/30 active:scale-[0.98]",
   secondary:
-    "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/20 dark:hover:bg-indigo-500/20",
+    "bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900 dark:bg-zinc-900 dark:text-zinc-300 dark:border-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-white",
   outline:
-    "border border-zinc-300 bg-white hover:bg-zinc-50 dark:border-zinc-700 dark:bg-transparent dark:hover:bg-white/5",
-  ghost: "hover:bg-zinc-100 dark:hover:bg-white/5",
-  danger: "bg-rose-600 text-white hover:bg-rose-700",
+    "border border-zinc-200 bg-transparent text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white",
+  ghost:
+    "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white",
+  danger:
+    "bg-red-600 text-white shadow-sm hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700",
   success:
-    "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm dark:bg-emerald-500 dark:hover:bg-emerald-600",
+    "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700",
 };
 
 const sizes = {
-  sm: "h-8 px-2.5",
-  md: "h-9 px-3",
-  lg: "h-10 px-4",
+  sm: "h-8 px-3 text-xs",
+  md: "h-10 px-4 text-sm",
+  lg: "h-12 px-6 text-base",
+  icon: "h-10 w-10 p-2",
 };
 
 export default function Button({
@@ -45,14 +48,16 @@ export default function Button({
         className
       )}
       aria-busy={loading}
+      disabled={loading || props.disabled}
       {...props}
     >
-      {leftIcon && <span className="-ml-0.5 mr-0.5 size-4">{leftIcon}</span>}
-      {loading && (
-        <span className="mr-1 inline-block size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+      {loading ? (
+        <span className="mr-1 inline-block size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+      ) : (
+        leftIcon && <span className="-ml-0.5 size-4">{leftIcon}</span>
       )}
       <span>{children}</span>
-      {rightIcon && <span className="ml-0.5 -mr-0.5 size-4">{rightIcon}</span>}
+      {!loading && rightIcon && <span className="ml-0.5 -mr-0.5 size-4">{rightIcon}</span>}
     </CompTag>
   );
 }

@@ -72,8 +72,8 @@ services:
       JWT_SECRET: 9d810dd18cc5f2a765c125e39a1d22382dbcce1a311fc85c6a2cff682ae9618b
       JWT_EXPIRY: 3600000
       JWT_REFRESH_EXPIRY: 86400000
-      PAYPAL_CLIENT_ID: AZWiQr0pWKbmG3Ona_aUzEmhR4PER88aTtso4W07K2Ujadnme2iBxaWtXrFQVpKAGbLexhO_BhmQVA97
-      PAYPAL_CLIENT_SECRET: EIQLyciksDORGg25diwn12MRLehD__7ynWFRVhqwzVDsaVzmlgL5EL6f3_U1mNI_Z73vcmc_938CKRkO
+      PAYPAL_CLIENT_ID: paypal
+      PAYPAL_CLIENT_SECRET: paypal123
       PAYPAL_BASE_URL: https://api.sandbox.paypal.com
       BOOKING_SERVICE_URI: http://bookingservice:8082
     restart: always
