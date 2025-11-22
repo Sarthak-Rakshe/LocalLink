@@ -28,6 +28,7 @@ services:
     ports:
       - "8081:8081"
     environment:
+      AVAILABILITY_SERVICE_PORT: 8081
       DB_URL_AVAILABILITY_SERVICE: jdbc:postgresql://postgres:5432/availability_service_db
       DB_NAME: user
       DB_PASSWORD: password
@@ -44,6 +45,7 @@ services:
     ports:
       - "8082:8082"
     environment:
+      BOOKING_SERVICE_PORT: 8082
       DB_URL_BOOKING_SERVICE: jdbc:postgresql://postgres:5432/booking_service_db
       DB_NAME: user
       DB_PASSWORD: password
@@ -60,6 +62,7 @@ services:
     ports:
       - "8083:8083"
     environment:
+      PAYMENT_SERVICE_PORT: 8083
       DB_URL_PAYMENT_SERVICE: jdbc:postgresql://postgres:5432/payment_service_db
       DB_NAME: user
       DB_PASSWORD: password
@@ -79,6 +82,7 @@ services:
     ports:
       - "8084:8084"
     environment:
+      REVIEW_SERVICE_PORT: 8084
       DB_URL_REVIEW_SERVICE: jdbc:postgresql://postgres:5432/review_service_db
       DB_NAME: user
       DB_PASSWORD: password
@@ -97,6 +101,7 @@ services:
     ports:
       - "8085:8085"
     environment:
+      SERVICE_LISTING_SERVICE_PORT: 8085
       DB_URL_SERVICE_LISTING_SERVICE: jdbc:postgresql://postgres:5432/service_listing_db
       DB_NAME: user
       DB_PASSWORD: password
@@ -113,6 +118,7 @@ services:
     ports:
       - "8086:8086"
     environment:
+      USER_SERVICE_PORT: 8086
       DB_URL_USER_SERVICE: jdbc:postgresql://postgres:5432/user_service_db
       DB_NAME: user
       DB_PASSWORD: password
