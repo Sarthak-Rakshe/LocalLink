@@ -14,28 +14,33 @@ jobs:
       changed_services: ${{steps.changed.outputs.services}}
       frontend_changed: ${{steps.changed.outputs.frontend}}
     steps:
-     - uses: actions/checkout@v3
-     - name: Detect changed services
-       id: changed
-       run: |
-        SERVICES="ApiGateway AvailabilityService BookingService PaymentService ReviewService UserService ServiceListingService"
-        CHANGED_SERVICES=""
-        for SERVICE in $SERVICES; do
-          if git diff --name-only HEAD~1 HEAD --$SERVICE; then
-            echo "$SERVICE unchanged"
-          else
-            echo "$SERVICE changed"
-            CHANGED_SERVICES="$CHANGED_SERVICES $SERVICE"
-        fi
-        done
-        FRONTEND_CHANGED="false"
-                 if ! git diff --quiet HEAD~1 HEAD -- frontend; then
-                   FRONTEND_CHANGED="true"
-                 fi
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2   # IMPORTANT
 
-                 echo "services=$CHANGED_SERVICES" >> $GITHUB_OUTPUT
-                 echo "frontend=$FRONTEND_CHANGED" >> $GITHUB_OUTPUT
+      - name: Detect changed services
+        id: changed
+        run: |
+          SERVICES="ApiGateway AvailabilityService BookingService PaymentService ReviewService UserService ServiceListingService"
+          CHANGED_SERVICES=""
 
+          for SERVICE in $SERVICES; do
+            if git diff --name-only HEAD~1 HEAD -- "$SERVICE" | grep -q .; then
+              echo "$SERVICE changed"
+              CHANGED_SERVICES="$CHANGED_SERVICES $SERVICE"
+            else
+              echo "$SERVICE unchanged"
+            fi
+          done
+
+          FRONTEND_CHANGED="false"
+          if git diff --name-only HEAD~1 HEAD -- frontend | grep -q .; then
+            FRONTEND_CHANGED="true"
+          fi
+
+          echo "services=$CHANGED_SERVICES" >> $GITHUB_OUTPUT
+          echo "frontend=$FRONTEND_CHANGED" >> $GITHUB_OUTPUT
+  
   build:
     needs: detect_changes
     runs-on: ubuntu-latest
