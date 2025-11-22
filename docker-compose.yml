@@ -6,8 +6,7 @@ services:
       - "8080:8080"
     environment:
       API_GATEWAY_PORT: 8080
-      CORS_ALLOWED_ORIGIN: http://localhost:80
-
+      CORS_ALLOWED_ORIGIN: http://localhost
       USER_SERVICE_URI: http://userservice:8086
       SERVICE_LISTING_SERVICE_URI: http://servicelistingservice:8085
       BOOKING_SERVICE_URI: http://bookingservice:8082
@@ -147,6 +146,8 @@ services:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       POSTGRES_DB: localdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     restart: always
@@ -155,3 +156,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+volumes:
+  postgres_data:
