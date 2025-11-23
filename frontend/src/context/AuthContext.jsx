@@ -35,9 +35,29 @@ export function AuthProvider({ children }) {
 
   const register = async (payload) => {
     await AuthService.register(payload);
-    const me = await AuthService.me();
-    setUser(me);
-    return me;
+    try {
+      // Try to get user profile directly (works if register returns token)
+      const me = await AuthService.me();
+      setUser(me);
+      return me;
+    } catch (err) {
+      // If me() fails (no token), try explicit login
+      // payload has { userName, userEmail, userPassword, ... }
+      // Login expects { username, password }
+      // Map payload fields to login credentials
+      const loginCreds = {
+        username: payload.userName || payload.username,
+        password: payload.userPassword || payload.password,
+      };
+
+      if (loginCreds.username && loginCreds.password) {
+        await AuthService.login(loginCreds);
+        const me = await AuthService.me();
+        setUser(me);
+        return me;
+      }
+      throw err; // Re-throw if we can't auto-login
+    }
   };
 
   const logout = async () => {
