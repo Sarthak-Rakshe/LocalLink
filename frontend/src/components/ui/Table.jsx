@@ -1,6 +1,6 @@
 export function Table({ children }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+    <div className="overflow-x-auto rounded-lg border border-[var(--border-base)]">
       <table className="w-full border-collapse text-sm text-left">{children}</table>
     </div>
   );
@@ -8,7 +8,7 @@ export function Table({ children }) {
 
 export function THead({ children }) {
   return (
-    <thead className="bg-zinc-50 text-zinc-500 dark:bg-zinc-900/50 dark:text-zinc-400">
+    <thead className="bg-[var(--bg-surface-hover)] text-muted">
       {children}
     </thead>
   );
@@ -16,7 +16,7 @@ export function THead({ children }) {
 
 export function TBody({ children }) {
   return (
-    <tbody className="divide-y divide-zinc-200 bg-white dark:divide-zinc-800 dark:bg-transparent">
+    <tbody className="divide-y divide-[var(--border-subtle)] bg-[var(--bg-surface)]">
       {children}
     </tbody>
   );
@@ -24,7 +24,7 @@ export function TBody({ children }) {
 
 export function TR({ children }) {
   return (
-    <tr className="transition-colors hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50">
+    <tr className="transition-colors hover:bg-[var(--bg-surface-hover)]">
       {children}
     </tr>
   );
@@ -42,7 +42,7 @@ export function TH({ children, className }) {
 
 export function TD({ children, className }) {
   return (
-    <td className={`px-4 py-3 align-middle text-zinc-700 dark:text-zinc-300 ${className || ""}`}>
+    <td className={`px-4 py-3 align-middle text-default ${className || ""}`}>
       {children}
     </td>
   );

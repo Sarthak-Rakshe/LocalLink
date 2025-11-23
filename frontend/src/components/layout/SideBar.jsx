@@ -17,7 +17,7 @@ function NavItem({ to, icon, children }) {
       className={({ isActive }) =>
         `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${isActive
           ? "bg-brand-50 text-brand-700 shadow-sm dark:bg-brand-900/20 dark:text-brand-300"
-          : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100"
+          : "text-muted hover:bg-[var(--bg-surface-hover)] hover:text-default dark:text-muted dark:hover:bg-[var(--bg-surface-hover)] dark:hover:text-default"
         }`
       }
       end
@@ -38,7 +38,7 @@ export default function SideBar({ open, onClose }) {
   const content = (
     <div className="flex h-full flex-col gap-1 p-4">
       <div className="px-3 py-4 mb-2">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-muted">
           Menu
         </h2>
       </div>
@@ -72,9 +72,9 @@ export default function SideBar({ open, onClose }) {
 
       {isProvider && (
         <>
-          <div className="my-2 mx-3 h-px bg-zinc-100 dark:bg-zinc-800/50" />
+          <div className="my-2 mx-3 h-px bg-[var(--border-subtle)]" />
           <div className="px-3 py-2">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-muted">
               Provider
             </h2>
           </div>
@@ -109,7 +109,7 @@ export default function SideBar({ open, onClose }) {
 
       {/* Drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white/80 backdrop-blur-md border-r border-zinc-200/60 shadow-xl transition-transform duration-300 ease-in-out dark:bg-zinc-900/80 dark:border-zinc-800/60 ${open ? "translate-x-0" : "-translate-x-full"
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-[var(--bg-surface)]/80 backdrop-blur-md border-r border-[var(--border-subtle)] shadow-xl transition-transform duration-300 ease-in-out ${open ? "translate-x-0" : "-translate-x-full"
           }`}
         aria-label="Sidebar"
         aria-hidden={!open}

@@ -29,14 +29,14 @@ export default function Login() {
     <div className="min-h-screen grid place-items-center app-bg-gradient p-4">
       <div className="w-full max-w-md card glass-panel overflow-hidden animate-fade-in">
         {/* Header */}
-        <div className="p-8 text-center border-b border-zinc-100 dark:border-zinc-800/50">
+        <div className="p-8 text-center border-b border-[var(--border-subtle)]">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Welcome back</h1>
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+          <h1 className="text-2xl font-bold text-default">Welcome back</h1>
+          <p className="mt-2 text-sm text-muted">
             Enter your credentials to access your account
           </p>
         </div>
@@ -44,7 +44,7 @@ export default function Login() {
         {/* Form */}
         <form onSubmit={onSubmit} className="p-8 space-y-6">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Username</label>
+            <label className="text-sm font-medium text-default">Username</label>
             <div className="relative">
               <input
                 type="text"
@@ -67,10 +67,10 @@ export default function Login() {
               </svg>
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Password</label>
+              <label className="text-sm font-medium text-default">Password</label>
               <Link to="/forgot-password" className="text-xs font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400">
                 Forgot password?
               </Link>
@@ -127,8 +127,8 @@ export default function Login() {
           </button>
         </form>
 
-        <div className="bg-zinc-50/50 p-6 text-center dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800/50">
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <div className="bg-[var(--bg-surface-hover)] p-6 text-center border-t border-[var(--border-subtle)]">
+          <p className="text-sm text-muted">
             Don't have an account?{" "}
             <Link className="font-medium text-brand-600 hover:text-brand-500 hover:underline dark:text-brand-400" to="/register">
               Create account

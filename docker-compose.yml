@@ -35,6 +35,7 @@ services:
       JWT_SECRET: 9d810dd18cc5f2a765c125e39a1d22382dbcce1a311fc85c6a2cff682ae9618b
       JWT_EXPIRY: 3600000
       JWT_REFRESH_EXPIRY: 86400000
+      BOOKING_SERVICE_URI: http://bookingservice:8082
     restart: always
     depends_on:
       - postgres

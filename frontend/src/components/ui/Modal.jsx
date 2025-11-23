@@ -13,14 +13,14 @@ export default function Modal({ open, onClose, title, children, footer }) {
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
         aria-hidden={!open}
       >
-        <div className="w-full max-w-lg rounded-xl border bg-white shadow-xl">
+        <div className="w-full max-w-lg rounded-xl border border-[var(--border-base)] bg-[var(--bg-surface)] shadow-xl">
           {(title || onClose) && (
-            <div className="flex items-center justify-between border-b px-4 py-3">
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
               <h3 className="text-sm font-semibold">{title}</h3>
               {onClose && (
                 <button
                   type="button"
-                  className="rounded p-1 text-zinc-500 hover:bg-zinc-100"
+                  className="rounded p-1 text-muted hover:bg-[var(--bg-surface-hover)]"
                   onClick={onClose}
                   aria-label="Close"
                 >
@@ -30,7 +30,7 @@ export default function Modal({ open, onClose, title, children, footer }) {
             </div>
           )}
           <div className="p-4">{children}</div>
-          {footer && <div className="border-t px-4 py-3">{footer}</div>}
+          {footer && <div className="border-t border-[var(--border-subtle)] px-4 py-3">{footer}</div>}
         </div>
       </div>
     </Fragment>

@@ -4,7 +4,7 @@ export function Input({ className, ...props }) {
   return (
     <input
       className={clsx(
-        "w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition-all placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-100 dark:placeholder:text-zinc-600 dark:focus:border-brand-500",
+        "input-base",
         className
       )}
       {...props}

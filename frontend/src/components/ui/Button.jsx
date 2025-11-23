@@ -7,11 +7,11 @@ const variants = {
   primary:
     "bg-brand-600 text-white shadow-md shadow-brand-500/20 hover:bg-brand-700 hover:shadow-lg hover:shadow-brand-500/30 active:scale-[0.98]",
   secondary:
-    "bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900 dark:bg-zinc-900 dark:text-zinc-300 dark:border-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-white",
+    "bg-[var(--bg-surface)] text-default border border-[var(--border-base)] hover:bg-[var(--bg-surface-hover)] hover:text-default dark:bg-[var(--bg-surface)] dark:text-default dark:border-[var(--border-base)] dark:hover:bg-[var(--bg-surface-hover)] dark:hover:text-default",
   outline:
-    "border border-zinc-200 bg-transparent text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white",
+    "border border-[var(--border-base)] bg-transparent text-default hover:bg-[var(--bg-surface-hover)] hover:text-default dark:border-[var(--border-base)] dark:text-default dark:hover:bg-[var(--bg-surface-hover)] dark:hover:text-default",
   ghost:
-    "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white",
+    "text-muted hover:bg-[var(--bg-surface-hover)] hover:text-default dark:text-muted dark:hover:bg-[var(--bg-surface-hover)] dark:hover:text-default",
   danger:
     "bg-red-600 text-white shadow-sm hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700",
   success:

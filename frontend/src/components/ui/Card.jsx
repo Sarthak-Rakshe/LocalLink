@@ -12,11 +12,10 @@ export default function Card({
   const [open, setOpen] = useState(defaultOpen);
   return (
     <section
-      className={`rounded-xl border border-zinc-200/60 bg-white/80 shadow-sm backdrop-blur-sm transition-all dark:border-zinc-800/60 dark:bg-zinc-900/80 ${className ?? ""
-        }`}
+      className={`card ${className ?? ""}`}
     >
       {(title || action || description) && (
-        <div className="flex items-start justify-between gap-4 border-b border-zinc-100 px-6 py-4 dark:border-zinc-800/50">
+        <div className="card-header">
           <button
             type="button"
             className={`group -m-2 flex min-w-0 flex-1 items-start gap-3 p-2 text-left ${collapsible ? "cursor-pointer" : "cursor-default"
@@ -40,12 +39,12 @@ export default function Card({
             )}
             <div className="min-w-0">
               {title && (
-                <h3 className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                <h3 className="truncate text-base font-semibold text-default">
                   {title}
                 </h3>
               )}
               {description && (
-                <p className="mt-1 line-clamp-2 text-sm text-zinc-500 dark:text-zinc-400">
+                <p className="mt-1 line-clamp-2 text-sm text-muted">
                   {description}
                 </p>
               )}
@@ -54,7 +53,7 @@ export default function Card({
           {action}
         </div>
       )}
-      {(!collapsible || open) && <div className="p-6 animate-slide-up">{children}</div>}
+      {(!collapsible || open) && <div className="card-body animate-slide-up">{children}</div>}
     </section>
   );
 }
