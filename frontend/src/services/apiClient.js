@@ -55,6 +55,7 @@ api.interceptors.response.use(
     if (err?.response?.status === 401) {
       // Clear token on unauthorized; allow app to react (e.g., redirect on next guarded render)
       clearAuthToken();
+      window.dispatchEvent(new Event("auth:unauthorized"));
     }
     return Promise.reject(err);
   }

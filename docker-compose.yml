@@ -14,6 +14,10 @@ services:
       PAYMENT_SERVICE_URI: http://paymentservice:8083
       REVIEW_SERVICE_URI: http://reviewservice:8084
       JAVA_OPTS: "-Xms128m -Xmx128m"
+    deploy:
+      resources:
+        limits:
+          memory: 200m
     restart: always
     depends_on:
       - userservice
@@ -38,6 +42,10 @@ services:
       JWT_REFRESH_EXPIRY: 86400000
       BOOKING_SERVICE_URI: http://bookingservice:8082
       JAVA_OPTS: "-Xms128m -Xmx128m"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
     restart: always
     depends_on:
       - postgres
@@ -59,6 +67,10 @@ services:
       USER_SERVICE_URI: http://userservice:8086
       SERVICE_LISTING_SERVICE_URI: http://servicelistingservice:8085
       JAVA_OPTS: "-Xms128m -Xmx128m"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
     restart: always
     depends_on:
         - postgres
@@ -80,8 +92,12 @@ services:
       PAYPAL_CLIENT_SECRET: paypal123
       PAYPAL_BASE_URL: https://api.sandbox.paypal.com
       BOOKING_SERVICE_URI: http://bookingservice:8082
-      JAVA_OPTS: "-Xms128m -Xmx128m"
+      JAVA_OPTS: "-Xms96m -Xmx96m"
     restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 200m
     depends_on:
       - postgres
 
@@ -100,6 +116,10 @@ services:
       JWT_REFRESH_EXPIRY: 86400000
       BOOKING_SERVICE_URI: http://bookingservice:8082
       JAVA_OPTS: "-Xms128m -Xmx128m"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
     restart: always
     depends_on:
       - postgres
@@ -119,6 +139,10 @@ services:
       JWT_REFRESH_EXPIRY: 86400000
       REVIEW_SERVICE_URI: http://reviewservice:8084
       JAVA_OPTS: "-Xms128m -Xmx128m"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
     restart: always
     depends_on:
       - postgres
@@ -141,6 +165,10 @@ services:
       ADMIN_EMAIL: admin@gmail.com
       REVIEW_SERVICE_URI: http://reviewservice:8084
       JAVA_OPTS: "-Xms128m -Xmx128m"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
     restart: always
     depends_on:
       - postgres

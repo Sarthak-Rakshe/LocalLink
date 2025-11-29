@@ -21,8 +21,19 @@ export function AuthProvider({ children }) {
         if (active) setLoading(false);
       }
     })();
+
+    const handleUnauthorized = () => {
+      if (active) {
+        setUser(null);
+        setLoading(false);
+      }
+    };
+
+    window.addEventListener("auth:unauthorized", handleUnauthorized);
+
     return () => {
       active = false;
+      window.removeEventListener("auth:unauthorized", handleUnauthorized);
     };
   }, []);
 
