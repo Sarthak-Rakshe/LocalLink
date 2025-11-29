@@ -13,6 +13,7 @@ services:
       AVAILABILITY_SERVICE_URI: http://availabilityservice:8081
       PAYMENT_SERVICE_URI: http://paymentservice:8083
       REVIEW_SERVICE_URI: http://reviewservice:8084
+      JAVA_OPTS: "-Xms128m -Xmx128m"
     restart: always
     depends_on:
       - userservice
@@ -36,6 +37,7 @@ services:
       JWT_EXPIRY: 3600000
       JWT_REFRESH_EXPIRY: 86400000
       BOOKING_SERVICE_URI: http://bookingservice:8082
+      JAVA_OPTS: "-Xms128m -Xmx128m"
     restart: always
     depends_on:
       - postgres
@@ -56,6 +58,7 @@ services:
       AVAILABILITY_SERVICE_URI: http://availabilityservice:8081
       USER_SERVICE_URI: http://userservice:8086
       SERVICE_LISTING_SERVICE_URI: http://servicelistingservice:8085
+      JAVA_OPTS: "-Xms128m -Xmx128m"
     restart: always
     depends_on:
         - postgres
@@ -77,6 +80,7 @@ services:
       PAYPAL_CLIENT_SECRET: paypal123
       PAYPAL_BASE_URL: https://api.sandbox.paypal.com
       BOOKING_SERVICE_URI: http://bookingservice:8082
+      JAVA_OPTS: "-Xms128m -Xmx128m"
     restart: always
     depends_on:
       - postgres
@@ -95,6 +99,7 @@ services:
       JWT_EXPIRY: 3600000
       JWT_REFRESH_EXPIRY: 86400000
       BOOKING_SERVICE_URI: http://bookingservice:8082
+      JAVA_OPTS: "-Xms128m -Xmx128m"
     restart: always
     depends_on:
       - postgres
@@ -113,6 +118,7 @@ services:
       JWT_EXPIRY: 3600000
       JWT_REFRESH_EXPIRY: 86400000
       REVIEW_SERVICE_URI: http://reviewservice:8084
+      JAVA_OPTS: "-Xms128m -Xmx128m"
     restart: always
     depends_on:
       - postgres
@@ -134,6 +140,7 @@ services:
       ADMIN_PASSWORD: admin123
       ADMIN_EMAIL: admin@gmail.com
       REVIEW_SERVICE_URI: http://reviewservice:8084
+      JAVA_OPTS: "-Xms128m -Xmx128m"
     restart: always
     depends_on:
       - postgres
