@@ -47,8 +47,6 @@ services:
         limits:
           memory: 256m
     restart: always
-    depends_on:
-      - postgres
 
   bookingservice:
     image: sarthakrakshe/bookingservice:latest
@@ -72,8 +70,6 @@ services:
         limits:
           memory: 256m
     restart: always
-    depends_on:
-        - postgres
 
   paymentservice:
     image: sarthakrakshe/paymentservice:latest
@@ -88,8 +84,8 @@ services:
       JWT_SECRET: 9d810dd18cc5f2a765c125e39a1d22382dbcce1a311fc85c6a2cff682ae9618b
       JWT_EXPIRY: 3600000
       JWT_REFRESH_EXPIRY: 86400000
-      PAYPAL_CLIENT_ID: paypal
-      PAYPAL_CLIENT_SECRET: paypal123
+      PAYPAL_CLIENT_ID: ASvMsVd1kGrlwYBqNB94CrUrrYbWuBBZi1Jla36vFAWy6paR0FKdU6DusS5ydiAtlTJuPSNnB_1LqJKf
+      PAYPAL_CLIENT_SECRET: ASvMsVd1kGrlwYBqNB94CrUrrYbWuBBZi1Jla36vFAWy6paR0FKdU6DusS5ydiAtlTJuPSNnB_1LqJKf
       PAYPAL_BASE_URL: https://api.sandbox.paypal.com
       BOOKING_SERVICE_URI: http://bookingservice:8082
       JAVA_OPTS: "-Xms96m -Xmx96m"
@@ -98,8 +94,6 @@ services:
       resources:
         limits:
           memory: 200m
-    depends_on:
-      - postgres
 
   reviewservice:
     image: sarthakrakshe/reviewservice:latest
@@ -121,8 +115,6 @@ services:
         limits:
           memory: 256m
     restart: always
-    depends_on:
-      - postgres
 
   servicelistingservice:
     image: sarthakrakshe/servicelistingservice:latest
@@ -144,8 +136,6 @@ services:
         limits:
           memory: 256m
     restart: always
-    depends_on:
-      - postgres
 
   userservice:
     image: sarthakrakshe/userservice:latest
@@ -170,37 +160,3 @@ services:
         limits:
           memory: 256m
     restart: always
-    depends_on:
-      - postgres
-
-  frontend:
-    image: sarthakrakshe/frontend-locallink:latest
-    container_name: frontend-locallink
-    ports:
-      - "80:80"
-    environment:
-      VITE_API_BASE_URL: http://localhost:8080/api
-    depends_on:
-      - apigateway
-    restart: always
-
-  postgres:
-    image: postgres:15
-    container_name: postgres
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: localdb
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    restart: always
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U user" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  postgres_data:
