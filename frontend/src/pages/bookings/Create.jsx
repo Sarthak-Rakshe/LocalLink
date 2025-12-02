@@ -514,9 +514,7 @@ export default function BookingCreate() {
               disabled={!providerId || !serviceId || !date || slotsQ.isLoading}
             >
               <option value="">
-                {slotsQ.isLoading
-                  ? "Loading slots…"
-                  : "Select a slot (optional)"}
+                {slotsQ.isLoading ? "Loading slots…" : "Select a slot"}
               </option>
               {slots.map((s, idx) => (
                 <option key={idx} value={s.startTime}>
